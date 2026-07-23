@@ -1,0 +1,1358 @@
+{
+  "meta": {
+    "title": "Morning Recall",
+    "subtitle": "Produce the answer before you look.",
+    "version": 3,
+    "rule": "Attempt each prompt from memory first, out loud or on paper. A short answer is revealed only after you mark the card, so a blank is recoverable; the guides hold the full detail.",
+    "dailyDeckSize": 12,
+    "tracks": {
+      "js": {
+        "label": "JavaScript",
+        "accent": "emerald"
+      },
+      "react": {
+        "label": "React",
+        "accent": "indigo"
+      },
+      "css": {
+        "label": "CSS & Layout",
+        "accent": "teal"
+      },
+      "a11y": {
+        "label": "Accessibility",
+        "accent": "rose"
+      },
+      "patterns": {
+        "label": "Coding Patterns",
+        "accent": "amber"
+      },
+      "animation": {
+        "label": "Animation & Motion",
+        "accent": "violet"
+      },
+      "sysdesign": {
+        "label": "System Design",
+        "accent": "indigo"
+      },
+      "llm": {
+        "label": "LLM Applications",
+        "accent": "violet"
+      },
+      "ddia": {
+        "label": "Distributed Systems",
+        "accent": "slate"
+      },
+      "behavioral": {
+        "label": "Behavioral",
+        "accent": "rose"
+      }
+    },
+    "types": {
+      "fact": "Recall a discrete fact or rule. Fast. Say it, don't think it.",
+      "procedure": "Reproduce a skeleton or sequence from blank. Write it or say it end to end.",
+      "spoken": "Answer out loud, timed, as if in the room. Do not read notes."
+    }
+  },
+  "prompts": [
+    {
+      "id": "js-01",
+      "track": "js",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 4,
+      "prompt": "How do === and Object.is differ on the two edge cases NaN and -0, and what equality do Map/Set use?",
+      "answer": "=== gives NaN !== NaN (false) and 0 === -0 (true); Object.is flips both, so Object.is(NaN, NaN) is true and Object.is(0, -0) is false. Map/Set use SameValueZero: NaN equals NaN, but 0 equals -0, and objects still compare by identity.",
+      "answerKey": "JavaScript v2"
+    },
+    {
+      "id": "js-02",
+      "track": "js",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 3,
+      "prompt": "What does a shallow copy like {...o} or structuredClone each handle, and what are structuredClone's limits?",
+      "answer": "Shallow copies ({...o}, [...a]) share nested references. structuredClone handles cycles, Map, Set, and Date, but cannot clone functions or DOM nodes.",
+      "answerKey": "JavaScript v2"
+    },
+    {
+      "id": "js-03",
+      "track": "js",
+      "type": "fact",
+      "timeboxSec": 50,
+      "weight": 3,
+      "prompt": "Give the results and rules for: 1 + '2', '3' - 1, Boolean([]), Number(''), and typeof null.",
+      "answer": "1 + '2' is '12' (+ concatenates with a string); '3' - 1 is 2 (numeric operators coerce); Boolean([]) is true (objects are truthy); Number('') is 0; typeof null is 'object' (historical bug).",
+      "answerKey": "JavaScript v2"
+    },
+    {
+      "id": "js-04",
+      "track": "js",
+      "type": "fact",
+      "timeboxSec": 50,
+      "weight": 3,
+      "prompt": "List JavaScript's complete set of falsy values, and what is x == null true for?",
+      "answer": "Falsy values: false, 0, -0, 0n, '' (empty string), null, undefined, NaN. x == null is true only for null and undefined, making it the deliberate nullish check.",
+      "answerKey": "JavaScript v2"
+    },
+    {
+      "id": "js-05",
+      "track": "js",
+      "type": "fact",
+      "timeboxSec": 50,
+      "weight": 4,
+      "prompt": "Contrast let/const versus var for scope and initialization, and why does `for (let i...) setTimeout(...)` log 0 1 2?",
+      "answer": "let/const are block scoped and sit in a temporal dead zone before declaration; var is function scoped and initialized to undefined. The loop logs 0 1 2 because let creates a fresh per-iteration binding captured by each closure.",
+      "answerKey": "JavaScript v2"
+    },
+    {
+      "id": "js-06",
+      "track": "js",
+      "type": "fact",
+      "timeboxSec": 50,
+      "weight": 4,
+      "prompt": "How is `this` decided for obj.f(), a bare f(), f.call(x)/f.bind(x), and an arrow function?",
+      "answer": "this is set by the call site: obj.f() -> obj; bare f() -> undefined in strict/module code; f.call(x) invokes with this=x now, f.bind(x) returns a new function bound to x. Arrow functions use lexical this, which call/bind cannot change. A detached method (const m = obj.f; m()) loses its receiver.",
+      "answerKey": "JavaScript v2"
+    },
+    {
+      "id": "js-07",
+      "track": "js",
+      "type": "fact",
+      "timeboxSec": 50,
+      "weight": 3,
+      "prompt": "What are the steps of `new C()`, and where do instance methods versus class field arrow functions live?",
+      "answer": "new C() creates an object, sets its prototype, calls C with this bound to it, and returns the explicit object if C returns one. Instance methods live on C.prototype (shared); field arrow functions are per-instance. Object.hasOwn(o,k) tests only own properties.",
+      "answerKey": "JavaScript v2"
+    },
+    {
+      "id": "js-08",
+      "track": "js",
+      "type": "fact",
+      "timeboxSec": 50,
+      "weight": 3,
+      "prompt": "State the array-method traps for reduce, sort, find, splice, and slice.",
+      "answer": "reduce: always pass an initial value; sort: mutates and defaults to string order; find/findIndex: return undefined vs -1 when absent; splice: mutates in place and returns removed items; slice: end is exclusive and it copies. Non-mutating twins are toSorted, toReversed, toSpliced, and with.",
+      "answerKey": "JavaScript v2"
+    },
+    {
+      "id": "js-09",
+      "track": "js",
+      "type": "fact",
+      "timeboxSec": 50,
+      "weight": 3,
+      "prompt": "How do for...in, Object.keys, and for...of differ, and how do you build a 2-D grid without aliasing rows?",
+      "answer": "for...in includes enumerable inherited keys; Object.keys/values/entries return own enumerable string-keyed properties (symbols need getOwnPropertySymbols); for...of iterates iterables. Build a grid with Array.from({length: m}, () => Array(n).fill(0)) because Array(m).fill(Array(n)) aliases one shared row.",
+      "answerKey": "JavaScript v2"
+    },
+    {
+      "id": "js-10",
+      "track": "js",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 2,
+      "prompt": "Why does string length not equal character count, and what does [...s] iterate?",
+      "answer": "length counts UTF-16 code units, not user-perceived characters. [...s] iterates code points, but grapheme clusters may still span several code points. Strings are immutable and numbers are IEEE-754 doubles, exact only through Number.MAX_SAFE_INTEGER.",
+      "answerKey": "JavaScript v2"
+    },
+    {
+      "id": "js-11",
+      "track": "js",
+      "type": "fact",
+      "timeboxSec": 50,
+      "weight": 4,
+      "prompt": "Why does `console.log('A'); setTimeout(()=>log('D')); Promise.resolve().then(()=>log('C')); log('B')` print A B C D?",
+      "answer": "Run the current job to completion (A, B), then drain all microtasks (promise handlers, queueMicrotask, await continuations) -> C, then the next macrotask (timer) -> D. await always yields, resuming after it in a microtask even for a non-promise.",
+      "answerKey": "JavaScript v2"
+    },
+    {
+      "id": "js-12",
+      "track": "js",
+      "type": "fact",
+      "timeboxSec": 55,
+      "weight": 4,
+      "prompt": "For Promise.all, allSettled, race, and any: what does each fulfill with and when does each reject?",
+      "answer": "all: fulfills with all values in input order, rejects on first rejection. allSettled: fulfills with outcome records, never rejects. race: settles with the first settlement (rejects if that is a rejection). any: fulfills with the first fulfillment, rejects with an AggregateError only if all reject.",
+      "answerKey": "JavaScript v2"
+    },
+    {
+      "id": "js-13",
+      "track": "js",
+      "type": "fact",
+      "timeboxSec": 50,
+      "weight": 3,
+      "prompt": "How do you cancel a fetch with both a manual trigger and a timeout, and why is a promise itself not cancellable?",
+      "answer": "Create an AbortController and pass a combined signal via AbortSignal.any([ctrl.signal, AbortSignal.timeout(5000)]) into fetch; call ctrl.abort() to cancel. Cancellation is cooperative: a promise itself is not cancellable, so the underlying operation must observe the signal, which must be threaded through every layer.",
+      "answerKey": "JavaScript v2"
+    },
+    {
+      "id": "js-14",
+      "track": "js",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 3,
+      "prompt": "Why does fetch not throw on a 404, and why does forEach(async ...) finish early?",
+      "answer": "fetch rejects only on network or abort errors, not HTTP 4xx/5xx, so you must check response.ok. forEach ignores returned promises and does not await callbacks, so it finishes without waiting; use for...of or Promise.all instead.",
+      "answerKey": "JavaScript v2"
+    },
+    {
+      "id": "js-15",
+      "track": "js",
+      "type": "procedure",
+      "timeboxSec": 100,
+      "weight": 4,
+      "prompt": "Describe the debounce template and how flush/cancel extend it.",
+      "answer": "Hold a timer id in closure; on each call clearTimeout(timer) then timer = setTimeout(() => fn.apply(this, args), ms) so the trailing edge fires only after silence. Expose cancel = () => clearTimeout(timer); flush stores the pending args/receiver, clears the timer, and invokes fn immediately.",
+      "answerKey": "JavaScript v2"
+    },
+    {
+      "id": "js-16",
+      "track": "js",
+      "type": "procedure",
+      "timeboxSec": 100,
+      "weight": 3,
+      "prompt": "Describe leading-edge throttle and how you add a trailing call.",
+      "answer": "Leading: keep a ready flag; if not ready return, else set ready=false, call fn.apply(this,args), and setTimeout to reset ready after ms. Trailing: while not ready, save the latest [this,args] as pending; when the timer resets ready, if pending exists re-invoke with those saved args so the latest call wins.",
+      "answerKey": "JavaScript v2"
+    },
+    {
+      "id": "js-17",
+      "track": "js",
+      "type": "procedure",
+      "timeboxSec": 100,
+      "weight": 3,
+      "prompt": "Describe the memoize template and the pitfalls of its default JSON key.",
+      "answer": "Keep a Map cache; compute key k = key(...args) (default JSON.stringify(args)); if !cache.has(k) set cache.set(k, fn.apply(this,args)); return cache.get(k). JSON keys fail on cycles, key-order differences, functions, and identity-sensitive objects; also decide whether to cache thrown errors/rejections or allow retry.",
+      "answerKey": "JavaScript v2"
+    },
+    {
+      "id": "js-18",
+      "track": "js",
+      "type": "procedure",
+      "timeboxSec": 100,
+      "weight": 2,
+      "prompt": "Describe the curry template using fn.length, and what is the caveat with fn.length?",
+      "answer": "curried(...a) returns fn.apply(this,a) when a.length >= fn.length, otherwise returns (...b) => curried(...a, ...b) to accumulate arguments. Caveat: fn.length ignores rest parameters and stops at the first default parameter, so an explicit arity is more robust.",
+      "answerKey": "JavaScript v2"
+    },
+    {
+      "id": "js-19",
+      "track": "js",
+      "type": "procedure",
+      "timeboxSec": 100,
+      "weight": 3,
+      "prompt": "How do you implement Promise.all from scratch, preserving order and the empty case?",
+      "answer": "Return a new Promise; if the input is empty resolve([]) immediately; keep an out array and a left counter; for each item, Promise.resolve(x).then(v => { out[i]=v; if (--left===0) resolve(out); }, reject). Writing out[i] preserves input order (not finish order), and passing reject makes the first rejection win.",
+      "answerKey": "JavaScript v2"
+    },
+    {
+      "id": "js-20",
+      "track": "js",
+      "type": "procedure",
+      "timeboxSec": 100,
+      "weight": 3,
+      "prompt": "How are allSettled and any built by adapting Promise.all's approach?",
+      "answer": "allSettled: map each input to Promise.resolve(x).then(value => ({status:'fulfilled', value}), reason => ({status:'rejected', reason})) then Promise.all them, so it never rejects. any inverts all: resolve on the first fulfillment, collect rejections in an errs array, and reject with new AggregateError(errs) only when left reaches 0.",
+      "answerKey": "JavaScript v2"
+    },
+    {
+      "id": "js-21",
+      "track": "js",
+      "type": "procedure",
+      "timeboxSec": 110,
+      "weight": 3,
+      "prompt": "Describe a concurrency-limited mapLimit and why the shared index is safe.",
+      "answer": "Create out array and a shared next=0; spawn Math.min(limit, xs.length) worker() functions, each looping i = next++ and if i < xs.length doing out[i] = await fn(xs[i], i) until exhausted; await Promise.all of the workers. The index is safe because JS is single-threaded, so next++ cannot interleave.",
+      "answerKey": "JavaScript v2"
+    },
+    {
+      "id": "js-22",
+      "track": "js",
+      "type": "procedure",
+      "timeboxSec": 110,
+      "weight": 3,
+      "prompt": "Describe the retry-with-backoff template and its policy rules.",
+      "answer": "Loop up to `tries`; call signal?.throwIfAborted() then return await fn(); on catch, if the error is not transient or it's the last attempt, break and rethrow the original error, else wait delay = base * 2**i + Math.random()*base (exponential backoff plus jitter). Retry only transient failures on idempotent operations, bound attempts, honor Retry-After, and never stack retries across layers.",
+      "answerKey": "JavaScript v2"
+    },
+    {
+      "id": "js-23",
+      "track": "js",
+      "type": "procedure",
+      "timeboxSec": 100,
+      "weight": 2,
+      "prompt": "In an event emitter's emit, why iterate over a snapshot of listeners, and what does on() return?",
+      "answer": "emit iterates [...(map.get(type) ?? [])], a snapshot, so adding/removing listeners during dispatch has defined behavior (mutation-safe). on(type, fn) adds fn to the type's Set and returns an unsubscribe function that calls off(type, fn); once wraps a listener that unsubscribes itself before calling fn.",
+      "answerKey": "JavaScript v2"
+    },
+    {
+      "id": "js-24",
+      "track": "js",
+      "type": "procedure",
+      "timeboxSec": 110,
+      "weight": 3,
+      "prompt": "Outline the deepEqual algorithm for plain objects/arrays and how it handles cycles.",
+      "answer": "Identity via Object.is short-circuits true; guard non-objects/null as false; use a seen Map keyed by a to detect cycle pairs (seen.get(a) === b -> true) before recursing; require matching Array.isArray, equal key counts, and that every own key of a exists on b (Object.hasOwn) with deepEqual values. It's scoped to plain objects/arrays; extend by tag for Date/Map/Set before the key walk.",
+      "answerKey": "JavaScript v2"
+    },
+    {
+      "id": "js-25",
+      "track": "js",
+      "type": "procedure",
+      "timeboxSec": 90,
+      "weight": 2,
+      "prompt": "Describe groupBy and a safe get(o, path, def) that supports 'a.b[0]' paths.",
+      "answer": "groupBy(xs, keyFn): for each x compute k=keyFn(x) and push x into a Map bucket created on first use, returning the Map. get: parse the path (array, or string via match(/[^.[\\]]+/g)) into parts, walk cur=o[k] and return def if cur == null mid-walk or the final value is undefined.",
+      "answerKey": "JavaScript v2"
+    },
+    {
+      "id": "react-01",
+      "track": "react",
+      "type": "fact",
+      "timeboxSec": 50,
+      "weight": 4,
+      "prompt": "Name the three phases of a React update in order, and say what each is responsible for.",
+      "answer": "Render (compute JSX purely from a snapshot of props/state, no side effects), Commit (apply DOM changes and set refs), then Effects run afterward; layout effects run synchronously after DOM mutation but before paint.",
+      "answerKey": "React+CSS v3"
+    },
+    {
+      "id": "react-02",
+      "track": "react",
+      "type": "fact",
+      "timeboxSec": 50,
+      "weight": 4,
+      "prompt": "A handler reads count, calls setCount several times based on the current value, and only one increment sticks. What is the bug and the fix?",
+      "answer": "The handler sees a stale render snapshot of count, so each setter uses the same value. Use functional updates like setCount(c => c + 1) so each queued update builds on the previous.",
+      "answerKey": "React+CSS v3"
+    },
+    {
+      "id": "react-03",
+      "track": "react",
+      "type": "fact",
+      "timeboxSec": 55,
+      "weight": 4,
+      "prompt": "How does React decide whether to preserve or reset a component's state across renders, and how do you deliberately reset a subtree?",
+      "answer": "React preserves state by component type plus position in the rendered tree; changing a component's key intentionally resets that subtree. Defining a component function inside another component creates a new type each render and can also reset state.",
+      "answerKey": "React+CSS v3"
+    },
+    {
+      "id": "react-04",
+      "track": "react",
+      "type": "fact",
+      "timeboxSec": 55,
+      "weight": 3,
+      "prompt": "When is using the array index as a list key unsafe, and what makes a good key?",
+      "answer": "Index is unsafe when items can be inserted, deleted, or reordered because state binds to the wrong row. A good key is stable among siblings and represents the entity, with IDs generated when data is created, not during render.",
+      "answerKey": "React+CSS v3"
+    },
+    {
+      "id": "react-05",
+      "track": "react",
+      "type": "fact",
+      "timeboxSec": 55,
+      "weight": 4,
+      "prompt": "State the effect contract: what do setup and cleanup represent, how often can they run, and what does Strict Mode expose?",
+      "answer": "An effect starts synchronization with an external system and its cleanup stops it; it may start and stop many times, not only on mount/unmount. Strict Mode in development runs an extra setup/cleanup cycle, so synchronization must be idempotent.",
+      "answerKey": "React+CSS v3"
+    },
+    {
+      "id": "react-06",
+      "track": "react",
+      "type": "procedure",
+      "timeboxSec": 110,
+      "weight": 4,
+      "prompt": "An effect that fetches by id keeps firing in a loop and a late response can overwrite newer data. Outline the correct effect.",
+      "answer": "Create an AbortController inside the effect, pass its signal to the fetch, ignore AbortError in the rejection handler, and return () => ctrl.abort() as cleanup, with [id] as the dependency so changing id cancels the stale request. Put every reactive value read in the deps instead of silencing the linter.",
+      "answerKey": "React+CSS v3"
+    },
+    {
+      "id": "react-07",
+      "track": "react",
+      "type": "fact",
+      "timeboxSec": 55,
+      "weight": 3,
+      "prompt": "Contrast useRef and state: when does each trigger a render, and what is each for?",
+      "answer": "Mutating a ref's .current does not cause a render and holds things like DOM nodes, timers, or the latest handle (an escape hatch); a state setter schedules a render and is the declarative source of truth for anything visible in the UI. Don't read/write refs during render except for predictable initialization.",
+      "answerKey": "React+CSS v3"
+    },
+    {
+      "id": "react-08",
+      "track": "react",
+      "type": "fact",
+      "timeboxSec": 55,
+      "weight": 3,
+      "prompt": "Distinguish memo, useMemo, and useCallback, and name the single thing that defeats all of them.",
+      "answer": "memo skips a component's render when props compare equal, useMemo caches a computed value, and useCallback caches a function's identity; a single always-new object or function passed as a prop or dependency defeats the memoization.",
+      "answerKey": "React+CSS v3"
+    },
+    {
+      "id": "react-09",
+      "track": "react",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 4,
+      "prompt": "Why does a Context provider cause render storms, and what are the fixes named in the guide?",
+      "answer": "Every consumer rerenders when the provider's value identity changes. Fix by memoizing the value only when its dependencies are stable, splitting contexts by update frequency/responsibility, and for high-frequency external state subscribe with selectors via useSyncExternalStore.",
+      "answerKey": "React+CSS v3"
+    },
+    {
+      "id": "react-10",
+      "track": "react",
+      "type": "fact",
+      "timeboxSec": 55,
+      "weight": 3,
+      "prompt": "What does a portal change and not change, and what problem is it good for?",
+      "answer": "A portal changes only DOM placement, not React ownership or event propagation, which still follow the React tree. It is useful for modals/popovers that must escape parent clipping or stacking contexts.",
+      "answerKey": "React+CSS v3"
+    },
+    {
+      "id": "react-11",
+      "track": "react",
+      "type": "fact",
+      "timeboxSec": 55,
+      "weight": 4,
+      "prompt": "Distinguish controlled vs uncontrolled inputs, and name the classic silent form-submit bug.",
+      "answer": "Controlled means React state is the source of truth via value/onChange; uncontrolled means the DOM holds the value via defaultValue/ref, and you must not switch mid-lifecycle. The classic bug is forgetting e.preventDefault() in the submit handler, causing a full-page form post.",
+      "answerKey": "React+CSS v3"
+    },
+    {
+      "id": "react-12",
+      "track": "react",
+      "type": "fact",
+      "timeboxSec": 55,
+      "weight": 3,
+      "prompt": "What does a Suspense boundary own versus an error boundary, and where should you place them?",
+      "answer": "A Suspense boundary owns the pending fallback for Suspense-integrated code/data (including lazy-loaded components), while an error boundary catches render and async-action errors. Place both around the smallest meaningful UX region rather than replacing the whole page for one slow or failing panel.",
+      "answerKey": "React+CSS v3"
+    },
+    {
+      "id": "css-01",
+      "track": "css",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 4,
+      "prompt": "State the CSS cascade resolution order from highest priority to lowest.",
+      "answer": "Origin/importance, then cascade layer, then specificity, then scope proximity, then source order; specificity only compares among rules still competing.",
+      "answerKey": "React+CSS v3"
+    },
+    {
+      "id": "css-02",
+      "track": "css",
+      "type": "fact",
+      "timeboxSec": 55,
+      "weight": 4,
+      "prompt": "Give the specificity ordering of selector types, and what :where() contributes.",
+      "answer": "IDs beat classes/attributes/pseudo-classes, which beat elements/pseudo-elements; :where() adds zero specificity so it keeps component selectors low and overridable.",
+      "answerKey": "React+CSS v3"
+    },
+    {
+      "id": "css-03",
+      "track": "css",
+      "type": "fact",
+      "timeboxSec": 55,
+      "weight": 4,
+      "prompt": "What does the box model include, and what does box-sizing: border-box change?",
+      "answer": "By default an element's rendered box size is content plus padding plus border; box-sizing: border-box makes the declared width/height include padding and border. Note vertical margins can collapse in normal block flow.",
+      "answerKey": "React+CSS v3"
+    },
+    {
+      "id": "css-04",
+      "track": "css",
+      "type": "procedure",
+      "timeboxSec": 100,
+      "weight": 4,
+      "prompt": "A modal cannot appear above a sibling even with a huge z-index. Explain why raising z-index fails and what to check.",
+      "answer": "z-index only compares within the same stacking context, and properties like transform, opacity, isolation, or a positioned z-index on an ancestor create new contexts that trap the element. Inspect the stacking-context ancestry and portal the modal to the top layer/root instead of increasing z-index.",
+      "answerKey": "React+CSS v3"
+    },
+    {
+      "id": "css-05",
+      "track": "css",
+      "type": "fact",
+      "timeboxSec": 55,
+      "weight": 3,
+      "prompt": "When should you reach for flexbox versus grid, and what do auto-fit and auto-fill differ on?",
+      "answer": "Flexbox lays out one axis (main axis from flex-direction, justify-content on main, align-items on cross); grid places items in two dimensions. In grid repeat(), auto-fit collapses empty tracks while auto-fill preserves them.",
+      "answerKey": "React+CSS v3"
+    },
+    {
+      "id": "css-06",
+      "track": "css",
+      "type": "procedure",
+      "timeboxSec": 95,
+      "weight": 3,
+      "prompt": "Text truncation with ellipsis on a flex child is not working. What is the recipe and the common blocker?",
+      "answer": "Use min-width:0 on the flex child (its intrinsic minimum size blocks shrink by default) plus overflow:hidden; text-overflow:ellipsis; white-space:nowrap on the text; multi-line requires a line-clamp decision.",
+      "answerKey": "React+CSS v3"
+    },
+    {
+      "id": "css-07",
+      "track": "css",
+      "type": "fact",
+      "timeboxSec": 55,
+      "weight": 3,
+      "prompt": "What does each positioning value resolve against: absolute, fixed, and sticky?",
+      "answer": "absolute positions against the nearest positioned containing block, fixed usually against the viewport, and sticky needs a scroll container plus an inset value to work.",
+      "answerKey": "React+CSS v3"
+    },
+    {
+      "id": "css-08",
+      "track": "css",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 3,
+      "prompt": "Contrast a media query with a container query, and give the fluid-first responsive rule for adding breakpoints.",
+      "answer": "A media query responds to the viewport or user preference while a container query responds to a component's available space (via container-type). Start fluid with clamp/min/max, wrapping, and flexible tracks, and add a breakpoint only where the content actually fails, not for a named device.",
+      "answerKey": "React+CSS v3"
+    },
+    {
+      "id": "a11y-01",
+      "track": "a11y",
+      "type": "fact",
+      "timeboxSec": 50,
+      "weight": 3,
+      "prompt": "What does the FRANK mnemonic stand for, and what is each letter's one-line concern?",
+      "answer": "Focus (visible ring; moved into modals/restored/sent to new heading), Role (correct semantic element with state attrs that update), Announce (live regions for anything that changes without reload), Name (every control has an accessible name), Keyboard (reach and operate everything with keys alone).",
+      "answerKey": "Accessibility v2"
+    },
+    {
+      "id": "a11y-02",
+      "track": "a11y",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 4,
+      "prompt": "Give the precedence order for computing an accessible name among aria-labelledby, aria-label, visible text, and title/placeholder.",
+      "answer": "aria-labelledby (pointer to visible element ids) wins over everything, then aria-label (a raw string, silently overrides visible text), then the element's visible text, then title/placeholder as a last resort. Mnemonic: a pointer beats a string beats the text beats a placeholder.",
+      "answerKey": "Accessibility v2"
+    },
+    {
+      "id": "a11y-03",
+      "track": "a11y",
+      "type": "fact",
+      "timeboxSec": 50,
+      "weight": 3,
+      "prompt": "For a hand-rolled role=\"button\" on a div, which two keys must you handle, and what extra call is required and why?",
+      "answer": "Handle both Enter and Space; call preventDefault on Space so the page doesn't scroll. Native <button> does all of this for free.",
+      "answerKey": "Accessibility v2"
+    },
+    {
+      "id": "a11y-04",
+      "track": "a11y",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 4,
+      "prompt": "For streaming chat/assistant replies, should the live region be polite or assertive, and which role plus attribute announces only new tokens rather than the whole growing message?",
+      "answer": "Always polite (assertive on every token is torture) — a streaming reply is always polite. Use role=\"log\" with aria-relevant=\"additions\" so only newly added text is announced, not the entire message.",
+      "answerKey": "Accessibility v2"
+    },
+    {
+      "id": "a11y-05",
+      "track": "a11y",
+      "type": "fact",
+      "timeboxSec": 55,
+      "weight": 3,
+      "prompt": "Map the three live-region roles alert, status, and log to their implicit live/atomic semantics and typical use.",
+      "answer": "alert = assertive + atomic (errors), status = polite + atomic (\"saved\"/toasts), log = polite + non-atomic (chat message list). Mnemonic: alert screams, status states, log logs.",
+      "answerKey": "Accessibility v2"
+    },
+    {
+      "id": "a11y-06",
+      "track": "a11y",
+      "type": "fact",
+      "timeboxSec": 55,
+      "weight": 3,
+      "prompt": "What is the \"trigger trio\" — the three attributes any show/hide control carries — and what does each do?",
+      "answer": "aria-expanded (true/false on the trigger, is the controlled thing open), aria-controls (id of the panel/menu/listbox it toggles), and aria-haspopup (menu/listbox/dialog, only if it opens a real popup). All three go together on any disclosure control.",
+      "answerKey": "Accessibility v2"
+    },
+    {
+      "id": "a11y-07",
+      "track": "a11y",
+      "type": "procedure",
+      "timeboxSec": 100,
+      "weight": 4,
+      "prompt": "Describe the focus-management contract for a modal dialog: on open, while open, and on close, plus the required role attribute.",
+      "answer": "On open, move focus into the dialog (first field or the dialog itself); while open, trap Tab/Shift+Tab to cycle within; Esc closes; on close, restore focus to the trigger. The dialog carries aria-modal=\"true\" (native <dialog>.showModal() gives the trap, Esc, and inert backdrop free).",
+      "answerKey": "Accessibility v2"
+    },
+    {
+      "id": "a11y-08",
+      "track": "a11y",
+      "type": "fact",
+      "timeboxSec": 55,
+      "weight": 3,
+      "prompt": "On a route/page change in an SPA, where should focus be sent, and what tabindex trick makes that target focusable?",
+      "answer": "Send focus to the new page's <h1> heading. Give the heading tabindex=\"-1\" so it is focusable by script but skipped by Tab.",
+      "answerKey": "Accessibility v2"
+    },
+    {
+      "id": "a11y-09",
+      "track": "a11y",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 4,
+      "prompt": "Contrast roving tabindex (\"Move\") vs aria-activedescendant (\"Mark\"): where does DOM focus live in each, and which pattern fits a combobox vs a toolbar/menu/tabs?",
+      "answer": "Move/roving tabindex: real DOM focus moves item-to-item (exactly one item tabindex=0, rest -1) — use for toolbar/menu/tabs/radio group/tree. Mark/aria-activedescendant: focus stays on the container (tabindex=0) and you point aria-activedescendant at the active child — use for combobox/grid where focus must stay in the input.",
+      "answerKey": "Accessibility v2"
+    },
+    {
+      "id": "a11y-10",
+      "track": "a11y",
+      "type": "procedure",
+      "timeboxSec": 95,
+      "weight": 3,
+      "prompt": "Implement roving tabindex for an arrow-navigable list: what tabindex values do items carry, and what happens on ArrowDown/Up/Home/End?",
+      "answer": "Exactly one item is tabindex=0 and all others tabindex=-1, keeping the widget a single Tab stop. On arrow, update which index is active, preventDefault, then call .focus() on the new item: ArrowDown/Up move next/prev (wrapping), Home goes to first, End to last.",
+      "answerKey": "Accessibility v2"
+    },
+    {
+      "id": "a11y-11",
+      "track": "a11y",
+      "type": "fact",
+      "timeboxSec": 55,
+      "weight": 2,
+      "prompt": "Give the keyboard contract for a menu button: what opens it (and where does focus land), how do you move between items, what does typing a letter do, and what does Esc do?",
+      "answer": "Enter/Space/Down open and focus the first item (Up on the button opens and focuses the last item); Up/Down move between items; a-z does typeahead to the matching item; Esc closes and returns focus to the button; Tab closes and moves on.",
+      "answerKey": "Accessibility v2"
+    },
+    {
+      "id": "a11y-12",
+      "track": "a11y",
+      "type": "fact",
+      "timeboxSec": 55,
+      "weight": 3,
+      "prompt": "Give the keyboard contract for a tablist: how do you get in/out with Tab, which keys switch tabs, and which keys activate in manual mode?",
+      "answer": "Tab moves into the tablist (landing on the active tab) then out to the panel; Left/Right arrows move prev/next tab via roving (Home/End jump to first/last); Enter or Space activate the tab in manual-activation mode.",
+      "answerKey": "Accessibility v2"
+    },
+    {
+      "id": "a11y-13",
+      "track": "a11y",
+      "type": "fact",
+      "timeboxSec": 55,
+      "weight": 3,
+      "prompt": "Give the keyboard contract for a combobox/listbox and name which focus pattern keeps the caret in the input while arrowing options.",
+      "answer": "Down/Up open and move through options, Alt+Down opens without moving, Enter commits the highlighted option, Esc closes/clears; typing filters. Focus stays in the input via aria-activedescendant (Mark), which points at the highlighted option.",
+      "answerKey": "Accessibility v2"
+    },
+    {
+      "id": "a11y-14",
+      "track": "a11y",
+      "type": "fact",
+      "timeboxSec": 55,
+      "weight": 3,
+      "prompt": "Name the six landmark roles and their native HTML equivalents, and how you distinguish two navigations.",
+      "answer": "banner=<header>, navigation=<nav>, main=<main> (one per page), complementary=<aside>, contentinfo=<footer>, region=named <section>. Two navs are distinguished with aria-label (e.g. \"Primary\" vs \"Footer\").",
+      "answerKey": "Accessibility v2"
+    },
+    {
+      "id": "a11y-15",
+      "track": "a11y",
+      "type": "fact",
+      "timeboxSec": 50,
+      "weight": 3,
+      "prompt": "Which ARIA attribute carries the state for each of: checkbox/switch, toggle button, tab/option selection, and the \"you are here\" nav item?",
+      "answer": "aria-checked (true/false/mixed) for checkbox/radio/switch, aria-pressed (true/false/mixed) for a toggle button, aria-selected for option/tab/row selection, and aria-current (page for a nav link) for the \"you are here\" item. Check-like things get checked; buttons get pressed.",
+      "answerKey": "Accessibility v2"
+    },
+    {
+      "id": "a11y-16",
+      "track": "a11y",
+      "type": "fact",
+      "timeboxSec": 55,
+      "weight": 2,
+      "prompt": "What is the live-region \"gotcha\" about DOM timing, and how do you avoid it?",
+      "answer": "The live region must already exist in the DOM before you inject text, or nothing is announced. Render an empty <div aria-live=\"polite\"> on mount, then fill it later — never create the region with its text at the same time.",
+      "answerKey": "Accessibility v2"
+    },
+    {
+      "id": "a11y-17",
+      "track": "a11y",
+      "type": "fact",
+      "timeboxSec": 50,
+      "weight": 2,
+      "prompt": "Explain the difference between the native disabled attribute and aria-disabled, and the visible-focus rule for custom controls.",
+      "answer": "Native disabled removes the control from tab order (undiscoverable), while aria-disabled keeps it focusable so users find it and learn why it's off. Never use outline:none without a :focus-visible replacement — every control needs a visible focus ring.",
+      "answerKey": "Accessibility v2"
+    },
+    {
+      "id": "pat-01",
+      "track": "patterns",
+      "type": "procedure",
+      "timeboxSec": 120,
+      "weight": 3,
+      "prompt": "Recite the 35-45 minute coding solve loop in order, from the opening minutes to after you have a correct solution.",
+      "answer": "0-4: restate I/O, examples, constraints, mutation, duplicates, ordering, edge cases. 4-8: name brute force and its bottleneck, propose a pattern, justify it from input structure. 8-12: define the invariant/data structure and complexity before coding. 12-28: code in narrated chunks with boring control flow. 28-35: dry-run normal + edge, fixing from the invariant. 35+: optimize or discuss alternatives only after correct.",
+      "answerKey": "Coding Patterns v2"
+    },
+    {
+      "id": "pat-02",
+      "track": "patterns",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 2,
+      "prompt": "For each recognition cue, name the pattern to reach for: (a) contiguous longest/shortest, (b) subarray sum / range query, (c) next greater / nesting, (d) monotonic yes/no answer, (e) k best / cheapest frontier, (f) prerequisites, (g) all combinations.",
+      "answer": "(a) sliding window; (b) prefix sum; (c) stack / monotonic stack; (d) binary search; (e) heap; (f) topological sort; (g) backtracking.",
+      "answerKey": "Coding Patterns v2"
+    },
+    {
+      "id": "pat-03",
+      "track": "patterns",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 1,
+      "prompt": "When do you reach for a hash map vs a set, and what time/space do you quote?",
+      "answer": "Reach for a hash structure when you need O(1) expected membership, complement, frequency, canonical grouping, dedupe, or last-seen position; Map when the value matters, Set for membership. Quote O(n) expected time and O(k) distinct-state space.",
+      "answerKey": "Coding Patterns v2"
+    },
+    {
+      "id": "pat-04",
+      "track": "patterns",
+      "type": "procedure",
+      "timeboxSec": 100,
+      "weight": 3,
+      "prompt": "Recite the prefix-sum + hash-map template for counting subarrays that sum to K, and explain why the count map is seeded with {0: 1}.",
+      "answer": "Walk the array keeping a running sum; at each element add count.get(sum - k) to the answer, then increment count.get(sum). Seed {0:1} so a subarray starting at index 0 (whose prefix equals k) is counted. O(n) time and space. Invariant: before processing a[i] the map summarizes exactly the earlier prefixes.",
+      "answerKey": "Coding Patterns v2"
+    },
+    {
+      "id": "pat-05",
+      "track": "patterns",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 2,
+      "prompt": "Prefix-sum variants: how do you handle (a) longest subarray with equal 0/1 counts, and (b) subarray sum divisible by K in JavaScript?",
+      "answer": "(a) Map each 0 to a -1 contribution and look for two prefixes with the same value (difference 0). (b) Group by equal prefix remainders, normalizing negatives since JS % keeps the dividend's sign: ((x % k) + k) % k.",
+      "answerKey": "Coding Patterns v2"
+    },
+    {
+      "id": "pat-06",
+      "track": "patterns",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 2,
+      "prompt": "Name the three two-pointer shapes and the key idea of the converging-on-sorted variant.",
+      "answer": "Converging on sorted data (the comparison tells which side cannot participate, so discard it: if sum<target l++, else r--), reader/writer (scan with fast, write kept values at slow), and same-direction-with-gap (kth-from-end, cycle/middle, merge streams). Converging is O(n) after any sort.",
+      "answerKey": "Coding Patterns v2"
+    },
+    {
+      "id": "pat-07",
+      "track": "patterns",
+      "type": "procedure",
+      "timeboxSec": 110,
+      "weight": 3,
+      "prompt": "Recite the variable-length sliding window skeleton and the rule difference between 'longest valid' and 'shortest valid'.",
+      "answer": "For each r: add(a[r]); while (!valid()) remove(a[l++]); update best. O(n) with O(1)-updatable state (count map, sum, distinct/max-freq). Longest valid: shrink while invalid, record after shrinking. Shortest valid: shrink while valid, recording before each removal. Trigger: contiguous longest/shortest with a constraint.",
+      "answerKey": "Coding Patterns v2"
+    },
+    {
+      "id": "pat-08",
+      "track": "patterns",
+      "type": "procedure",
+      "timeboxSec": 100,
+      "weight": 3,
+      "prompt": "Describe the fixed-window / monotonic-deque template for sliding-window maximum and its complexity.",
+      "answer": "For fixed k, add the right element and drop index r-k, recording once the window is full. For sliding max keep a deque of indices with decreasing values: pop dominated indices from the back while a[back] <= a[r], push r, shift an expired front (index <= r-k), record a[front] when r >= k-1. Each index enters/leaves once, so O(n).",
+      "answerKey": "Coding Patterns v2"
+    },
+    {
+      "id": "pat-09",
+      "track": "patterns",
+      "type": "procedure",
+      "timeboxSec": 100,
+      "weight": 3,
+      "prompt": "Recite the monotonic-stack 'next greater element' template and state what the stack holds.",
+      "answer": "Iterate indices; while the stack is non-empty and a[i] > a[top], pop j and set ans[j] = i; then push i. The stack holds indices whose next-greater answer is still unknown, values decreasing; the current value resolves all dominated entries. O(n), each index pushed/popped once.",
+      "answerKey": "Coding Patterns v2"
+    },
+    {
+      "id": "pat-10",
+      "track": "patterns",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 2,
+      "prompt": "Contrast the exact binary-search template with the lower-bound template (loop condition, interval, mid branch, return), and give upper bound.",
+      "answer": "Exact: inclusive [l,r] with while (l<=r); if a[m]<x set l=m+1 else r=m-1; return m or -1. Lower bound: half-open [l,r) with while (l<r); if a[m]>=x set r=m else l=m+1; return l = first index with a[i]>=x. Upper bound uses a[m]>x; frequency of x = upper - lower. Never mix inclusive and half-open templates.",
+      "answerKey": "Coding Patterns v2"
+    },
+    {
+      "id": "pat-11",
+      "track": "patterns",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 3,
+      "prompt": "What is 'binary search on the answer', what phrasing triggers it, why must the predicate be monotonic, and what is its complexity?",
+      "answer": "Search for the minimum X such that feasible(X), where feasibility is monotonic (false...false, true...true); pick bounds containing an answer and binary-search the first feasible X. It's valid only because the predicate never flips back; complexity O(log range x feasibility cost). Trigger: 'min/max X such that feasible(X)', e.g. Koko min eating speed.",
+      "answerKey": "Coding Patterns v2"
+    },
+    {
+      "id": "pat-12",
+      "track": "patterns",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 2,
+      "prompt": "Heaps: which heap for k-largest vs k-smallest (with complexity), and what structures give running median and merge-of-k-sorted?",
+      "answer": "K largest -> min-heap of size k, evict the smallest; K smallest -> max-heap of size k; O(n log k) time, O(k) space, final heap not globally sorted. Running median = max-heap low half + min-heap high half (O(log n) insert, O(1) query). Merge k sorted = heap of one frontier item per source, O(N log k).",
+      "answerKey": "Coding Patterns v2"
+    },
+    {
+      "id": "pat-13",
+      "track": "patterns",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 3,
+      "prompt": "For merging vs. max-non-overlap interval problems, what do you sort by, and recite the merge sweep rule?",
+      "answer": "Merge/insert: sort by start. Max non-overlap / min removals: sort by end. Merge rule: after sorting by start, for each [s,e], if s <= last[1] extend last[1] = max(last[1], e), else push a new interval. O(n log n). Clarify closed vs half-open and whether touching endpoints overlap.",
+      "answerKey": "Coding Patterns v2"
+    },
+    {
+      "id": "pat-14",
+      "track": "patterns",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 3,
+      "prompt": "Cycle detection: how do you find a linked-list cycle and its entry (Floyd), and how do DFS colors detect a directed-graph cycle?",
+      "answer": "Floyd: advance slow one step and fast two; slow===fast means a cycle, then move one pointer to head and advance both one step until equal to find the entry (compare identity). Directed graph: color white/gray/black; a gray node on the current recursion path is a back edge = cycle. A plain visited set is insufficient because black nodes are safe to revisit.",
+      "answerKey": "Coding Patterns v2"
+    },
+    {
+      "id": "pat-15",
+      "track": "patterns",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 2,
+      "prompt": "DFS vs BFS: what is each best for, when do you mark a node visited, and what is traversal complexity?",
+      "answer": "DFS for reachability, components, and backtracking (stack/recursion, may go deep); BFS for fewest unweighted edges and levels (queue, frontier may be wide). Mark visited when enqueuing (BFS) or before recursing (DFS), never on dequeue. Traversal is O(V+E); a grid is O(RC), not O(R+C).",
+      "answerKey": "Coding Patterns v2"
+    },
+    {
+      "id": "pat-16",
+      "track": "patterns",
+      "type": "procedure",
+      "timeboxSec": 110,
+      "weight": 3,
+      "prompt": "Recite the backtracking pattern for subsets/combinations, including where copies happen and why a start index is used. What is the cost of generating permutations?",
+      "answer": "Pattern: choose -> recurse -> unchoose on one shared path; record by pushing a copy [...path]. dfs(start) records the path, loops i from start, pushes a[i], recurses dfs(i+1), pops; the start index prevents different orderings of the same combination. Permutations cost O(n * n!) including output copying, since output size is already exponential.",
+      "answerKey": "Coding Patterns v2"
+    },
+    {
+      "id": "pat-17",
+      "track": "patterns",
+      "type": "procedure",
+      "timeboxSec": 100,
+      "weight": 3,
+      "prompt": "Recite the DP five-step ritual you state before coding, and note the coin/knapsack loop-order rule.",
+      "answer": "1. State: one sentence for the dp indices/flags. 2. Transition: choices and smaller states used. 3. Base: smallest valid/empty states. 4. Order: dependencies computed first. 5. Answer: which state/aggregate is returned. Loop order matters: unbounded combinations use coins outer + amount ascending, order-sensitive counts use amount outer, 0/1 uses amount descending.",
+      "answerKey": "Coding Patterns v2"
+    },
+    {
+      "id": "anim-01",
+      "track": "animation",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 3,
+      "prompt": "Which two CSS properties should you default to animating, and why are they cheap?",
+      "answer": "Animate transform and opacity. They only trigger the Composite stage and run on the GPU/compositor thread, off the main thread, so they stay smooth even while JS is busy.",
+      "answerKey": "Animation & Motion v1"
+    },
+    {
+      "id": "anim-02",
+      "track": "animation",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 3,
+      "prompt": "Name the four stages of the browser's pixel/rendering pipeline in order, and give an example property that triggers each of the costly ones.",
+      "answer": "Style, Layout, Paint, Composite. Layout (reflow, worst cost) is triggered by width/height/top/left/margin/padding; Paint (bad) by color/background/box-shadow/border-radius; Composite (cheap, GPU) by transform/opacity/filter.",
+      "answerKey": "Animation & Motion v1"
+    },
+    {
+      "id": "anim-03",
+      "track": "animation",
+      "type": "fact",
+      "timeboxSec": 50,
+      "weight": 2,
+      "prompt": "Why is animating width to fill a progress bar worse for performance than using transform: scaleX, and what's the tradeoff of scaleX?",
+      "answer": "width triggers Layout (reflow) each frame while scaleX is composite-only, so scaleX is the perf answer. The tradeoff is that scaleX distorts children (text/icons stretch), so use width when the bar has content.",
+      "answerKey": "Animation & Motion v1"
+    },
+    {
+      "id": "anim-04",
+      "track": "animation",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 3,
+      "prompt": "What does will-change: transform do, and what's the hygiene rule around it?",
+      "answer": "It promotes the element to its own compositor layer. Use it sparingly and remove it after the animation, because each layer costs memory.",
+      "answerKey": "Animation & Motion v1"
+    },
+    {
+      "id": "anim-05",
+      "track": "animation",
+      "type": "fact",
+      "timeboxSec": 55,
+      "weight": 2,
+      "prompt": "When should you reach for @keyframes + animation instead of a CSS transition?",
+      "answer": "Use @keyframes/animation when there's no state change to trigger a transition, i.e. looping or multistep motion like spinners, skeletons, indeterminate bars, and blinking carets. A transition needs two interpolatable endpoints triggered by a value change (hover, class toggle, state).",
+      "answerKey": "Animation & Motion v1"
+    },
+    {
+      "id": "anim-06",
+      "track": "animation",
+      "type": "fact",
+      "timeboxSec": 50,
+      "weight": 2,
+      "prompt": "For JS-driven motion, which API should you use and which must you avoid? Also state the easing rule of thumb for enter vs exit.",
+      "answer": "Use requestAnimationFrame, never setInterval. Rule of thumb: ease-out on the way in (fast to slow, snappy), ease-in on the way out (slow to fast, gets out of the way).",
+      "answerKey": "Animation & Motion v1"
+    },
+    {
+      "id": "anim-07",
+      "track": "animation",
+      "type": "procedure",
+      "timeboxSec": 100,
+      "weight": 3,
+      "prompt": "A React exit animation never plays. What's the cause and how do you fix it?",
+      "answer": "Setting state unmounts the element instantly, so the exit transition never plays because the node is already gone. Keep it mounted with an 'out' class until the transition ends, then remove it on onTransitionEnd (or use AnimatePresence / react-transition-group).",
+      "answerKey": "Animation & Motion v1"
+    },
+    {
+      "id": "anim-08",
+      "track": "animation",
+      "type": "procedure",
+      "timeboxSec": 95,
+      "weight": 2,
+      "prompt": "How do you honor prefers-reduced-motion in a motion component, and why does it matter?",
+      "answer": "In an @media (prefers-reduced-motion: reduce) block, set animation-duration and transition-duration to ~0.01ms !important, animation-iteration-count to 1, and scroll-behavior to auto. It kills non-essential motion for vestibular users while the component still works, a definition-of-done a11y item.",
+      "answerKey": "Animation & Motion v1"
+    },
+    {
+      "id": "anim-09",
+      "track": "animation",
+      "type": "fact",
+      "timeboxSec": 50,
+      "weight": 2,
+      "prompt": "Why should you avoid transition: all and animating box-shadow, and what do you do instead for the shadow?",
+      "answer": "transition: all animates properties you didn't mean to, causing layout jank and surprise transitions, so list properties explicitly. box-shadow is paint-heavy, so instead animate the opacity of a pseudo-element that holds the shadow.",
+      "answerKey": "Animation & Motion v1"
+    },
+    {
+      "id": "sd-01",
+      "track": "sysdesign",
+      "type": "procedure",
+      "timeboxSec": 120,
+      "weight": 4,
+      "prompt": "In the 45-minute interview loop, name the six phases in order with their rough time budgets.",
+      "answer": "Frame (0-5), Quantify (5-10), Contract (10-15), Baseline end-to-end (15-28), Deep dive on the top two risks (28-40), Close with cuts/degraded mode/rollout (40-45).",
+      "answerKey": "System Design v2"
+    },
+    {
+      "id": "sd-02",
+      "track": "sysdesign",
+      "type": "procedure",
+      "timeboxSec": 100,
+      "weight": 3,
+      "prompt": "Give the four-line back-of-envelope capacity model (the equations), including which law gives concurrency.",
+      "answer": "avg_qps = active_users x actions_per_user / 86,400; peak_qps = avg_qps x peak_factor; storage/day = writes_per_day x bytes_per_item x replication; concurrency = arrival_rate x time_in_system (Little's Law).",
+      "answerKey": "System Design v2"
+    },
+    {
+      "id": "sd-03",
+      "track": "sysdesign",
+      "type": "fact",
+      "timeboxSec": 80,
+      "weight": 3,
+      "prompt": "For a safe retry of an unsafe write, what should the idempotency key be bound to and what must be stored?",
+      "answer": "Bind the key to caller + operation + payload hash and store the terminal response with a retention window, so a replayed request returns the stored result instead of re-running the side effect.",
+      "answerKey": "System Design v2"
+    },
+    {
+      "id": "sd-04",
+      "track": "sysdesign",
+      "type": "fact",
+      "timeboxSec": 75,
+      "weight": 3,
+      "prompt": "For cursor pagination, what should the cursor be built over and what tuple is commonly used?",
+      "answer": "Build the cursor over a stable total order, commonly (created_at, id), encoded as an opaque token, and define whether it has snapshot or live semantics.",
+      "answerKey": "System Design v2"
+    },
+    {
+      "id": "sd-05",
+      "track": "sysdesign",
+      "type": "fact",
+      "timeboxSec": 75,
+      "weight": 2,
+      "prompt": "A rate-limit spec needs which four things, plus what response on rejection?",
+      "answer": "Scope (user/tenant/IP/token cost), algorithm, burst size, and a 429 with Retry-After; page size and query cost should be bounded too.",
+      "answerKey": "System Design v2"
+    },
+    {
+      "id": "sd-06",
+      "track": "sysdesign",
+      "type": "fact",
+      "timeboxSec": 90,
+      "weight": 3,
+      "prompt": "Contrast cache-aside and write-through: who loads on miss, and what does each trade on freshness vs latency?",
+      "answer": "Cache-aside: the app loads on miss, so it survives cache loss but the first miss is slow and you own stale invalidation. Write-through: the write path updates the cache, giving fresher reads at the cost of higher write latency and dual-write care.",
+      "answerKey": "System Design v2"
+    },
+    {
+      "id": "sd-07",
+      "track": "sysdesign",
+      "type": "fact",
+      "timeboxSec": 90,
+      "weight": 3,
+      "prompt": "For a composite B-tree index, in what order do the columns go, and which index type serves approximate vector search?",
+      "answer": "Put equality columns first, then range/sort columns (verify leftmost-prefix behavior); HNSW/IVF indexes serve approximate vector search.",
+      "answerKey": "System Design v2"
+    },
+    {
+      "id": "sd-08",
+      "track": "sysdesign",
+      "type": "fact",
+      "timeboxSec": 90,
+      "weight": 3,
+      "prompt": "How do you pick a shard key, and what do hash vs range vs directory partitioning each trade? Does consistent hashing fix a hot key?",
+      "answer": "Pick the shard key from access patterns and distribution so common queries hit one shard and hot entities don't share a partition; hash gives even point access but poor ranges, range gives efficient scans but a hot tail, directory gives flexible placement but a metadata-service dependency, and consistent hashing reduces data movement but does not solve a single hot key.",
+      "answerKey": "System Design v2"
+    },
+    {
+      "id": "sd-09",
+      "track": "sysdesign",
+      "type": "fact",
+      "timeboxSec": 90,
+      "weight": 3,
+      "prompt": "How does the transactional outbox avoid the dual-write problem when publishing events?",
+      "answer": "Write the business state and an outbox row in one local transaction, have a separate relay read the outbox and publish to the broker, and let consumers dedupe, so nothing is lost if the process crashes between the two systems.",
+      "answerKey": "System Design v2"
+    },
+    {
+      "id": "sd-10",
+      "track": "sysdesign",
+      "type": "fact",
+      "timeboxSec": 85,
+      "weight": 3,
+      "prompt": "Name four ways to give a reader read-your-writes consistency against lagging replicas.",
+      "answer": "Pin the author to the primary briefly, carry a write timestamp/LSN token, read from a write-through cache, or wait until the replica catches up.",
+      "answerKey": "System Design v2"
+    },
+    {
+      "id": "sd-11",
+      "track": "sysdesign",
+      "type": "fact",
+      "timeboxSec": 90,
+      "weight": 3,
+      "prompt": "Describe the hybrid feed fanout strategy and what sets the push/pull threshold.",
+      "answer": "Push (write to recipient inboxes) for normal producers and pull (fetch-and-merge on read) for high-fanout/celebrity producers, merging and ranking on read; the follower distribution and read:write ratio set the threshold.",
+      "answerKey": "System Design v2"
+    },
+    {
+      "id": "sd-12",
+      "track": "sysdesign",
+      "type": "fact",
+      "timeboxSec": 85,
+      "weight": 3,
+      "prompt": "On WebSocket reconnect, how does a client recover missed messages, and which state may be dropped under pressure?",
+      "answer": "The client sends its last cursor/sequence and the server replays from a durable log/store then resumes live delivery; ephemeral presence/typing/read-receipt state is lossy TTL state and may be dropped.",
+      "answerKey": "System Design v2"
+    },
+    {
+      "id": "llm-01",
+      "track": "llm",
+      "type": "procedure",
+      "timeboxSec": 120,
+      "weight": 4,
+      "prompt": "Walk the ChatGPT-like send path from client POST to model, naming each component in order.",
+      "answer": "Client POST -> gateway (auth, per-user rate/token quota) -> chat service persists the user message plus an assistant-message placeholder (status: generating) -> context builder (system policy + recent turns + summary + ACL-filtered retrieval, packed to token budget) -> inference orchestrator (routing, admission queue, streaming) -> provider/model pool.",
+      "answerKey": "System Design v2"
+    },
+    {
+      "id": "llm-02",
+      "track": "llm",
+      "type": "fact",
+      "timeboxSec": 75,
+      "weight": 4,
+      "prompt": "In a ChatGPT-like system, where does conversation state actually live, and what is the retrieval index/summaries' relationship to it?",
+      "answer": "The conversation store is the single source of truth; the retrieval index, summaries, and analytics are all rebuildable projections derived from it.",
+      "answerKey": "System Design v2"
+    },
+    {
+      "id": "llm-03",
+      "track": "llm",
+      "type": "fact",
+      "timeboxSec": 85,
+      "weight": 3,
+      "prompt": "When streaming tokens back, at what granularity does the orchestrator write chunks to the persisted placeholder, and what is saved on completion?",
+      "answer": "It appends chunks with buffered writes, not one write per token, and on completion persists the final text plus usage and finish reason.",
+      "answerKey": "System Design v2"
+    },
+    {
+      "id": "llm-04",
+      "track": "llm",
+      "type": "procedure",
+      "timeboxSec": 110,
+      "weight": 4,
+      "prompt": "Name the stages of the RAG query pipeline in order.",
+      "answer": "Authorization filter -> lexical + vector retrieval -> dedupe -> rerank -> context pack (to token budget) -> generate with citations.",
+      "answerKey": "System Design v2"
+    },
+    {
+      "id": "llm-05",
+      "track": "llm",
+      "type": "fact",
+      "timeboxSec": 90,
+      "weight": 4,
+      "prompt": "State where LLM latency actually splits, and why the cost unit is asymmetric.",
+      "answer": "Latency = time-to-first-token (queueing + prefill, which grows with prompt length) plus decode (commonly tens of tokens/sec per stream); cost is per token with output tokens typically costing several times input tokens, and long context inflates both cost and TTFT.",
+      "answerKey": "System Design v2"
+    },
+    {
+      "id": "llm-06",
+      "track": "llm",
+      "type": "fact",
+      "timeboxSec": 80,
+      "weight": 3,
+      "prompt": "To exploit prefix/prompt caching, how must you order the context, and which levers do you pull before changing model choice?",
+      "answer": "Put the stable part (system prompt + tools prefix) first so the provider can cache it; trim, summarize, and cap output length before touching model choice, and track cost per successful outcome rather than per request.",
+      "answerKey": "System Design v2"
+    },
+    {
+      "id": "llm-07",
+      "track": "llm",
+      "type": "procedure",
+      "timeboxSec": 100,
+      "weight": 3,
+      "prompt": "How should RAG evals be structured, including the no-ground-truth case, and what config must be versioned?",
+      "answer": "Evaluate retrieval separately (recall@k, ranking, freshness, permission leakage) then answer groundedness and task success, using deterministic checks where possible, calibrated model graders where there is no ground truth, and human review for high-impact quality; version the model, prompt, tools, retrieval config, safety policy, and response schema as production artifacts.",
+      "answerKey": "System Design v2"
+    },
+    {
+      "id": "llm-08",
+      "track": "llm",
+      "type": "fact",
+      "timeboxSec": 85,
+      "weight": 4,
+      "prompt": "State the core prompt-injection defense principle and name three concrete guardrails.",
+      "answer": "Separate trusted instructions from untrusted retrieved/user content so documents cannot grant tool authority; guardrails include least-privilege scoped-credential tools, sandboxing with network/domain restrictions, and confirmation gates before high-impact actions.",
+      "answerKey": "System Design v2"
+    },
+    {
+      "id": "ddia-01",
+      "track": "ddia",
+      "type": "fact",
+      "timeboxSec": 75,
+      "weight": 3,
+      "prompt": "In single-leader replication, what is split-brain and how is it typically prevented during failover?",
+      "answer": "Split-brain is when two nodes both believe they are leader after a failover, causing conflicting writes and data corruption. It's prevented by requiring a quorum/majority to elect a leader, fencing tokens, and STONITH-style shutdown of the old leader.",
+      "answerKey": "Designing Data-Intensive Applications"
+    },
+    {
+      "id": "ddia-02",
+      "track": "ddia",
+      "type": "fact",
+      "timeboxSec": 75,
+      "weight": 3,
+      "prompt": "What is replication lag, and how does 'read-your-writes' consistency address one of its problems?",
+      "answer": "Replication lag is the delay before an async follower reflects a leader's write, so a fresh read from a follower can miss the user's own recent write. Read-your-writes guarantees a user always sees their own updates, e.g. by reading from the leader (or a monitored recent follower) for data they may have modified.",
+      "answerKey": "Designing Data-Intensive Applications"
+    },
+    {
+      "id": "ddia-03",
+      "track": "ddia",
+      "type": "fact",
+      "timeboxSec": 75,
+      "weight": 3,
+      "prompt": "What causes a hot partition (hot spot), and what's a common mitigation?",
+      "answer": "A hot partition occurs when a skewed access pattern concentrates load on one key or key range (e.g. a celebrity user or monotonic timestamp key). Mitigations include hashing the key to spread load, or adding a random/derived prefix to a hot key and fanning reads across the split.",
+      "answerKey": "Designing Data-Intensive Applications"
+    },
+    {
+      "id": "ddia-04",
+      "track": "ddia",
+      "type": "fact",
+      "timeboxSec": 75,
+      "weight": 2,
+      "prompt": "Why is hash-mod-N a poor rebalancing strategy, and what is used instead?",
+      "answer": "mod N remaps almost every key when N changes, forcing massive data movement. Instead use a fixed large number of partitions assigned to nodes, consistent hashing, or dynamic partitioning that splits/merges by size — so adding a node moves only a small fraction of data.",
+      "answerKey": "Designing Data-Intensive Applications"
+    },
+    {
+      "id": "ddia-05",
+      "track": "ddia",
+      "type": "fact",
+      "timeboxSec": 75,
+      "weight": 3,
+      "prompt": "Contrast linearizability with eventual consistency.",
+      "answer": "Linearizability is a strong recency guarantee: the system behaves as if there is one copy and every operation takes effect atomically at a point between its start and end, so a read always returns the latest committed write. Eventual consistency only guarantees replicas converge if writes stop, allowing stale reads in the meantime.",
+      "answerKey": "Designing Data-Intensive Applications"
+    },
+    {
+      "id": "ddia-06",
+      "track": "ddia",
+      "type": "fact",
+      "timeboxSec": 75,
+      "weight": 3,
+      "prompt": "In a quorum system, why is R + W > N the key inequality, and what does it guarantee?",
+      "answer": "With N replicas, W nodes acked on write and R nodes read, R + W > N forces the read set and write set to overlap in at least one node, so a read sees the latest write. It does not by itself provide linearizability due to races, sloppy quorums, and concurrent writes.",
+      "answerKey": "Designing Data-Intensive Applications"
+    },
+    {
+      "id": "ddia-07",
+      "track": "ddia",
+      "type": "fact",
+      "timeboxSec": 75,
+      "weight": 3,
+      "prompt": "State the CAP theorem precisely and what PACELC adds.",
+      "answer": "CAP: when a network partition occurs, a system must choose between consistency (linearizability) and availability; it cannot have both during the partition. PACELC extends it: even when there is no partition (Else), you trade Latency versus Consistency.",
+      "answerKey": "Designing Data-Intensive Applications"
+    },
+    {
+      "id": "ddia-08",
+      "track": "ddia",
+      "type": "fact",
+      "timeboxSec": 90,
+      "weight": 3,
+      "prompt": "Name the read anomalies each isolation level prevents: read committed, snapshot isolation, serializable.",
+      "answer": "Read committed prevents dirty reads and dirty writes. Snapshot isolation (repeatable read) additionally prevents non-repeatable reads via a consistent snapshot (MVCC) but still allows write skew and phantoms. Serializable prevents all of these, including write skew and phantoms.",
+      "answerKey": "Designing Data-Intensive Applications"
+    },
+    {
+      "id": "ddia-09",
+      "track": "ddia",
+      "type": "fact",
+      "timeboxSec": 75,
+      "weight": 2,
+      "prompt": "What is write skew, and why doesn't snapshot isolation prevent it?",
+      "answer": "Write skew is when two transactions read the same overlapping data, then each updates a different row, and together they violate an invariant (e.g. both on-call doctors book off because each saw the other still on). Snapshot isolation checks only for write-write conflicts on the same rows, so disjoint writes based on a stale premise slip through; you need serializable isolation (SSI) or explicit locking.",
+      "answerKey": "Designing Data-Intensive Applications"
+    },
+    {
+      "id": "ddia-10",
+      "track": "ddia",
+      "type": "fact",
+      "timeboxSec": 75,
+      "weight": 3,
+      "prompt": "Why is distributed consensus (e.g. leader election) fundamentally hard?",
+      "answer": "In an asynchronous network you cannot distinguish a crashed node from a slow one or a dropped message, so agreement must tolerate arbitrary delays and partitions; the FLP result shows no deterministic algorithm guarantees consensus with even one faulty node without timeouts. Practical protocols like Raft/Paxos use majority quorums, terms/epochs, and randomized timeouts to make progress safely.",
+      "answerKey": "Designing Data-Intensive Applications"
+    },
+    {
+      "id": "ddia-11",
+      "track": "ddia",
+      "type": "fact",
+      "timeboxSec": 75,
+      "weight": 3,
+      "prompt": "What is idempotency and why is it the practical basis for 'exactly-once' processing?",
+      "answer": "An idempotent operation produces the same result whether applied once or many times, so a client can safely retry after an uncertain outcome. True exactly-once delivery is impossible over unreliable networks, so systems achieve exactly-once effects by combining at-least-once delivery with idempotent operations or dedup via unique request IDs.",
+      "answerKey": "Designing Data-Intensive Applications"
+    },
+    {
+      "id": "ddia-12",
+      "track": "ddia",
+      "type": "fact",
+      "timeboxSec": 90,
+      "weight": 3,
+      "prompt": "Compare LSM-trees and B-trees on write path and read/space tradeoffs.",
+      "answer": "LSM-trees batch writes in memory and flush sequential sorted segments compacted in the background, giving high write throughput and good compression but read amplification and compaction-induced write amplification/latency spikes. B-trees update pages in place (often with a WAL), giving predictable reads and strong transactional locality but more random I/O and typically lower write throughput.",
+      "answerKey": "Designing Data-Intensive Applications"
+    },
+    {
+      "id": "beh-01",
+      "track": "behavioral",
+      "type": "spoken",
+      "timeboxSec": 150,
+      "weight": 3,
+      "prompt": "Tell me about a zero-to-one project you drove from nothing to production.",
+      "answer": "STAR: frame the ambiguity/absence of a spec, then YOUR decisions on scope, tech, and cut-lines to ship a v1. Land on the first real user/metric outcome and what you deliberately deferred to get there.",
+      "answerKey": "Your STAR drafts"
+    },
+    {
+      "id": "beh-02",
+      "track": "behavioral",
+      "type": "spoken",
+      "timeboxSec": 150,
+      "weight": 3,
+      "prompt": "Describe a significant conflict with another team and how you resolved it.",
+      "answer": "STAR: name the competing goals/incentives, not personalities. Show you sought the other team's constraints, proposed a shared success metric, and drove a durable agreement — end with the mechanism that prevented recurrence.",
+      "answerKey": "Your STAR drafts"
+    },
+    {
+      "id": "beh-03",
+      "track": "behavioral",
+      "type": "spoken",
+      "timeboxSec": 120,
+      "weight": 2,
+      "prompt": "Tell me about a time you were wrong about something technical or strategic.",
+      "answer": "STAR: state your original position and the evidence that changed your mind. Land on how quickly you reversed, what it cost, and the systemic change (a check, a review, a default) you added so the class of error doesn't repeat.",
+      "answerKey": "Your STAR drafts"
+    },
+    {
+      "id": "beh-04",
+      "track": "behavioral",
+      "type": "spoken",
+      "timeboxSec": 150,
+      "weight": 3,
+      "prompt": "Walk me through shipping something under heavy ambiguity and a hard deadline.",
+      "answer": "STAR: surface the unknowns explicitly and how you reduced them (spikes, assumptions, reversible decisions). Land on what you cut, the tradeoff you owned, and the concrete outcome — decisiveness under uncertainty, not paralysis.",
+      "answerKey": "Your STAR drafts"
+    },
+    {
+      "id": "beh-05",
+      "track": "behavioral",
+      "type": "spoken",
+      "timeboxSec": 150,
+      "weight": 4,
+      "prompt": "Give an example of influencing a major technical direction without formal authority.",
+      "answer": "STAR: show how you built the case — data, a prototype, aligning stakeholders one-on-one before the room. Land on the decision changing because of your work and name who you moved and how, not just that you were right.",
+      "answerKey": "Your STAR drafts"
+    },
+    {
+      "id": "beh-06",
+      "track": "behavioral",
+      "type": "spoken",
+      "timeboxSec": 120,
+      "weight": 2,
+      "prompt": "Tell me about a time you disagreed with a decision but had to commit to it.",
+      "answer": "STAR: articulate your objection crisply and where you raised it, then show disagree-and-commit — you executed fully and in good faith. Land on the outcome and what you learned about when to escalate versus support.",
+      "answerKey": "Your STAR drafts"
+    },
+    {
+      "id": "beh-07",
+      "track": "behavioral",
+      "type": "spoken",
+      "timeboxSec": 120,
+      "weight": 2,
+      "prompt": "Describe how you mentored or grew an engineer to the next level.",
+      "answer": "STAR: identify the specific gap and the deliberate plan (stretch work, feedback cadence, sponsorship). Land on the measurable growth outcome — a promotion, ownership handed off, or capability the team now has because of you.",
+      "answerKey": "Your STAR drafts"
+    },
+    {
+      "id": "beh-08",
+      "track": "behavioral",
+      "type": "spoken",
+      "timeboxSec": 150,
+      "weight": 4,
+      "prompt": "Tell me about a serious failure or production outage you owned.",
+      "answer": "STAR: take clear ownership, walk the detection-to-mitigation timeline and your role in it. Land on the blameless root cause and the concrete systemic fixes (tests, alerts, guardrails) plus impact reduced — accountability over excuses.",
+      "answerKey": "Your STAR drafts"
+    },
+    {
+      "id": "beh-09",
+      "track": "behavioral",
+      "type": "spoken",
+      "timeboxSec": 90,
+      "weight": 2,
+      "prompt": "Why this company, and why this role at this point in your career?",
+      "answer": "Connect a specific company problem/mission to your proven strengths and what you want to grow next; be concrete about their product or tech, not generic. Land on the unique value you'd add and why the timing fits both sides.",
+      "answerKey": "Your STAR drafts"
+    },
+    {
+      "id": "beh-10",
+      "track": "behavioral",
+      "type": "spoken",
+      "timeboxSec": 180,
+      "weight": 4,
+      "prompt": "Pick your most technically challenging project and go deep on the hardest decision.",
+      "answer": "Set minimal context fast, then spend the time on ONE hard tradeoff: the options, your evaluation criteria, why you chose, and how it played out. Land on YOUR reasoning and measurable impact, showing depth an interviewer can probe.",
+      "answerKey": "Your STAR drafts"
+    }
+  ]
+}

@@ -1,0 +1,213 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: #0a0a0b;
+  color: #e7e7ea;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* respect the notch / home indicator on phones */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+}
+
+/* Bigger, comfortable tap targets on touch devices */
+button {
+  touch-action: manipulation;
+}
+
+/* --------------------------------------------------------------------------
+   Prose styling for the Learn section (rendered markdown).
+   Kept hand-rolled (no typography plugin) so it stays tuned for dark reading.
+   -------------------------------------------------------------------------- */
+.prose {
+  color: #d4d4d8;
+  font-size: 1.02rem;
+  line-height: 1.7;
+}
+.prose > *:first-child {
+  margin-top: 0;
+}
+.prose h1 {
+  font-size: 1.9rem;
+  line-height: 1.2;
+  font-weight: 700;
+  color: #fafafa;
+  margin: 0 0 0.75rem;
+}
+.prose h2 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #f4f4f5;
+  margin: 2.2rem 0 0.75rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #26262b;
+  scroll-margin-top: 5rem;
+}
+.prose h3 {
+  font-size: 1.12rem;
+  font-weight: 600;
+  color: #e4e4e7;
+  margin: 1.5rem 0 0.5rem;
+  letter-spacing: 0.01em;
+  scroll-margin-top: 5rem;
+}
+.prose h4 {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #a1a1aa;
+  margin: 1.25rem 0 0.4rem;
+}
+.prose p {
+  margin: 0.75rem 0;
+}
+.prose ul,
+.prose ol {
+  margin: 0.75rem 0;
+  padding-left: 1.4rem;
+}
+.prose li {
+  margin: 0.35rem 0;
+}
+.prose li::marker {
+  color: #71717a;
+}
+.prose a {
+  color: #93c5fd;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.prose strong {
+  color: #fafafa;
+  font-weight: 650;
+}
+.prose blockquote {
+  margin: 1rem 0;
+  padding: 0.5rem 0 0.5rem 1rem;
+  border-left: 3px solid #3f3f46;
+  color: #a1a1aa;
+  font-size: 0.95em;
+}
+.prose hr {
+  border: none;
+  border-top: 1px solid #26262b;
+  margin: 2rem 0;
+}
+
+/* inline code */
+.prose :not(pre) > code {
+  background: #1c1c22;
+  border: 1px solid #2a2a30;
+  border-radius: 5px;
+  padding: 0.1em 0.38em;
+  font-size: 0.86em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: #f0abfc;
+  overflow-wrap: anywhere;
+}
+
+/* code blocks */
+.prose pre {
+  background: #131318;
+  border: 1px solid #26262b;
+  border-radius: 10px;
+  padding: 1rem 1.1rem;
+  overflow-x: auto;
+  margin: 1rem 0;
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+.prose pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #e4e4e7;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+/* tables — scroll horizontally on narrow screens via wrapper */
+.prose .table-wrap {
+  overflow-x: auto;
+  margin: 1rem 0;
+  border: 1px solid #26262b;
+  border-radius: 10px;
+}
+.prose table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.9rem;
+}
+.prose th,
+.prose td {
+  text-align: left;
+  padding: 0.55rem 0.8rem;
+  border-bottom: 1px solid #26262b;
+  vertical-align: top;
+}
+.prose th {
+  background: #161619;
+  color: #f4f4f5;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.prose tr:last-child td {
+  border-bottom: none;
+}
+
+/* highlight.js dark theme (github-dark, trimmed) */
+.hljs-comment,
+.hljs-quote {
+  color: #8b949e;
+  font-style: italic;
+}
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-type {
+  color: #ff7b72;
+}
+.hljs-string,
+.hljs-meta .hljs-string,
+.hljs-regexp {
+  color: #a5d6ff;
+}
+.hljs-title,
+.hljs-title.function_,
+.hljs-section {
+  color: #d2a8ff;
+}
+.hljs-number,
+.hljs-symbol,
+.hljs-bullet {
+  color: #79c0ff;
+}
+.hljs-attr,
+.hljs-attribute,
+.hljs-variable,
+.hljs-template-variable {
+  color: #ffa657;
+}
+.hljs-built_in,
+.hljs-class .hljs-title {
+  color: #7ee787;
+}
+.hljs-emphasis {
+  font-style: italic;
+}
+.hljs-strong {
+  font-weight: 700;
+}
