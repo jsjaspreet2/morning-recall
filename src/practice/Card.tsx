@@ -70,7 +70,9 @@ export default function Card({ prompt, meta, index, total, onMark, onNext }: Pro
               {marked && (
                 <div className="rounded-xl bg-zinc-950/60 ring-1 ring-zinc-800 px-4 py-3.5">
                   {prompt.answer && (
-                    <p className="text-[0.98rem] leading-relaxed text-zinc-100">{prompt.answer}</p>
+                    <p className="text-[0.98rem] leading-relaxed text-zinc-100 whitespace-pre-line">
+                      {prompt.answer}
+                    </p>
                   )}
                   <div
                     className={[

@@ -2,7 +2,7 @@
   "meta": {
     "title": "Morning Recall",
     "subtitle": "Produce the answer before you look.",
-    "version": 3,
+    "version": 4,
     "rule": "Attempt each prompt from memory first, out loud or on paper. A short answer is revealed only after you mark the card, so a blank is recoverable; the guides hold the full detail.",
     "dailyDeckSize": 12,
     "tracks": {
@@ -33,6 +33,10 @@
       "sysdesign": {
         "label": "System Design",
         "accent": "indigo"
+      },
+      "sizing": {
+        "label": "Quant Sizing",
+        "accent": "amber"
       },
       "llm": {
         "label": "LLM Applications",
@@ -1052,6 +1056,146 @@
       "weight": 3,
       "prompt": "On WebSocket reconnect, how does a client recover missed messages, and which state may be dropped under pressure?",
       "answer": "The client sends its last cursor/sequence and the server replays from a durable log/store then resumes live delivery; ephemeral presence/typing/read-receipt state is lossy TTL state and may be dropped.",
+      "answerKey": "System Design v2"
+    },
+    {
+      "id": "size-01",
+      "track": "sizing",
+      "type": "procedure",
+      "timeboxSec": 180,
+      "weight": 4,
+      "prompt": "Size the read/write QPS and storage for a URL shortener (create + redirect), stating your assumptions.",
+      "answer": "Assume: 10M new links/day, 100:1 read:write, ~500 B/record, 5-yr retention.\nWrites: 10M ÷ 100k s ≈ 100/s (×5 peak ≈ 500)\nReads: 100× writes = 1B redirects/day ÷ 100k ≈ 10k reads/s\nStorage: 10M × 500 B = 5 GB/day; ×365 ≈ 1.8 TB/yr (×3 replication ≈ 5.5 TB/yr)\nHeadline: ~10k read QPS, ~100 write QPS; storage is trivial (single-digit TB/yr) — this is a read-cache problem, not a storage one.",
+      "answerKey": "System Design v2"
+    },
+    {
+      "id": "size-02",
+      "track": "sizing",
+      "type": "procedure",
+      "timeboxSec": 210,
+      "weight": 4,
+      "prompt": "Size the read/write QPS and storage for a Twitter-style timeline (post tweet + read home timeline), stating your assumptions.",
+      "answer": "Assume: 200M DAU, 0.5 tweets/user/day (100M/day), 50 timeline reads/user/day, ~300 B/tweet, ~200 followers avg.\nWrites: 100M ÷ 100k ≈ 1k/s (×5 peak ≈ 5k)\nReads: 200M × 50 = 10B/day ÷ 100k ≈ 100k reads/s\nFanout: 100M × 200 = 20B inbox writes/day ÷ 100k ≈ 200k/s\nStorage: 100M × 300 B = 30 GB/day ×3 ≈ 90 GB/day tweets (~33 TB/yr); fanout inboxes dwarf this.\nHeadline: ~100k read QPS, but the ~200k/s write-fanout is the real cost driver — hence hybrid fanout.",
+      "answerKey": "System Design v2"
+    },
+    {
+      "id": "size-03",
+      "track": "sizing",
+      "type": "procedure",
+      "timeboxSec": 210,
+      "weight": 4,
+      "prompt": "Size the read/write QPS and storage for a group-chat/messaging system (send + deliver messages), stating your assumptions.",
+      "answer": "Assume: 500M DAU, 40 msgs sent/user/day, ~3 recipients/msg, ~100 B/msg, 1-yr retention.\nWrites: 500M × 40 = 20B/day ÷ 100k ≈ 200k writes/s (×5 peak ≈ 1M)\nReads: deliveries = 20B × 3 = 60B/day ÷ 100k ≈ 600k reads/s\nStorage: 20B × 100 B = 2 TB/day ×3 ≈ 6 TB/day (~2 PB/yr)\nHeadline: ~200k msg writes/s (1M peak), multi-PB/yr — partition by conversation, keep durable msgs separate from ephemeral presence.",
+      "answerKey": "System Design v2"
+    },
+    {
+      "id": "size-04",
+      "track": "sizing",
+      "type": "procedure",
+      "timeboxSec": 210,
+      "weight": 3,
+      "prompt": "Size the read/write QPS and storage for a read-time (pull) news feed that merges and ranks friends' posts, stating your assumptions.",
+      "answer": "Assume: 300M DAU, 30 feed opens/user/day, ~300 friends merged+ranked per open, 0.5 posts/user/day, ~2 KB/response.\nWrites: 300M × 0.5 = 150M posts/day ÷ 100k ≈ 1.5k/s\nReads: 300M × 30 = 9B opens/day ÷ 100k ≈ 90k feed QPS (×5 peak ≈ 450k)\nAmplification: 90k × 300 candidate fetches → forces cache/precompute or fanout-on-write.\nStorage: 150M × 1 KB = 150 GB/day ×3 ≈ 450 GB/day (~55 TB/yr posts).\nHeadline: ~90k feed reads/s with 300× read-time fanout — the trigger to switch to hybrid fanout.",
+      "answerKey": "System Design v2"
+    },
+    {
+      "id": "size-05",
+      "track": "sizing",
+      "type": "procedure",
+      "timeboxSec": 180,
+      "weight": 3,
+      "prompt": "Size the read/write QPS and storage for an Instagram-style photo-sharing service (upload + view), stating your assumptions.",
+      "answer": "Assume: 500M DAU, 0.2 uploads/user/day (100M/day), 20 views/user/day, ~2 MB/photo incl thumbnails.\nWrites: 100M ÷ 100k ≈ 1k uploads/s (×5 peak ≈ 5k)\nReads: 500M × 20 = 10B views/day ÷ 100k ≈ 100k views/s (CDN-served)\nStorage: 100M × 2 MB = 200 TB/day ×3 ≈ 600 TB/day (~220 PB/yr)\nHeadline: ~100k image reads/s off the CDN; ~200 TB/day of new blobs to object storage — metadata QPS is small, bytes dominate.",
+      "answerKey": "System Design v2"
+    },
+    {
+      "id": "size-06",
+      "track": "sizing",
+      "type": "procedure",
+      "timeboxSec": 180,
+      "weight": 3,
+      "prompt": "Size the read/write QPS and storage for a YouTube-style video platform (upload + view), stating your assumptions.",
+      "answer": "Assume: 500M DAU, 5 views/user/day, 500k uploads/day, ~1 GB/video after multi-rendition transcode.\nWrites: 500k uploads ÷ 100k ≈ 5/s (×5 peak ≈ 25)\nReads: 500M × 5 = 2.5B view-starts/day ÷ 100k ≈ 25k starts/s\nStorage: 500k × 1 GB = 500 TB/day ×3 ≈ 1.5 PB/day (~550 PB/yr)\nHeadline: ~25k view-starts/s and ~500 TB/day new video — CDN egress bandwidth, not origin QPS, is the constraint.",
+      "answerKey": "System Design v2"
+    },
+    {
+      "id": "size-07",
+      "track": "sizing",
+      "type": "procedure",
+      "timeboxSec": 210,
+      "weight": 3,
+      "prompt": "Size the read/write QPS and storage for a notification fanout system (event in, per-recipient delivery out), stating your assumptions.",
+      "answer": "Assume: 200M DAU, 5 triggering events/user/day (1B/day), ~100 recipients/event, ~200 B/notification, 30-day retention.\nIngest: 1B ÷ 100k ≈ 10k events/s (×5 peak ≈ 50k)\nDeliveries: 1B × 100 = 100B/day ÷ 100k ≈ 1M/s (×5 peak ≈ 5M)\nStorage: 100B × 200 B = 20 TB/day ×3 ≈ 60 TB/day; ×30 ≈ 1.8 PB retained\nHeadline: ~1M deliveries/s avg (5M peak) — fanout amplification and celebrity producers are the design, not the 10k ingest.",
+      "answerKey": "System Design v2"
+    },
+    {
+      "id": "size-08",
+      "track": "sizing",
+      "type": "procedure",
+      "timeboxSec": 180,
+      "weight": 2,
+      "prompt": "Size the read/write QPS and storage for a typeahead/autocomplete service (per-keystroke prefix queries), stating your assumptions.",
+      "answer": "Assume: 100M DAU, 20 searches/user/day, ~5 keystroke-queries/search, ~50 B/response, trie rebuilt offline daily.\nReads: 100M × 20 × 5 = 10B prefix-queries/day ÷ 100k ≈ 100k QPS (×5 peak ≈ 500k)\nWrites: none online — top-N prefixes rebuilt from query logs in batch.\nStorage: ~100M prefixes × ~100 B ≈ 10 GB trie, in-memory, ×3 replicas ≈ 30 GB.\nHeadline: ~100k prefix QPS (500k peak) against an in-memory read-only trie; all writes are offline batch — latency, not storage, is the bar.",
+      "answerKey": "System Design v2"
+    },
+    {
+      "id": "size-09",
+      "track": "sizing",
+      "type": "procedure",
+      "timeboxSec": 150,
+      "weight": 2,
+      "prompt": "Size the read/write QPS and storage for a distributed rate-limiter counter store (one check per API request), stating your assumptions.",
+      "answer": "Assume: 50k API req/s baseline (×5 peak 250k), 1 atomic counter op per request, per-(user,route) sliding window, TTL keys.\nOps: 1 INCR/request → 50k ops/s (×5 peak ≈ 250k); each op reads+increments one counter atomically (read ≈ write).\nStorage: ~10M users × a few routes ≈ 50M live keys × ~100 B ≈ 5 GB in Redis, expired each window.\nHeadline: ~50k INCR/s (250k peak), memory-bound at ~5 GB of hot keys with near-zero durable storage — size RAM and hot-key spread, not disk.",
+      "answerKey": "System Design v2"
+    },
+    {
+      "id": "size-10",
+      "track": "sizing",
+      "type": "procedure",
+      "timeboxSec": 180,
+      "weight": 3,
+      "prompt": "Size the read/write QPS and storage for ride-sharing driver location updates (GPS ping ingest + nearby query), stating your assumptions.",
+      "answer": "Assume: 2M active drivers ping every 4 s, 5M active riders query nearby every 5 s, ~100 B/ping, latest-only hot state.\nWrites: 2M ÷ 4 s = 500k location writes/s (×2 surge ≈ 1M)\nReads: 5M ÷ 5 s = 1M nearby-queries/s\nStorage: latest-only 2M × 100 B ≈ 200 MB in-memory geo index (geohash/S2); trip history archived async.\nHeadline: ~500k writes/s + ~1M geo-queries/s against an in-memory geospatial index that keeps only latest-wins position — durable ping history is optional.",
+      "answerKey": "System Design v2"
+    },
+    {
+      "id": "size-11",
+      "track": "sizing",
+      "type": "procedure",
+      "timeboxSec": 180,
+      "weight": 4,
+      "prompt": "Size the read/write QPS and storage for e-commerce checkout (catalog browse + order commit), stating your assumptions.",
+      "answer": "Assume: 50M DAU, 0.1 orders/user/day (5M/day), ~50 catalog views per order, ~2 KB/order+line-items, 7-yr retention.\nWrites: 5M orders ÷ 100k ≈ 50/s (×5 peak ≈ 250; ×10 flash-sale ≈ 500)\nReads: 50M × 50 = 2.5B catalog views/day ÷ 100k ≈ 25k reads/s (cache-served)\nStorage: 5M × 2 KB = 10 GB/day ×3 ≈ 30 GB/day (~11 TB/yr; ~80 TB over 7 yr)\nHeadline: only low-hundreds order writes/s — but each must be transactional/idempotent; ~25k catalog reads/s served from cache.",
+      "answerKey": "System Design v2"
+    },
+    {
+      "id": "size-12",
+      "track": "sizing",
+      "type": "procedure",
+      "timeboxSec": 210,
+      "weight": 3,
+      "prompt": "Size the write throughput and storage for a distributed logging/metrics ingestion pipeline, stating your assumptions.",
+      "answer": "Assume: 10k hosts, each ~1k log lines/s + 200 metrics per 10 s, ~300 B/line, ~10:1 compression, 30-day hot retention.\nLog writes: 10k × 1k = 10M events/s (batched)\nMetric writes: 10k × 200 ÷ 10 = 200k datapoints/s\nStorage: 10M/s × 300 B = 3 GB/s ≈ 260 TB/day raw → ~26 TB/day compressed; ×30 ≈ 780 TB hot\nHeadline: ~10M log events/s ingest and ~26 TB/day compressed — batch, compress, and tier aggressively; sample non-critical streams before they dominate cost.",
+      "answerKey": "System Design v2"
+    },
+    {
+      "id": "size-13",
+      "track": "sizing",
+      "type": "procedure",
+      "timeboxSec": 240,
+      "weight": 4,
+      "prompt": "Size the concurrency, token volume, and rough cost for a ChatGPT-like assistant (streamed chat), stating your assumptions.",
+      "answer": "Assume: 10M DAU, 10 msgs/user/day (100M/day), ~1k input + 500 output tokens/msg, ~10 s avg stream; assume $1/1M input, $4/1M output.\nRequests: 100M ÷ 100k ≈ 1k req/s (×5 peak ≈ 5k)\nConcurrency (Little's Law): 1k × 10 s = 10k open streams (×5 ≈ 50k SSE conns) — size the connection plane by this, not QPS.\nTokens: 100M × 1.5k = 150B/day (100B in + 50B out).\nCost: 100B×$1/M + 50B×$4/M = $100k + $200k ≈ $300k/day (~$110M/yr).\nHeadline: ~10k concurrent streams (50k peak) is the scaling unit; ~150B tokens/day ≈ ~$300k/day.",
+      "answerKey": "System Design v2"
+    },
+    {
+      "id": "size-14",
+      "track": "sizing",
+      "type": "procedure",
+      "timeboxSec": 180,
+      "weight": 2,
+      "prompt": "Size the ingest QPS, read QPS, and storage for a trending / top-K over an event stream (e.g. trending hashtags), stating your assumptions.",
+      "answer": "Assume: 200M DAU, 5 tagged actions/user/day (1B/day), count per (tag, 1-min window), keep top-1000, panel cached 30 s.\nIngest: 1B ÷ 100k ≈ 10k events/s (×5 peak ≈ 50k)\nReads: 200M × 10 panel loads = 2B/day ÷ 100k ≈ 20k reads/s → 30 s cache TTL collapses origin to ~hundreds/s.\nStorage: ~10M distinct tags/window × 16 B ≈ 160 MB/window in memory; rollups ~50 GB/day durable.\nHeadline: ~10k events/s in, ~20k reads/s cache-served; sharded windowed counters plus a top-K heap — hot tags need cell-sharded counts.",
       "answerKey": "System Design v2"
     },
     {
