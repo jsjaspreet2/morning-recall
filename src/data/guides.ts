@@ -69,10 +69,10 @@ export const guides: Guide[] = [
   {
     id: 'technology',
     title: 'Technology Choices',
-    subtitle: 'Which technology and why — the mechanism, when to reach for it, and when it flips.',
+    subtitle: 'Which technology and why — mechanism, CAP, when to reach for it, and when it flips.',
     accent: 'teal',
     md: technologyMd,
-    pdf: 'Technology_Reference_v1.pdf',
+    pdf: 'Technology_Reference_v2.pdf',
   },
 ]
 

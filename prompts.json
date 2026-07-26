@@ -2,7 +2,7 @@
   "meta": {
     "title": "Morning Recall",
     "subtitle": "Produce the answer before you look.",
-    "version": 5,
+    "version": 6,
     "rule": "Attempt each prompt from memory first, out loud or on paper. A short answer is revealed only after you mark the card, so a blank is recoverable; the guides hold the full detail.",
     "dailyDeckSize": 12,
     "tracks": {
@@ -1208,79 +1208,79 @@
       "type": "fact",
       "timeboxSec": 60,
       "weight": 4,
-      "prompt": "Postgres is the default. Name the two specific properties that flip you off it — not raw data size.",
-      "answer": "A single hot row (serialized updates cap ~500-1k/s) or an active-active multi-region write requirement. Raw size (~10-100M+ rows) is usually fine; 'Postgres doesn't scale' is the wrong framing.",
-      "answerKey": "Technology Reference v1"
+      "prompt": "How does Postgres handle an UPDATE at the storage level, and why does that matter for readers?",
+      "answer": "Postgres uses MVCC and does NOT update in place: an UPDATE writes a new row version and marks the old one dead, so readers get a consistent snapshot without blocking writers. VACUUM later reclaims the dead versions.",
+      "answerKey": "Technology Reference v2"
     },
     {
       "id": "tech-02",
       "track": "technology",
       "type": "fact",
-      "timeboxSec": 50,
+      "timeboxSec": 60,
       "weight": 4,
-      "prompt": "What write throughput does one Postgres primary sustain, and what is the mechanism that caps it below an LSM store?",
-      "answer": "~5k-15k writes/s on one primary. The ceiling is random I/O from in-place page updates and page splits (B-tree), versus sequential appends in an LSM store.",
-      "answerKey": "Technology Reference v1"
+      "prompt": "What is the single most common real-world Postgres scaling gotcha, and does it hit before or after raw throughput limits?",
+      "answer": "Connection exhaustion: each connection is roughly a backend process consuming megabytes of RAM, so a few thousand direct connections exhaust it well before you run out of raw throughput. Put PgBouncer (or equivalent) in front.",
+      "answerKey": "Technology Reference v2"
     },
     {
       "id": "tech-03",
       "track": "technology",
-      "type": "fact",
-      "timeboxSec": 70,
+      "type": "procedure",
+      "timeboxSec": 110,
       "weight": 4,
-      "prompt": "Cassandra vs sharded Postgres: what is Cassandra's actual edge — and what is it NOT?",
-      "answer": "It's not raw write throughput (sharded Postgres by a good key gets most of that). The edge is automatic rebalancing via consistent hashing/vnodes and multi-region replication as a config line — you give up joins and get eventual consistency.",
-      "answerKey": "Technology Reference v1"
+      "prompt": "Name Postgres's three durability layers and the distinct failure each one survives.",
+      "answer": "Local WAL fsync survives a crash (power loss/panic) but not disk/node loss; synchronous replication (ANY 1 of several standbys, ideally another AZ) survives node loss so no acknowledged write lives on a single disk; WAL archiving + PITR survives logical corruption (a bad DELETE replicates faithfully, only point-in-time recovery saves you).",
+      "answerKey": "Technology Reference v2"
     },
     {
       "id": "tech-04",
       "track": "technology",
       "type": "fact",
       "timeboxSec": 60,
-      "weight": 3,
-      "prompt": "Name the Cassandra 'model tax' failure where an incomplete key silently corrupts data.",
-      "answer": "An incomplete clustering key silently upserts — it clobbers existing rows instead of erroring. Also: query by a non-partition column is a full scan, and you must denormalize one-table-per-query and own consistency across copies.",
-      "answerKey": "Technology Reference v1"
+      "weight": 4,
+      "prompt": "Why is Cassandra a terrible choice for a queue or high-churn delete workload?",
+      "answer": "Deletes write tombstones (markers) rather than removing data, and they linger until compaction; reading across many tombstones craters latency, so write-then-delete queue churn punishes you.",
+      "answerKey": "Technology Reference v2"
     },
     {
       "id": "tech-05",
       "track": "technology",
       "type": "fact",
-      "timeboxSec": 60,
+      "timeboxSec": 75,
       "weight": 4,
-      "prompt": "Why is Redis being single-threaded a feature, and what does that make it the right tool for?",
-      "answer": "Single-threaded means every command (and every Lua script) is atomic with no locks — a check-and-mutate in one shot. That's why it's the right place for atomic counters (INCR/DECR), admission control, and rate limiting.",
-      "answerKey": "Technology Reference v1"
+      "prompt": "CAP line: Cassandra is AP by design but tunable toward CP. What exact quorum config gives strong reads, and what consistency does it still NOT provide?",
+      "answer": "QUORUM reads + QUORUM writes satisfy R + W > N, so the read overlaps the latest write for strong consistency. Even at ALL you only get replication consistency, never transactional — there's no 'update these three rows or none' and LWT is single-partition compare-and-set only.",
+      "answerKey": "Technology Reference v2"
     },
     {
       "id": "tech-06",
       "track": "technology",
       "type": "fact",
-      "timeboxSec": 75,
+      "timeboxSec": 60,
       "weight": 4,
-      "prompt": "Hold/expiry pattern: when does Redis TTL win, and when does a Postgres DB sweeper beat it?",
-      "answer": "Redis TTL only wins when the key IS the hold — its disappearance is the release (ticket-onsale scale, ~100k holds/s, visible countdown). If Postgres owns the counter, a DB sweeper beats Redis keyspace notifications because it's durable and self-healing (notifications are at-most-once).",
-      "answerKey": "Technology Reference v1"
+      "prompt": "Modern Redis uses I/O threads — so is command execution still atomic, and what's the load-bearing property?",
+      "answer": "Yes: I/O threads only handle network, but actual command (and Lua script) execution stays serialized/single-threaded, so every op runs atomically with no locks — the property that makes it right for admission control and rate limiting.",
+      "answerKey": "Technology Reference v2"
     },
     {
       "id": "tech-07",
       "track": "technology",
       "type": "fact",
-      "timeboxSec": 50,
-      "weight": 3,
-      "prompt": "Why should Redis rarely be your only copy of important data?",
-      "answer": "It's memory-bound and durability is optional (RDB snapshots + AOF everysec); a failover to a lagging replica loses recent writes. Keep the durable truth in Postgres behind it.",
-      "answerKey": "Technology Reference v1"
+      "timeboxSec": 75,
+      "weight": 4,
+      "prompt": "Name the default Redis caching pattern and how you mitigate a hot key expiring under load.",
+      "answer": "Cache-aside (lazy): app checks cache, on miss reads DB and populates. For a hot key expiring — cache stampede / thundering herd — mitigate with a short lock around the refill so one request repopulates, request coalescing, or probabilistic early expiry.",
+      "answerKey": "Technology Reference v2"
     },
     {
       "id": "tech-08",
       "track": "technology",
       "type": "fact",
-      "timeboxSec": 70,
+      "timeboxSec": 75,
       "weight": 4,
-      "prompt": "Kafka vs SQS/RabbitMQ: what three needs justify Kafka's operational cost, and what pushes you to a task queue instead?",
-      "answer": "Kafka earns its cost for replay, multiple independent consumer groups, or firehose buffering. If you just need per-message ack/delete, retry, priority, and a DLQ without replay or fan-out, SQS/RabbitMQ is simpler.",
-      "answerKey": "Technology Reference v1"
+      "prompt": "Redis TTL hold vs a Postgres DB sweeper: what's the deciding factor for which one to use?",
+      "answer": "Redis TTL only wins if the key IS the hold (its disappearance is the release), fit for ticket-onsale scale like 100k holds/s with a visible countdown. If Postgres owns the counter, a DB sweeper beats Redis keyspace notifications — durable and self-healing (notifications are at-most-once).",
+      "answerKey": "Technology Reference v2"
     },
     {
       "id": "tech-09",
@@ -1288,119 +1288,139 @@
       "type": "fact",
       "timeboxSec": 60,
       "weight": 4,
-      "prompt": "Kafka: what is the ordering guarantee, the delivery guarantee, and what obligation does the delivery guarantee put on consumers?",
-      "answer": "Ordering is per-partition only (not global); key by entity so same key → same partition. Delivery is at-least-once by default, so consumers must be idempotent (exactly-once via txns exists but adds cost).",
-      "answerKey": "Technology Reference v1"
+      "prompt": "In a Kafka consumer group, what caps parallelism, and what happens to processing when a consumer joins or leaves?",
+      "answer": "Partition count caps parallelism — consumers ≤ partitions, so extra consumers sit idle. A join/leave triggers consumer-group rebalancing, which reassigns partitions and briefly pauses (stop-the-world) processing; frequent rebalances are a classic incident.",
+      "answerKey": "Technology Reference v2"
     },
     {
       "id": "tech-10",
       "track": "technology",
-      "type": "procedure",
-      "timeboxSec": 100,
-      "weight": 3,
-      "prompt": "Walk the presigned direct-upload + multipart flow for a large file to S3, and give the size limits that force multipart.",
-      "answer": "Client PUTs straight to S3 via presigned URLs so bytes bypass your API tier; single PUT caps at 5 GB, so bigger files use multipart — one presigned URL per part (5 MB part min, up to 10k parts), parallel, per-part retry, resumable via ListParts. Drive state off object-created events, not the client's 'done'.",
-      "answerKey": "Technology Reference v1"
+      "type": "fact",
+      "timeboxSec": 75,
+      "weight": 4,
+      "prompt": "CAP/consistency line: Kafka's exactly-once semantics apply to what exactly, and what do they NOT cover?",
+      "answer": "Exactly-once (EOS) applies only within Kafka — read-process-write across Kafka topics. It does not extend to external side effects like your DB write or an API call; delivery is at-least-once, so consumers must still be idempotent.",
+      "answerKey": "Technology Reference v2"
     },
     {
       "id": "tech-11",
       "track": "technology",
       "type": "fact",
-      "timeboxSec": 55,
-      "weight": 3,
-      "prompt": "S3 durability number, and the reconciliation tax of the pointer-in-DB pattern.",
-      "answer": "~11 nines durability. The DB stores only the object key, so an object with no DB row is an orphan you keep paying for — you must reconcile. S3 is not low-latency and not a database (no transactions/querying inside objects).",
-      "answerKey": "Technology Reference v1"
+      "timeboxSec": 75,
+      "weight": 4,
+      "prompt": "State the rule of thumb for choosing a Kafka log vs a task queue (SQS/RabbitMQ).",
+      "answer": "Need replay or multiple independent consumers of the same event → log (Kafka: retained, rewindable, fan-out). Need work distribution with per-message retry/DLQ → queue (consumed-and-deleted, ack/redelivery, competing consumers, no replay).",
+      "answerKey": "Technology Reference v2"
     },
     {
       "id": "tech-12",
       "track": "technology",
-      "type": "fact",
-      "timeboxSec": 60,
-      "weight": 3,
-      "prompt": "A CDN turns 20k QPS for one object into what, and why is invalidation — not caching — the real design question?",
-      "answer": "Into roughly one origin fetch per PoP per TTL (often >95% origin offload). Invalidation is the hard part: short TTL (let it expire) beats active purge wherever seconds of staleness are tolerable — staleness tolerance is the actual variable.",
-      "answerKey": "Technology Reference v1"
+      "type": "procedure",
+      "timeboxSec": 100,
+      "weight": 4,
+      "prompt": "Walk through what happens to a message in a task queue from delivery through failure handling.",
+      "answer": "A worker pulls a message, processes it, and acks to delete it. No ack (crash/timeout) makes it visible again and it's redelivered after the visibility timeout; after N failed attempts it goes to a dead-letter queue (DLQ) for inspection. Once consumed and acked it's gone — no offset to rewind, no replay.",
+      "answerKey": "Technology Reference v2"
     },
     {
       "id": "tech-13",
       "track": "technology",
       "type": "fact",
-      "timeboxSec": 50,
-      "weight": 2,
-      "prompt": "When does a CDN do nothing for you?",
-      "answer": "On personalized/per-user or write paths — low hit rate, no benefit (edge compute is the escape hatch). Don't wave a CDN at a dynamic problem where staleness is unacceptable.",
-      "answerKey": "Technology Reference v1"
+      "timeboxSec": 60,
+      "weight": 3,
+      "prompt": "Cassandra vs sharded Postgres: at your volume, what is Cassandra's actual edge — and when should you just use Postgres?",
+      "answer": "The edge isn't write throughput — it's that consistent hashing makes rebalancing automatic and multi-region replication a config line, not a project. Below genuine global scale Postgres is the better default even for keyed data, keeping transactions and query flexibility; Cassandra wins only when scale × geo-distribution × access-pattern-simplicity all hold at once.",
+      "answerKey": "Technology Reference v2"
     },
     {
       "id": "tech-14",
       "track": "technology",
-      "type": "procedure",
-      "timeboxSec": 110,
+      "type": "fact",
+      "timeboxSec": 75,
       "weight": 3,
-      "prompt": "Name the RAG pipeline stages (ingest and query) for a vector DB, and what actually drives quality.",
-      "answer": "Ingest: chunk → embed → upsert with metadata. Query: embed → ANN top-k (HNSW, cosine/dot) → filter by ACL → rerank → into prompt. Chunking strategy and reranking move quality more than which vector DB you pick.",
-      "answerKey": "Technology Reference v1"
+      "prompt": "CAP/consistency line: what is S3's consistency model today, and what are its real limits?",
+      "answer": "S3 is strongly read-after-write consistent for all operations (since Dec 2020) — a GET after a PUT returns the latest object. Don't cite the old eventual-consistency caveat; the real limits are no cross-object transactions and no querying inside objects — it's a durable key→blob store, not a database.",
+      "answerKey": "Technology Reference v2"
     },
     {
       "id": "tech-15",
       "track": "technology",
-      "type": "fact",
-      "timeboxSec": 65,
+      "type": "procedure",
+      "timeboxSec": 100,
       "weight": 3,
-      "prompt": "Vector-only vs hybrid BM25+vector: why does pure semantic search lose, and what's the sharp failure mode to raise unprompted?",
-      "answer": "Pure semantic misses exact terms (names, IDs, codes), so hybrid BM25 + vector often wins. The kill-shot to raise unprompted is permissions: embeddings ignore ACLs, so filter by permission at query time or you retrieve across tenants.",
-      "answerKey": "Technology Reference v1"
+      "prompt": "Describe the presigned direct upload and multipart patterns for S3, including the key numbers.",
+      "answer": "Presigned direct upload: the client PUTs straight to S3 with a time-limited signed URL, so bytes bypass your API tier. Multipart splits big files into parts (one presigned URL per part, parallel, per-part retry, resumable via ListParts) — 5 MB part minimum, 10k parts max, and single PUT caps at 5 GB.",
+      "answerKey": "Technology Reference v2"
     },
     {
       "id": "tech-16",
       "track": "technology",
       "type": "fact",
-      "timeboxSec": 55,
-      "weight": 2,
-      "prompt": "Vector DB sizing: typical embedding dims, and the raw storage for 1M vectors at 1536 dims — plus when you'd skip a dedicated DB.",
-      "answer": "~768-3072 dims; vector size is dims × 4 bytes, so 1M × 1536-dim ≈ 6 GB raw. Below a few million vectors, use pgvector or FAISS rather than adding a new system.",
-      "answerKey": "Technology Reference v1"
+      "timeboxSec": 60,
+      "weight": 3,
+      "prompt": "CAP/consistency line: why is a CDN deliberately eventually consistent, and what's the right way to reason about it?",
+      "answer": "The edge serves possibly-stale content bounded by TTL, and that staleness IS the tradeoff you accept for latency and origin offload. Design around what's cacheable and for how long — lean on short TTLs over active purge — not how to make the edge fresh.",
+      "answerKey": "Technology Reference v2"
     },
     {
       "id": "tech-17",
       "track": "technology",
       "type": "fact",
-      "timeboxSec": 70,
+      "timeboxSec": 75,
       "weight": 3,
-      "prompt": "How does a workflow orchestrator kill the fan-in counter race 'by construction'?",
-      "answer": "It's an event-sourced state machine: every transition is appended to a durable history log, and fan-in is a single evaluator reading that ordered log ('is there a completion for every scheduled task') — so there's no concurrent counter to race. Requires deterministic workflow code.",
-      "answerKey": "Technology Reference v1"
+      "prompt": "For a vector DB, what's the real deployment gotcha, and how do you fit a large corpus in RAM?",
+      "answer": "The HNSW graph memory frequently exceeds the raw vectors, so the deployed memory footprint is the gotcha (e.g. 1M × 1536-dim is ~6 GB raw plus the graph). Quantization fits large corpora: int8 ~4× smaller, binary ~32×.",
+      "answerKey": "Technology Reference v2"
     },
     {
       "id": "tech-18",
       "track": "technology",
       "type": "fact",
-      "timeboxSec": 65,
-      "weight": 2,
-      "prompt": "Orchestrator: what exactly is exactly-once, what is only at-least-once, and what to name if you hand-roll it instead?",
-      "answer": "The continuation is exactly-once; activities are at-least-once, so activity code must be idempotent. Hand-rolled equivalent: atomic DECR for 'am I last', a guarded status transition for idempotent completion, and a reaper for stalls.",
-      "answerKey": "Technology Reference v1"
+      "timeboxSec": 60,
+      "weight": 3,
+      "prompt": "Vector-only vs hybrid retrieval: when does pure vector search fail, and what's the sharp permission failure mode?",
+      "answer": "Pure semantic search misses exact terms (names, IDs, codes), so hybrid BM25 + vector often wins. The sharp failure is permission leakage: embeddings ignore ACLs, so you must filter by permission (ACL) at query time or you retrieve across tenants.",
+      "answerKey": "Technology Reference v2"
     },
     {
       "id": "tech-19",
       "track": "technology",
       "type": "fact",
-      "timeboxSec": 65,
+      "timeboxSec": 75,
       "weight": 3,
-      "prompt": "Why is Elasticsearch never your source of truth, and what is the real cost of using it?",
-      "answer": "It's a derived read model (inverted index + BM25) fed from your primary via CDC or dual-write, and it's near-real-time (~1s refresh) with no ACID. The real cost is the sync pipeline and reconciliation — you must be able to rebuild the index from the primary.",
-      "answerKey": "Technology Reference v1"
+      "prompt": "A workflow orchestrator gives exactly-once continuation on top of what activity guarantee, and how does its fan-in avoid a counter race?",
+      "answer": "Exactly-once continuation layers on at-least-once activity execution, so activities must still be idempotent. Fan-in is a read over the ordered durable history log decided by a single evaluator ('is there a completion for every scheduled task'), so there's no concurrent-counter race by construction.",
+      "answerKey": "Technology Reference v2"
     },
     {
       "id": "tech-20",
       "track": "technology",
       "type": "fact",
-      "timeboxSec": 55,
+      "timeboxSec": 60,
+      "weight": 3,
+      "prompt": "The Elasticsearch-as-database trap: why is it wrong, and what is ES's actual role?",
+      "answer": "It's a derived read model, not a source of truth — near-real-time (~1s refresh), no ACID/transactions, and eventually consistent with your primary by construction. Feed it from the primary via CDC, design a reconciliation path, and be able to rebuild the index from truth at any time.",
+      "answerKey": "Technology Reference v2"
+    },
+    {
+      "id": "tech-21",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 75,
+      "weight": 3,
+      "prompt": "State the decision-matrix meta-rule for how most systems are composed and what signals coherence.",
+      "answer": "Most systems are Postgres + one or two specialists: Postgres as the transactional source of truth plus a cache (Redis), blob store (S3), CDN, and maybe a search/vector index fed via CDC. Reach for Cassandra/Kafka/an orchestrator only when a named requirement forces it; naming the one store as truth and treating the rest as derived is the coherence signal.",
+      "answerKey": "Technology Reference v2"
+    },
+    {
+      "id": "tech-22",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 60,
       "weight": 2,
-      "prompt": "Elasticsearch vs a Postgres index: when is Postgres the simpler, correct call?",
-      "answer": "For simple exact-match lookups — a DB B-tree index is cheaper, simpler, and strongly consistent, with no near-real-time lag or sync pipeline to maintain. Reach for Elasticsearch when you need full-text relevance ranking or faceted/aggregated search.",
-      "answerKey": "Technology Reference v1"
+      "prompt": "What cross-cutting asymmetry sits behind CDNs, read replicas, caches, and search indexes — and when do you move a guarantee out of the DB?",
+      "answer": "Reads tolerate staleness; writes must be correct. Move a guarantee out of the database only when arrival rate makes the DB physically unable to provide it — the same rule for sharding, Redis holds, and counter offloading.",
+      "answerKey": "Technology Reference v2"
     },
     {
       "id": "llm-01",
