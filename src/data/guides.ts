@@ -6,6 +6,7 @@ import accessibilityMd from './guides/accessibility.md?raw'
 import codingPatternsMd from './guides/coding-patterns.md?raw'
 import systemDesignMd from './guides/system-design.md?raw'
 import animationMd from './guides/animation.md?raw'
+import technologyMd from './guides/technology.md?raw'
 
 export interface Guide {
   id: string
@@ -65,6 +66,14 @@ export const guides: Guide[] = [
     md: animationMd,
     pdf: 'Animation-Motion-Cheatsheet-v1.pdf',
   },
+  {
+    id: 'technology',
+    title: 'Technology Choices',
+    subtitle: 'Which technology and why — the mechanism, when to reach for it, and when it flips.',
+    accent: 'teal',
+    md: technologyMd,
+    pdf: 'Technology_Reference_v1.pdf',
+  },
 ]
 
 export function guideById(id: string | undefined): Guide | undefined {
@@ -88,5 +97,6 @@ export function guideForAnswerKey(answerKey: string): Guide | undefined {
   if (key.startsWith('coding patterns')) return guideById('coding-patterns')
   if (key.startsWith('system design')) return guideById('system-design')
   if (key.startsWith('animation')) return guideById('animation')
+  if (key.startsWith('technology')) return guideById('technology')
   return undefined
 }

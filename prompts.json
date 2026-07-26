@@ -2,7 +2,7 @@
   "meta": {
     "title": "Morning Recall",
     "subtitle": "Produce the answer before you look.",
-    "version": 4,
+    "version": 5,
     "rule": "Attempt each prompt from memory first, out loud or on paper. A short answer is revealed only after you mark the card, so a blank is recoverable; the guides hold the full detail.",
     "dailyDeckSize": 12,
     "tracks": {
@@ -37,6 +37,10 @@
       "sizing": {
         "label": "Quant Sizing",
         "accent": "amber"
+      },
+      "technology": {
+        "label": "Technology Choices",
+        "accent": "teal"
       },
       "llm": {
         "label": "LLM Applications",
@@ -1197,6 +1201,206 @@
       "prompt": "Size the ingest QPS, read QPS, and storage for a trending / top-K over an event stream (e.g. trending hashtags), stating your assumptions.",
       "answer": "Assume: 200M DAU, 5 tagged actions/user/day (1B/day), count per (tag, 1-min window), keep top-1000, panel cached 30 s.\nIngest: 1B ÷ 100k ≈ 10k events/s (×5 peak ≈ 50k)\nReads: 200M × 10 panel loads = 2B/day ÷ 100k ≈ 20k reads/s → 30 s cache TTL collapses origin to ~hundreds/s.\nStorage: ~10M distinct tags/window × 16 B ≈ 160 MB/window in memory; rollups ~50 GB/day durable.\nHeadline: ~10k events/s in, ~20k reads/s cache-served; sharded windowed counters plus a top-K heap — hot tags need cell-sharded counts.",
       "answerKey": "System Design v2"
+    },
+    {
+      "id": "tech-01",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 4,
+      "prompt": "Postgres is the default. Name the two specific properties that flip you off it — not raw data size.",
+      "answer": "A single hot row (serialized updates cap ~500-1k/s) or an active-active multi-region write requirement. Raw size (~10-100M+ rows) is usually fine; 'Postgres doesn't scale' is the wrong framing.",
+      "answerKey": "Technology Reference v1"
+    },
+    {
+      "id": "tech-02",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 50,
+      "weight": 4,
+      "prompt": "What write throughput does one Postgres primary sustain, and what is the mechanism that caps it below an LSM store?",
+      "answer": "~5k-15k writes/s on one primary. The ceiling is random I/O from in-place page updates and page splits (B-tree), versus sequential appends in an LSM store.",
+      "answerKey": "Technology Reference v1"
+    },
+    {
+      "id": "tech-03",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 70,
+      "weight": 4,
+      "prompt": "Cassandra vs sharded Postgres: what is Cassandra's actual edge — and what is it NOT?",
+      "answer": "It's not raw write throughput (sharded Postgres by a good key gets most of that). The edge is automatic rebalancing via consistent hashing/vnodes and multi-region replication as a config line — you give up joins and get eventual consistency.",
+      "answerKey": "Technology Reference v1"
+    },
+    {
+      "id": "tech-04",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 3,
+      "prompt": "Name the Cassandra 'model tax' failure where an incomplete key silently corrupts data.",
+      "answer": "An incomplete clustering key silently upserts — it clobbers existing rows instead of erroring. Also: query by a non-partition column is a full scan, and you must denormalize one-table-per-query and own consistency across copies.",
+      "answerKey": "Technology Reference v1"
+    },
+    {
+      "id": "tech-05",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 4,
+      "prompt": "Why is Redis being single-threaded a feature, and what does that make it the right tool for?",
+      "answer": "Single-threaded means every command (and every Lua script) is atomic with no locks — a check-and-mutate in one shot. That's why it's the right place for atomic counters (INCR/DECR), admission control, and rate limiting.",
+      "answerKey": "Technology Reference v1"
+    },
+    {
+      "id": "tech-06",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 75,
+      "weight": 4,
+      "prompt": "Hold/expiry pattern: when does Redis TTL win, and when does a Postgres DB sweeper beat it?",
+      "answer": "Redis TTL only wins when the key IS the hold — its disappearance is the release (ticket-onsale scale, ~100k holds/s, visible countdown). If Postgres owns the counter, a DB sweeper beats Redis keyspace notifications because it's durable and self-healing (notifications are at-most-once).",
+      "answerKey": "Technology Reference v1"
+    },
+    {
+      "id": "tech-07",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 50,
+      "weight": 3,
+      "prompt": "Why should Redis rarely be your only copy of important data?",
+      "answer": "It's memory-bound and durability is optional (RDB snapshots + AOF everysec); a failover to a lagging replica loses recent writes. Keep the durable truth in Postgres behind it.",
+      "answerKey": "Technology Reference v1"
+    },
+    {
+      "id": "tech-08",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 70,
+      "weight": 4,
+      "prompt": "Kafka vs SQS/RabbitMQ: what three needs justify Kafka's operational cost, and what pushes you to a task queue instead?",
+      "answer": "Kafka earns its cost for replay, multiple independent consumer groups, or firehose buffering. If you just need per-message ack/delete, retry, priority, and a DLQ without replay or fan-out, SQS/RabbitMQ is simpler.",
+      "answerKey": "Technology Reference v1"
+    },
+    {
+      "id": "tech-09",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 4,
+      "prompt": "Kafka: what is the ordering guarantee, the delivery guarantee, and what obligation does the delivery guarantee put on consumers?",
+      "answer": "Ordering is per-partition only (not global); key by entity so same key → same partition. Delivery is at-least-once by default, so consumers must be idempotent (exactly-once via txns exists but adds cost).",
+      "answerKey": "Technology Reference v1"
+    },
+    {
+      "id": "tech-10",
+      "track": "technology",
+      "type": "procedure",
+      "timeboxSec": 100,
+      "weight": 3,
+      "prompt": "Walk the presigned direct-upload + multipart flow for a large file to S3, and give the size limits that force multipart.",
+      "answer": "Client PUTs straight to S3 via presigned URLs so bytes bypass your API tier; single PUT caps at 5 GB, so bigger files use multipart — one presigned URL per part (5 MB part min, up to 10k parts), parallel, per-part retry, resumable via ListParts. Drive state off object-created events, not the client's 'done'.",
+      "answerKey": "Technology Reference v1"
+    },
+    {
+      "id": "tech-11",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 55,
+      "weight": 3,
+      "prompt": "S3 durability number, and the reconciliation tax of the pointer-in-DB pattern.",
+      "answer": "~11 nines durability. The DB stores only the object key, so an object with no DB row is an orphan you keep paying for — you must reconcile. S3 is not low-latency and not a database (no transactions/querying inside objects).",
+      "answerKey": "Technology Reference v1"
+    },
+    {
+      "id": "tech-12",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 3,
+      "prompt": "A CDN turns 20k QPS for one object into what, and why is invalidation — not caching — the real design question?",
+      "answer": "Into roughly one origin fetch per PoP per TTL (often >95% origin offload). Invalidation is the hard part: short TTL (let it expire) beats active purge wherever seconds of staleness are tolerable — staleness tolerance is the actual variable.",
+      "answerKey": "Technology Reference v1"
+    },
+    {
+      "id": "tech-13",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 50,
+      "weight": 2,
+      "prompt": "When does a CDN do nothing for you?",
+      "answer": "On personalized/per-user or write paths — low hit rate, no benefit (edge compute is the escape hatch). Don't wave a CDN at a dynamic problem where staleness is unacceptable.",
+      "answerKey": "Technology Reference v1"
+    },
+    {
+      "id": "tech-14",
+      "track": "technology",
+      "type": "procedure",
+      "timeboxSec": 110,
+      "weight": 3,
+      "prompt": "Name the RAG pipeline stages (ingest and query) for a vector DB, and what actually drives quality.",
+      "answer": "Ingest: chunk → embed → upsert with metadata. Query: embed → ANN top-k (HNSW, cosine/dot) → filter by ACL → rerank → into prompt. Chunking strategy and reranking move quality more than which vector DB you pick.",
+      "answerKey": "Technology Reference v1"
+    },
+    {
+      "id": "tech-15",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 65,
+      "weight": 3,
+      "prompt": "Vector-only vs hybrid BM25+vector: why does pure semantic search lose, and what's the sharp failure mode to raise unprompted?",
+      "answer": "Pure semantic misses exact terms (names, IDs, codes), so hybrid BM25 + vector often wins. The kill-shot to raise unprompted is permissions: embeddings ignore ACLs, so filter by permission at query time or you retrieve across tenants.",
+      "answerKey": "Technology Reference v1"
+    },
+    {
+      "id": "tech-16",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 55,
+      "weight": 2,
+      "prompt": "Vector DB sizing: typical embedding dims, and the raw storage for 1M vectors at 1536 dims — plus when you'd skip a dedicated DB.",
+      "answer": "~768-3072 dims; vector size is dims × 4 bytes, so 1M × 1536-dim ≈ 6 GB raw. Below a few million vectors, use pgvector or FAISS rather than adding a new system.",
+      "answerKey": "Technology Reference v1"
+    },
+    {
+      "id": "tech-17",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 70,
+      "weight": 3,
+      "prompt": "How does a workflow orchestrator kill the fan-in counter race 'by construction'?",
+      "answer": "It's an event-sourced state machine: every transition is appended to a durable history log, and fan-in is a single evaluator reading that ordered log ('is there a completion for every scheduled task') — so there's no concurrent counter to race. Requires deterministic workflow code.",
+      "answerKey": "Technology Reference v1"
+    },
+    {
+      "id": "tech-18",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 65,
+      "weight": 2,
+      "prompt": "Orchestrator: what exactly is exactly-once, what is only at-least-once, and what to name if you hand-roll it instead?",
+      "answer": "The continuation is exactly-once; activities are at-least-once, so activity code must be idempotent. Hand-rolled equivalent: atomic DECR for 'am I last', a guarded status transition for idempotent completion, and a reaper for stalls.",
+      "answerKey": "Technology Reference v1"
+    },
+    {
+      "id": "tech-19",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 65,
+      "weight": 3,
+      "prompt": "Why is Elasticsearch never your source of truth, and what is the real cost of using it?",
+      "answer": "It's a derived read model (inverted index + BM25) fed from your primary via CDC or dual-write, and it's near-real-time (~1s refresh) with no ACID. The real cost is the sync pipeline and reconciliation — you must be able to rebuild the index from the primary.",
+      "answerKey": "Technology Reference v1"
+    },
+    {
+      "id": "tech-20",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 55,
+      "weight": 2,
+      "prompt": "Elasticsearch vs a Postgres index: when is Postgres the simpler, correct call?",
+      "answer": "For simple exact-match lookups — a DB B-tree index is cheaper, simpler, and strongly consistent, with no near-real-time lag or sync pipeline to maintain. Reach for Elasticsearch when you need full-text relevance ranking or faceted/aggregated search.",
+      "answerKey": "Technology Reference v1"
     },
     {
       "id": "llm-01",
