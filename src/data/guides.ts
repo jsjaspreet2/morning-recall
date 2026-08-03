@@ -72,7 +72,7 @@ export const guides: Guide[] = [
     subtitle: 'Which technology and why — 13 stores, mechanism, CAP, when to reach for it, and when it flips.',
     accent: 'teal',
     md: technologyMd,
-    pdf: 'Technology_Reference_v2.pdf',
+    pdf: 'Technology_Reference_v3.pdf',
   },
 ]
 
