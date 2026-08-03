@@ -1210,7 +1210,7 @@
       "weight": 4,
       "prompt": "How does Postgres handle an UPDATE at the storage level, and why does that matter for readers?",
       "answer": "Postgres uses MVCC and does NOT update in place: an UPDATE writes a new row version and marks the old one dead, so readers get a consistent snapshot without blocking writers. VACUUM later reclaims the dead versions.",
-      "answerKey": "Technology Reference v2"
+      "answerKey": "Technology Reference v3"
     },
     {
       "id": "tech-02",
@@ -1220,7 +1220,7 @@
       "weight": 4,
       "prompt": "What is the single most common real-world Postgres scaling gotcha, and does it hit before or after raw throughput limits?",
       "answer": "Connection exhaustion: each connection is roughly a backend process consuming megabytes of RAM, so a few thousand direct connections exhaust it well before you run out of raw throughput. Put PgBouncer (or equivalent) in front.",
-      "answerKey": "Technology Reference v2"
+      "answerKey": "Technology Reference v3"
     },
     {
       "id": "tech-03",
@@ -1230,7 +1230,7 @@
       "weight": 4,
       "prompt": "Name Postgres's three durability layers and the distinct failure each one survives.",
       "answer": "Local WAL fsync survives a crash (power loss/panic) but not disk/node loss; synchronous replication (ANY 1 of several standbys, ideally another AZ) survives node loss so no acknowledged write lives on a single disk; WAL archiving + PITR survives logical corruption (a bad DELETE replicates faithfully, only point-in-time recovery saves you).",
-      "answerKey": "Technology Reference v2"
+      "answerKey": "Technology Reference v3"
     },
     {
       "id": "tech-04",
@@ -1240,7 +1240,7 @@
       "weight": 4,
       "prompt": "Why is Cassandra a terrible choice for a queue or high-churn delete workload?",
       "answer": "Deletes write tombstones (markers) rather than removing data, and they linger until compaction; reading across many tombstones craters latency, so write-then-delete queue churn punishes you.",
-      "answerKey": "Technology Reference v2"
+      "answerKey": "Technology Reference v3"
     },
     {
       "id": "tech-05",
@@ -1250,7 +1250,7 @@
       "weight": 4,
       "prompt": "CAP line: Cassandra is AP by design but tunable toward CP. What exact quorum config gives strong reads, and what consistency does it still NOT provide?",
       "answer": "QUORUM reads + QUORUM writes satisfy R + W > N, so the read overlaps the latest write for strong consistency. Even at ALL you only get replication consistency, never transactional — there's no 'update these three rows or none' and LWT is single-partition compare-and-set only.",
-      "answerKey": "Technology Reference v2"
+      "answerKey": "Technology Reference v3"
     },
     {
       "id": "tech-06",
@@ -1260,7 +1260,7 @@
       "weight": 4,
       "prompt": "Modern Redis uses I/O threads — so is command execution still atomic, and what's the load-bearing property?",
       "answer": "Yes: I/O threads only handle network, but actual command (and Lua script) execution stays serialized/single-threaded, so every op runs atomically with no locks — the property that makes it right for admission control and rate limiting.",
-      "answerKey": "Technology Reference v2"
+      "answerKey": "Technology Reference v3"
     },
     {
       "id": "tech-07",
@@ -1270,7 +1270,7 @@
       "weight": 4,
       "prompt": "Name the default Redis caching pattern and how you mitigate a hot key expiring under load.",
       "answer": "Cache-aside (lazy): app checks cache, on miss reads DB and populates. For a hot key expiring — cache stampede / thundering herd — mitigate with a short lock around the refill so one request repopulates, request coalescing, or probabilistic early expiry.",
-      "answerKey": "Technology Reference v2"
+      "answerKey": "Technology Reference v3"
     },
     {
       "id": "tech-08",
@@ -1280,7 +1280,7 @@
       "weight": 4,
       "prompt": "Redis TTL hold vs a Postgres DB sweeper: what's the deciding factor for which one to use?",
       "answer": "Redis TTL only wins if the key IS the hold (its disappearance is the release), fit for ticket-onsale scale like 100k holds/s with a visible countdown. If Postgres owns the counter, a DB sweeper beats Redis keyspace notifications — durable and self-healing (notifications are at-most-once).",
-      "answerKey": "Technology Reference v2"
+      "answerKey": "Technology Reference v3"
     },
     {
       "id": "tech-09",
@@ -1290,7 +1290,7 @@
       "weight": 4,
       "prompt": "In a Kafka consumer group, what caps parallelism, and what happens to processing when a consumer joins or leaves?",
       "answer": "Partition count caps parallelism — consumers ≤ partitions, so extra consumers sit idle. A join/leave triggers consumer-group rebalancing, which reassigns partitions and briefly pauses (stop-the-world) processing; frequent rebalances are a classic incident.",
-      "answerKey": "Technology Reference v2"
+      "answerKey": "Technology Reference v3"
     },
     {
       "id": "tech-10",
@@ -1300,7 +1300,7 @@
       "weight": 4,
       "prompt": "CAP/consistency line: Kafka's exactly-once semantics apply to what exactly, and what do they NOT cover?",
       "answer": "Exactly-once (EOS) applies only within Kafka — read-process-write across Kafka topics. It does not extend to external side effects like your DB write or an API call; delivery is at-least-once, so consumers must still be idempotent.",
-      "answerKey": "Technology Reference v2"
+      "answerKey": "Technology Reference v3"
     },
     {
       "id": "tech-11",
@@ -1310,7 +1310,7 @@
       "weight": 4,
       "prompt": "State the rule of thumb for choosing a Kafka log vs a task queue (SQS/RabbitMQ).",
       "answer": "Need replay or multiple independent consumers of the same event → log (Kafka: retained, rewindable, fan-out). Need work distribution with per-message retry/DLQ → queue (consumed-and-deleted, ack/redelivery, competing consumers, no replay).",
-      "answerKey": "Technology Reference v2"
+      "answerKey": "Technology Reference v3"
     },
     {
       "id": "tech-12",
@@ -1320,7 +1320,7 @@
       "weight": 4,
       "prompt": "Walk through what happens to a message in a task queue from delivery through failure handling.",
       "answer": "A worker pulls a message, processes it, and acks to delete it. No ack (crash/timeout) makes it visible again and it's redelivered after the visibility timeout; after N failed attempts it goes to a dead-letter queue (DLQ) for inspection. Once consumed and acked it's gone — no offset to rewind, no replay.",
-      "answerKey": "Technology Reference v2"
+      "answerKey": "Technology Reference v3"
     },
     {
       "id": "tech-13",
@@ -1330,7 +1330,7 @@
       "weight": 3,
       "prompt": "Cassandra vs sharded Postgres: at your volume, what is Cassandra's actual edge — and when should you just use Postgres?",
       "answer": "The edge isn't write throughput — it's that consistent hashing makes rebalancing automatic and multi-region replication a config line, not a project. Below genuine global scale Postgres is the better default even for keyed data, keeping transactions and query flexibility; Cassandra wins only when scale × geo-distribution × access-pattern-simplicity all hold at once.",
-      "answerKey": "Technology Reference v2"
+      "answerKey": "Technology Reference v3"
     },
     {
       "id": "tech-14",
@@ -1340,7 +1340,7 @@
       "weight": 3,
       "prompt": "CAP/consistency line: what is S3's consistency model today, and what are its real limits?",
       "answer": "S3 is strongly read-after-write consistent for all operations (since Dec 2020) — a GET after a PUT returns the latest object. Don't cite the old eventual-consistency caveat; the real limits are no cross-object transactions and no querying inside objects — it's a durable key→blob store, not a database.",
-      "answerKey": "Technology Reference v2"
+      "answerKey": "Technology Reference v3"
     },
     {
       "id": "tech-15",
@@ -1350,7 +1350,7 @@
       "weight": 3,
       "prompt": "Describe the presigned direct upload and multipart patterns for S3, including the key numbers.",
       "answer": "Presigned direct upload: the client PUTs straight to S3 with a time-limited signed URL, so bytes bypass your API tier. Multipart splits big files into parts (one presigned URL per part, parallel, per-part retry, resumable via ListParts) — 5 MB part minimum, 10k parts max, and single PUT caps at 5 GB.",
-      "answerKey": "Technology Reference v2"
+      "answerKey": "Technology Reference v3"
     },
     {
       "id": "tech-16",
@@ -1360,7 +1360,7 @@
       "weight": 3,
       "prompt": "CAP/consistency line: why is a CDN deliberately eventually consistent, and what's the right way to reason about it?",
       "answer": "The edge serves possibly-stale content bounded by TTL, and that staleness IS the tradeoff you accept for latency and origin offload. Design around what's cacheable and for how long — lean on short TTLs over active purge — not how to make the edge fresh.",
-      "answerKey": "Technology Reference v2"
+      "answerKey": "Technology Reference v3"
     },
     {
       "id": "tech-17",
@@ -1370,7 +1370,7 @@
       "weight": 3,
       "prompt": "For a vector DB, what's the real deployment gotcha, and how do you fit a large corpus in RAM?",
       "answer": "The HNSW graph memory frequently exceeds the raw vectors, so the deployed memory footprint is the gotcha (e.g. 1M × 1536-dim is ~6 GB raw plus the graph). Quantization fits large corpora: int8 ~4× smaller, binary ~32×.",
-      "answerKey": "Technology Reference v2"
+      "answerKey": "Technology Reference v3"
     },
     {
       "id": "tech-18",
@@ -1380,7 +1380,7 @@
       "weight": 3,
       "prompt": "Vector-only vs hybrid retrieval: when does pure vector search fail, and what's the sharp permission failure mode?",
       "answer": "Pure semantic search misses exact terms (names, IDs, codes), so hybrid BM25 + vector often wins. The sharp failure is permission leakage: embeddings ignore ACLs, so you must filter by permission (ACL) at query time or you retrieve across tenants.",
-      "answerKey": "Technology Reference v2"
+      "answerKey": "Technology Reference v3"
     },
     {
       "id": "tech-19",
@@ -1390,7 +1390,7 @@
       "weight": 3,
       "prompt": "A workflow orchestrator gives exactly-once continuation on top of what activity guarantee, and how does its fan-in avoid a counter race?",
       "answer": "Exactly-once continuation layers on at-least-once activity execution, so activities must still be idempotent. Fan-in is a read over the ordered durable history log decided by a single evaluator ('is there a completion for every scheduled task'), so there's no concurrent-counter race by construction.",
-      "answerKey": "Technology Reference v2"
+      "answerKey": "Technology Reference v3"
     },
     {
       "id": "tech-20",
@@ -1400,7 +1400,7 @@
       "weight": 3,
       "prompt": "The Elasticsearch-as-database trap: why is it wrong, and what is ES's actual role?",
       "answer": "It's a derived read model, not a source of truth — near-real-time (~1s refresh), no ACID/transactions, and eventually consistent with your primary by construction. Feed it from the primary via CDC, design a reconciliation path, and be able to rebuild the index from truth at any time.",
-      "answerKey": "Technology Reference v2"
+      "answerKey": "Technology Reference v3"
     },
     {
       "id": "tech-21",
@@ -1410,7 +1410,7 @@
       "weight": 3,
       "prompt": "State the decision-matrix meta-rule for how most systems are composed and what signals coherence.",
       "answer": "Most systems are Postgres + one or two specialists: Postgres as the transactional source of truth plus a cache (Redis), blob store (S3), CDN, and maybe a search/vector index fed via CDC. Reach for Cassandra/Kafka/an orchestrator only when a named requirement forces it; naming the one store as truth and treating the rest as derived is the coherence signal.",
-      "answerKey": "Technology Reference v2"
+      "answerKey": "Technology Reference v3"
     },
     {
       "id": "tech-22",
@@ -1420,7 +1420,147 @@
       "weight": 2,
       "prompt": "What cross-cutting asymmetry sits behind CDNs, read replicas, caches, and search indexes — and when do you move a guarantee out of the DB?",
       "answer": "Reads tolerate staleness; writes must be correct. Move a guarantee out of the database only when arrival rate makes the DB physically unable to provide it — the same rule for sharding, Redis holds, and counter offloading.",
-      "answerKey": "Technology Reference v2"
+      "answerKey": "Technology Reference v3"
+    },
+    {
+      "id": "tech-23",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 4,
+      "prompt": "What is the one thing you must get right when modeling a DynamoDB table, and what breaks if you don’t?",
+      "answer": "The partition key must be high-cardinality and evenly accessed. A skewed key (one celebrity, one tenant) creates a hot partition that throttles — even when the table has spare total capacity. Same failure class as a Cassandra hot partition.",
+      "answerKey": "Technology Reference v3"
+    },
+    {
+      "id": "tech-24",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 3,
+      "prompt": "DynamoDB reads: what is the default consistency, and how do you get strong consistency?",
+      "answer": "Reads default to eventually consistent (cheaper, from any replica). You opt into strongly consistent reads per request (more cost, leader replica, single-region only). Global tables are last-writer-wins and eventually consistent across regions — no cross-region strong consistency.",
+      "answerKey": "Technology Reference v3"
+    },
+    {
+      "id": "tech-25",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 3,
+      "prompt": "DynamoDB vs Cassandra — how do you actually decide between them?",
+      "answer": "Mostly buy vs run: same Dynamo data model and tradeoffs. DynamoDB is managed/serverless with per-request pricing and zero ops; Cassandra is self-hosted with a fixed cluster cost. Both demand partition-key discipline and forbid joins/cheap cross-partition transactions.",
+      "answerKey": "Technology Reference v3"
+    },
+    {
+      "id": "tech-26",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 3,
+      "prompt": "What are DynamoDB’s item-size and transaction limits, and how do they shape your design?",
+      "answer": "Item cap is 400 KB — large blobs go to S3 with the key stored in Dynamo. TransactWriteItems caps at 25 items and costs ~2× throughput. So you model access patterns into composite keys (single-table design) and design reads as key lookups; never build around Scan.",
+      "answerKey": "Technology Reference v3"
+    },
+    {
+      "id": "tech-27",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 4,
+      "prompt": "Kafka moves the stream — what does Flink add, and when do you need it?",
+      "answer": "Flink is stateful compute over the stream: windowed aggregations, stream joins, sessionization, real-time pattern detection. Kafka moves and retains; Flink windows, aggregates, and joins. Reach for it when you need to compute over the stream, not just transport it — not a hand-rolled consumer with a counter.",
+      "answerKey": "Technology Reference v3"
+    },
+    {
+      "id": "tech-28",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 3,
+      "prompt": "In Flink, what is the difference between event-time and processing-time, and what makes event-time correct?",
+      "answer": "Event-time uses the event’s own timestamp plus watermarks (a watermark asserts “no more events older than T”) so late and out-of-order events still land in the right window. Processing-time uses the wall clock — simpler but wrong under lateness. Naming watermarks is the signal.",
+      "answerKey": "Technology Reference v3"
+    },
+    {
+      "id": "tech-29",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 4,
+      "prompt": "How does Flink achieve exactly-once, and what is the catch?",
+      "answer": "Distributed checkpointing: Chandy–Lamport barriers flow through the graph and snapshot each operator’s state; on failure the job rewinds to the last checkpoint and replays from the source offset → exactly-once state. Catch: end-to-end exactly-once needs a transactional/idempotent sink; otherwise the output is at-least-once.",
+      "answerKey": "Technology Reference v3"
+    },
+    {
+      "id": "tech-30",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 4,
+      "prompt": "What is ZooKeeper/etcd for, and what should you never use it for?",
+      "answer": "Consensus-backed coordination for small metadata: leader election, distributed locks, membership, consistent config that pushes changes to watchers. Never a data store or high-throughput write path — it holds kilobytes per node in memory, and every write is a quorum consensus round.",
+      "answerKey": "Technology Reference v3"
+    },
+    {
+      "id": "tech-31",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 3,
+      "prompt": "Name ZooKeeper’s three primitives and what each one enables.",
+      "answer": "Ephemeral nodes vanish when a client’s session heartbeat lapses → liveness/membership. Watches notify clients on change → config push and leader-change notification. Sequential nodes give globally ordered names → fair locks and leader election.",
+      "answerKey": "Technology Reference v3"
+    },
+    {
+      "id": "tech-32",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 3,
+      "prompt": "Why is a ZooKeeper/etcd lock “more correct” than a Redis lock?",
+      "answer": "ZooKeeper/etcd commit writes on quorum consensus (CP), so a minority partition cannot take the lock — no split-brain. A Redis lock is a best-effort lease (availability-first, safe only with a fencing token). Use consensus when a double-holder is a correctness bug, not a nuisance.",
+      "answerKey": "Technology Reference v3"
+    },
+    {
+      "id": "tech-33",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 3,
+      "prompt": "Why is ZooKeeper/etcd CP, and what does that cost you during a partition?",
+      "answer": "Writes commit only on a quorum (majority) via ZAB/Raft; a 2f+1 ensemble tolerates f failures. During a partition the minority side stops accepting writes rather than risk split-brain — you lose availability there, which is exactly what you want backing a lock or leader election.",
+      "answerKey": "Technology Reference v3"
+    },
+    {
+      "id": "tech-34",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 4,
+      "prompt": "At what write throughput to a single Postgres table should you consider sharding or moving off — and what do you do before that?",
+      "answer": "Under ~5k writes/s: fine, don’t move. ~5k–15k/s: tune first — batch inserts, offload the hot counter to Redis, faster-fsync disk, fewer indexes. ~15k–50k/s: shard by a good key (keep SQL/transactions within a shard). >~50k/s, an append-only firehose, or multi-region writes: move the hot table to an LSM/wide-column store (Cassandra/DynamoDB) or a TSDB.",
+      "answerKey": "Technology Reference v3"
+    },
+    {
+      "id": "tech-35",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 4,
+      "prompt": "A global counter or inventory row is the bottleneck at a few hundred writes/s while the rest of the table is fine — what’s happening, and what do you do?",
+      "answer": "A single hot row hits row-lock contention (ceiling ~500–1k serialized updates/s), not table throughput. Offload that one value to Redis INCR or shard the counter; the rest of the table stays in Postgres. It’s the row, not the table size.",
+      "answerKey": "Technology Reference v3"
+    },
+    {
+      "id": "tech-36",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 3,
+      "prompt": "What actually forces you off a single Postgres primary — is it database size?",
+      "answer": "Almost never aggregate size (100M+ rows on one primary is routine). It’s a specific hot table (past ~15–50k writes/s), a single hot row (past ~500–1k/s), an append-only firehose, or active-active multi-region writes — the write pattern, not the row count. Connection exhaustion also hits first; pool with PgBouncer before touching architecture.",
+      "answerKey": "Technology Reference v3"
     },
     {
       "id": "llm-01",
