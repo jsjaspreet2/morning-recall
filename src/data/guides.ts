@@ -7,6 +7,7 @@ import codingPatternsMd from './guides/coding-patterns.md?raw'
 import systemDesignMd from './guides/system-design.md?raw'
 import animationMd from './guides/animation.md?raw'
 import technologyMd from './guides/technology.md?raw'
+import uieComponentsMd from './guides/uie-components.md?raw'
 
 export interface Guide {
   id: string
@@ -14,7 +15,9 @@ export interface Guide {
   subtitle: string
   accent: AccentName
   md: string
-  pdf: string // filename under public/pdfs
+  /** Filename under public/pdfs. Omit for guides with no PDF yet — the download
+   *  link is hidden rather than left pointing at a 404. */
+  pdf?: string
 }
 
 export const guides: Guide[] = [
@@ -67,6 +70,14 @@ export const guides: Guide[] = [
     pdf: 'Animation-Motion-Cheatsheet-v1.pdf',
   },
   {
+    id: 'uie-components',
+    title: 'UIE Components',
+    subtitle:
+      'Fourteen components you will be asked to build — API, ARIA contract, full implementation, and the test plan.',
+    accent: 'indigo',
+    md: uieComponentsMd,
+  },
+  {
     id: 'technology',
     title: 'Technology Choices',
     subtitle: 'Which technology and why — 14 stores, mechanism, CAP, when to reach for it, and when it flips.',
@@ -80,8 +91,8 @@ export function guideById(id: string | undefined): Guide | undefined {
   return guides.find((g) => g.id === id)
 }
 
-export function pdfUrl(guide: Guide): string {
-  return `${import.meta.env.BASE_URL}pdfs/${guide.pdf}`
+export function pdfUrl(guide: Guide): string | undefined {
+  return guide.pdf ? `${import.meta.env.BASE_URL}pdfs/${guide.pdf}` : undefined
 }
 
 /**

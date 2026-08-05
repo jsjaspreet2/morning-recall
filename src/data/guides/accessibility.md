@@ -47,13 +47,13 @@ Role Native tag
 
 `banner` top-level `<header>`
 
-navigation <nav>
+`navigation` `<nav>`
 
 `main` `<main>` (one/page)
 
-complementary <aside>
+`complementary` `<aside>`
 
-contentinfo <footer>
+`contentinfo` `<footer>`
 
 `region` named `<section>`
 

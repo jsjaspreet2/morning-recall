@@ -108,6 +108,55 @@ button {
   margin: 2rem 0;
 }
 
+/* collapsible sections (rehype-raw renders <details>/<summary> from the markdown) */
+.prose details {
+  margin: 1.25rem 0;
+  border: 1px solid #26262b;
+  border-radius: 6px;
+  background: #131317;
+}
+.prose details > summary {
+  padding: 0.6rem 0.9rem;
+  cursor: pointer;
+  font-size: 0.9em;
+  font-weight: 600;
+  color: #d4d4d8;
+  list-style: none;
+  user-select: none;
+}
+/* replace the default disclosure triangle with one that rotates */
+.prose details > summary::-webkit-details-marker {
+  display: none;
+}
+.prose details > summary::before {
+  content: '▸';
+  display: inline-block;
+  width: 1em;
+  color: #71717a;
+  transition: transform 0.15s ease;
+}
+.prose details[open] > summary::before {
+  transform: rotate(90deg);
+}
+.prose details[open] > summary {
+  border-bottom: 1px solid #26262b;
+}
+/* the body of an open block gets its own padding; code blocks inside sit flush */
+.prose details > *:not(summary) {
+  margin-left: 0.9rem;
+  margin-right: 0.9rem;
+}
+.prose details > pre {
+  margin-top: 0.9rem;
+  margin-bottom: 0.9rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prose details > summary::before {
+    transition: none;
+  }
+}
+
 /* inline code */
 .prose :not(pre) > code {
   background: #1c1c22;

@@ -49,14 +49,16 @@ export default function GuidePage() {
         </div>
       </div>
 
-      <a
-        href={pdfUrl(guide)}
-        target="_blank"
-        rel="noreferrer"
-        className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-zinc-300 rounded-lg ring-1 ring-zinc-800 bg-zinc-900/60 px-3 py-1.5 hover:ring-zinc-700"
-      >
-        ↓ Original PDF
-      </a>
+      {pdfUrl(guide) && (
+        <a
+          href={pdfUrl(guide)}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-zinc-300 rounded-lg ring-1 ring-zinc-800 bg-zinc-900/60 px-3 py-1.5 hover:ring-zinc-700"
+        >
+          ↓ Original PDF
+        </a>
+      )}
 
       {headings.length > 0 && (
         <details className="mt-5 rounded-xl bg-zinc-900/40 ring-1 ring-zinc-800 overflow-hidden">
