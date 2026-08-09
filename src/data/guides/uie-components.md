@@ -551,7 +551,7 @@ through a URL, and memo a Set internally if the list ever got big."*
 |---|---|
 | Heading | `<h2>`–`<h4>` wrapping the trigger. The heading is **not** the control. |
 | Trigger | `<button>`, `aria-expanded`, `aria-controls` → panel id, `id` |
-| Panel | `id`, `hidden` when closed. No `tabIndex` — that's the Tabs pattern, not this one. |
+| Panel | `id`, `hidden` when closed. No `tabIndex` — that's the Tabs pattern, not this one. Optionally `role="region"` + `aria-labelledby` → header id (see the region rule below). |
 
 | Key | Behavior | Required? |
 |---|---|---|
@@ -567,6 +567,35 @@ pattern here actively breaks the widget.
 **No `tabIndex` on the panels either.** Tabs panels take `tabIndex={0}` when they hold nothing
 focusable; the accordion pattern does not. Carrying it over adds a dead tab stop between every
 header.
+
+**No role on the panel — and that's why it needs no name.** This is the other half of the Tabs
+contrast, and it's the one people get backwards. A tabs panel *must* carry `role="tabpanel"`:
+`role="tab"` is only valid inside a `tablist`, and its `aria-controls` is contractually supposed
+to resolve to a tabpanel. Strip it and the failure is audible — "tab 2 of 3", activate, and
+focus lands on an anonymous div. Disclosure has no composite structure to complete, so there is
+no required role on the revealed content; `aria-expanded` on the trigger already carries it.
+
+`aria-labelledby` then drops out for a mechanical reason, not a stylistic one: **a name only
+exposes on an element whose role supports naming.** A roleless `<div>` computes as `generic`,
+and ARIA prohibits naming generic elements — so `aria-labelledby` on a bare panel is dead
+markup no AT will read. You cannot add the name without first adding a role.
+
+It isn't needed structurally either. Tabs renders its panels in a *second, separate* `.map()`,
+as siblings after the tablist — a panel is nowhere near its tab in the DOM, so it needs the
+explicit back-pointer. The accordion panel is nested inside its `.accordion-item`, directly
+after its own heading: the association is already in document order, and `aria-expanded` +
+`aria-controls` supply the programmatic link in the other direction.
+
+**THE REGION RULE.** APG *does* allow `role="region"` with `aria-labelledby` pointing at the
+header button — and explicitly warns against it once an accordion has more than roughly six
+panels, because every region is a landmark and landmark navigation drowns. The reference omits
+it, which is the right default. Naming the rule out loud is worth more than either choice:
+
+> *"I'd put `role='region'` on the panels if there were a handful of sections, and drop it if the
+> list could grow — landmark proliferation is worse than no landmark."*
+
+The general form is worth carrying to every component: **a role you add for its own sake costs
+nothing; a role you add out of symmetry with a different pattern costs the user.**
 
 ### D. DECISIONS THAT MATTER
 
