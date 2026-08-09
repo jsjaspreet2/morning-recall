@@ -70,9 +70,11 @@ Everything in §03–16 follows the same shape. Learn the shape once.
 
 §E always ends with **THE WHOLE THING** — the entire component assembled, collapsed by default.
 The chunks teach; the full file shows how the pieces fit and is what you diff your own build
-against. Each one is the real source of the matching exercise with the CSS import, the exercise
-metadata, and the inline comments removed — the commentary lives in the walkthrough above it,
-so the code you read is the code you'd actually write.
+against. Each one is the real source of the matching exercise — annotations intact, exactly as
+it sits in `uie-practice/src/exercises/<name>-reference/index.tsx`. Only the CSS import, the
+exercise metadata, and the trailing demo harness are dropped, since none of them are part of
+the component. The inline comments are the point: they mark the lines where the obvious choice
+is the wrong one, and each is a sentence you can say out loud in the round.
 
 ### A. THE FIVE DECISIONS
 
@@ -285,6 +287,16 @@ under a portal or shadow root, and there's no unguarded `.focus()` on a possible
 import { useId, useRef, useState } from 'react'
 import type { KeyboardEvent, ReactNode } from 'react'
 
+/**
+ * Everything here is reachable in a 40-minute pairing round. Three things are
+ * doing the heavy lifting, and they are the three worth saying out loud:
+ *
+ *   1. Controlled OR uncontrolled. The first follow-up to any tabs question is
+ *      "how does the parent change the tab?" — deep-link, a Next button, analytics.
+ *   2. useId. Hardcoded ids collide the moment two <Tabs> share a page.
+ *   3. Roving tabindex. The tablist is ONE tab stop; arrows move within it.
+ */
+
 export interface TabItem {
   value: string
   label: ReactNode
@@ -293,7 +305,9 @@ export interface TabItem {
 
 export interface TabsProps {
   items: TabItem[]
+  /** Controlled selection. Pair with onValueChange. */
   value?: string
+  /** Uncontrolled initial selection. Defaults to the first item. */
   defaultValue?: string
   onValueChange?: (value: string) => void
   orientation?: 'horizontal' | 'vertical'
@@ -310,10 +324,14 @@ export function Tabs({
   const tabId = (v: string) => `${baseId}-tab-${v}`
   const panelId = (v: string) => `${baseId}-panel-${v}`
 
+  // Controlled when `value` is passed, uncontrolled otherwise — never a mix.
+  // The internal state still exists in controlled mode; it just stops being read.
   const [internalValue, setInternalValue] = useState(defaultValue ?? items[0]?.value)
   const isControlled = valueProp !== undefined
   const value = isControlled ? valueProp : internalValue
 
+  // A ref array, not document.getElementById: keeps focus inside React's tree,
+  // so this still works under a portal or a shadow root.
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([])
 
   function select(next: string) {
@@ -325,6 +343,9 @@ export function Tabs({
     const item = items[index]
     if (!item) return
     select(item.value)
+    // Automatic activation: arrows move focus AND select. Right call when panels
+    // are cheap. If a panel fetched, switch to manual — arrows move focus only,
+    // Enter/Space commits.
     tabRefs.current[index]?.focus()
   }
 
@@ -335,14 +356,26 @@ export function Tabs({
     const current = items.findIndex((item) => item.value === value)
     let next: number
 
+    // event.key, not event.code. `code` is the physical key position, so the
+    // numpad arrows arrive as Numpad4/Numpad7 and would slip straight through.
     switch (event.key) {
-      case prevKey: next = (current - 1 + items.length) % items.length; break
-      case nextKey: next = (current + 1) % items.length; break
-      case 'Home':  next = 0; break
-      case 'End':   next = items.length - 1; break
-      default: return
+      case prevKey:
+        next = (current - 1 + items.length) % items.length
+        break
+      case nextKey:
+        next = (current + 1) % items.length
+        break
+      case 'Home':
+        next = 0
+        break
+      case 'End':
+        next = items.length - 1
+        break
+      default:
+        return
     }
 
+    // Without this, Home/End scroll the page out from under the tabs.
     event.preventDefault()
     selectByIndex(next)
   }
@@ -360,7 +393,11 @@ export function Tabs({
           return (
             <button
               key={item.value}
-              ref={(el) => { tabRefs.current[i] = el }}
+              // Block body: a ref callback must return void or a cleanup function,
+              // and `ref={(el) => (arr[i] = el)}` returns the element.
+              ref={(el) => {
+                tabRefs.current[i] = el
+              }}
               id={tabId(item.value)}
               type="button"
               role="tab"
@@ -385,6 +422,8 @@ export function Tabs({
             role="tabpanel"
             className="tabs-panel"
             aria-labelledby={tabId(item.value)}
+            // APG makes the panel focusable only when it holds nothing focusable.
+            // Scoped to the visible panel — a hidden one isn't reachable anyway.
             tabIndex={selected ? 0 : undefined}
             hidden={!selected}
           >
@@ -689,6 +728,16 @@ left out. Around 95 lines, and a realistic target for 25 minutes.
 import { useId, useRef, useState } from 'react'
 import type { KeyboardEvent, ReactNode } from 'react'
 
+/**
+ * The contrast with Tabs is the whole lesson, and it's the thing to say out loud:
+ *
+ *   Tabs      one panel visible · roving tabindex · arrow keys REQUIRED
+ *   Accordion any number visible · every header is a tab stop · arrows OPTIONAL
+ *
+ * Reaching for roving tabindex here would be wrong. Accordion headers are
+ * independent buttons; a keyboard user expects Tab to walk them.
+ */
+
 export interface AccordionItem {
   value: string
   header: ReactNode
@@ -723,6 +772,8 @@ export function Accordion({
   const headerId = (v: string) => `${baseId}-header-${v}`
   const panelId = (v: string) => `${baseId}-panel-${v}`
 
+  // Same controlled/uncontrolled shape as Tabs. Worth keeping identical across
+  // every component you write — the reviewer sees one idea, not five.
   const [internalValue, setInternalValue] = useState<string[]>(defaultValue ?? [])
   const isControlled = valueProp !== undefined
   const value = isControlled ? valueProp : internalValue
@@ -740,23 +791,41 @@ export function Accordion({
       commit(isOpen ? value.filter((v) => v !== itemValue) : [...value, itemValue])
       return
     }
+    // Single mode. `collapsible: false` is the "one is always open" variant —
+    // clicking the open header must then be a no-op, not a close.
     if (isOpen) commit(collapsible ? [] : value)
     else commit([itemValue])
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    // Which header has focus? Reading it off the refs means panel content that
+    // happens to be focusable doesn't get hijacked by these arrow keys.
+    // Which header has focus? Reading it off the refs also means focus sitting on
+    // a link inside an open panel falls through (current === -1) and keeps its
+    // own arrow-key behavior.
     const current = headerRefs.current.indexOf(document.activeElement as HTMLButtonElement)
     if (current === -1) return
 
     let next: number
     switch (event.key) {
-      case 'ArrowDown': next = (current + 1) % items.length; break
-      case 'ArrowUp':   next = (current - 1 + items.length) % items.length; break
-      case 'Home':      next = 0; break
-      case 'End':       next = items.length - 1; break
-      default: return
+      case 'ArrowDown':
+        next = (current + 1) % items.length
+        break
+      case 'ArrowUp':
+        next = (current - 1 + items.length) % items.length
+        break
+      case 'Home':
+        next = 0
+        break
+      case 'End':
+        next = items.length - 1
+        break
+      default:
+        return
     }
     event.preventDefault()
+    // Arrows move focus ONLY. Unlike Tabs, they must not open anything —
+    // an accordion header's expanded state belongs to Enter/Space.
     headerRefs.current[next]?.focus()
   }
 
@@ -768,9 +837,14 @@ export function Accordion({
         const isOpen = value.includes(item.value)
         return (
           <div className="accordion-item" key={item.value}>
+            {/* APG requires the trigger to be wrapped in a heading so screen
+                reader users can jump section to section by heading. The button
+                stays the interactive element — never put onClick on the h3. */}
             <Heading className="accordion-heading">
               <button
-                ref={(el) => { headerRefs.current[i] = el }}
+                ref={(el) => {
+                  headerRefs.current[i] = el
+                }}
                 id={headerId(item.value)}
                 type="button"
                 className="accordion-trigger"
@@ -783,6 +857,9 @@ export function Accordion({
               </button>
             </Heading>
 
+            {/* No tabIndex here. Tabs panels take tabIndex={0} when they hold no
+                focusable content; the accordion pattern does not, and copying it
+                across adds a dead tab stop between every header. */}
             <div id={panelId(item.value)} className="accordion-panel" hidden={!isOpen}>
               {item.panel}
             </div>
@@ -992,6 +1069,21 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { KeyboardEvent, MouseEvent, PointerEvent, ReactNode, RefObject } from 'react'
 
+/**
+ * Five things are load-bearing, and four of them are focus:
+ *
+ *   1. Portal out to <body>, so an ancestor's overflow/transform can't clip or
+ *      re-parent the dialog's containing block.
+ *   2. Move focus IN on open.
+ *   3. Trap Tab inside while open.
+ *   4. Put focus BACK on close — including when the trigger no longer exists.
+ *   5. Escape closes, and the innermost dialog wins.
+ *
+ * Everything else (scroll lock, backdrop click) is polish you can name and skip
+ * under time pressure. Focus is not.
+ */
+
+/** Everything the browser will hand focus to via Tab. */
 const FOCUSABLE = [
   'a[href]',
   'button:not([disabled])',
@@ -1003,44 +1095,79 @@ const FOCUSABLE = [
 
 function focusableWithin(root: HTMLElement): HTMLElement[] {
   return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
+    // A node inside a `hidden` subtree still matches the selector but cannot take
+    // focus, so it has to be filtered out or Tab appears to stick.
+    //
+    // The tempting one-liner here is `el.offsetParent !== null`. Don't: offsetParent
+    // is also null for every position:fixed element, so a fixed toolbar inside the
+    // dialog would silently drop out of the trap.
     (el) => !el.closest('[hidden]') && el.getAttribute('aria-hidden') !== 'true',
   )
 }
 
 export interface ModalProps {
+  /** Controlled only. A dialog whose open state the parent can't drive is useless. */
   open: boolean
   onClose: () => void
+  /** Names the dialog. Rendered as the visible heading and wired to aria-labelledby. */
   title: ReactNode
   children: ReactNode
+  /** Where focus lands on open. Defaults to the first focusable node inside. */
   initialFocus?: RefObject<HTMLElement | null>
+  /** Where focus goes on close when the trigger no longer exists. */
   returnFocus?: RefObject<HTMLElement | null>
+  /** Clicking the backdrop closes. Turn off for destructive confirmations. */
   closeOnBackdrop?: boolean
 }
 
 export function Modal({ open, ...rest }: ModalProps) {
+  // Mount/unmount IS the state machine. Rendering nothing when closed means every
+  // effect below runs exactly once per opening and cleans up exactly on close —
+  // no `if (!open) return` guard smeared through five different effects.
   if (!open) return null
   return createPortal(<ModalContent {...rest} />, document.body)
 }
 
 function ModalContent({
-  onClose, title, children, initialFocus, returnFocus, closeOnBackdrop = true,
+  onClose,
+  title,
+  children,
+  initialFocus,
+  returnFocus,
+  closeOnBackdrop = true,
 }: Omit<ModalProps, 'open'>) {
   const titleId = useId()
   const dialogRef = useRef<HTMLDivElement>(null)
   const pointerDownTarget = useRef<EventTarget | null>(null)
 
+  // Focus in on mount, focus back on unmount.
   useEffect(() => {
     const previouslyFocused = document.activeElement as HTMLElement | null
-    const target =
-      initialFocus?.current ?? focusableWithin(dialogRef.current!)[0] ?? dialogRef.current
+
+    const target = initialFocus?.current ?? focusableWithin(dialogRef.current!)[0] ?? dialogRef.current
     target?.focus()
 
     return () => {
+      // The trigger can disappear while the dialog is open — think a row's
+      // "Delete" button whose row the dialog just deleted.
+      //
+      // .focus() on a detached node doesn't throw, it silently does nothing and
+      // focus falls to <body>, stranding a keyboard user at the top of the page.
+      // Because the failure is silent, the isConnected check isn't defensive
+      // decoration: it is the only way to know restore failed and route focus
+      // somewhere deliberate instead.
       if (previouslyFocused?.isConnected) previouslyFocused.focus()
+      // Reading .current at cleanup time is the point here. The lint rule's usual
+      // advice — copy the ref into a variable inside the effect — would capture
+      // whatever existed when the dialog OPENED, and the fallback target is
+      // precisely the thing that may have been added or replaced while it was open.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       else returnFocus?.current?.focus()
     }
   }, [initialFocus, returnFocus])
 
+  // Scroll lock. Restore the previous value rather than clearing it, so nested
+  // dialogs don't unlock the page when the inner one closes.
   useEffect(() => {
     const previous = document.body.style.overflow
     document.body.style.overflow = 'hidden'
@@ -1051,6 +1178,9 @@ function ModalContent({
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key === 'Escape') {
+      // stopPropagation so a nested dialog closes only itself. Because focus is
+      // inside the dialog, this keydown bubbles here first — no document-level
+      // listener, and therefore no ordering puzzle between two open dialogs.
       event.stopPropagation()
       onClose()
       return
@@ -1060,6 +1190,8 @@ function ModalContent({
 
     const focusable = focusableWithin(dialogRef.current!)
     if (focusable.length === 0) {
+      // Nothing to move to; keep focus on the dialog itself rather than letting
+      // Tab escape to the page behind.
       event.preventDefault()
       return
     }
@@ -1067,6 +1199,8 @@ function ModalContent({
     const first = focusable[0]
     const last = focusable[focusable.length - 1]
 
+    // Wrap only at the two edges. Everywhere else, native Tab already does the
+    // right thing — reimplementing it is how you break screen-reader modes.
     if (event.shiftKey && document.activeElement === first) {
       event.preventDefault()
       last.focus()
@@ -1082,6 +1216,9 @@ function ModalContent({
 
   function handleClick(event: MouseEvent<HTMLDivElement>) {
     if (!closeOnBackdrop) return
+    // Close only when the gesture STARTED and ENDED on the backdrop. Without the
+    // pointerdown half, selecting text inside the dialog and releasing outside it
+    // closes the dialog and throws away what the user typed.
     const startedOnBackdrop = pointerDownTarget.current === event.currentTarget
     const endedOnBackdrop = event.target === event.currentTarget
     if (startedOnBackdrop && endedOnBackdrop) onClose()
@@ -1097,8 +1234,13 @@ function ModalContent({
       <div
         ref={dialogRef}
         role="dialog"
+        // aria-modal tells assistive tech to ignore everything outside this node.
+        // It is a declaration, not enforcement: it does not stop a sighted mouse
+        // user reaching the page behind. Real inertness needs `inert` on siblings.
         aria-modal="true"
         aria-labelledby={titleId}
+        // The dialog container itself is focusable so there is somewhere to put
+        // focus when the content has no focusable elements at all.
         tabIndex={-1}
         className="modal-dialog"
       >
@@ -1301,8 +1443,21 @@ Sighted users see the list appear. Screen reader users get nothing unless the co
 <summary>Complete implementation — Combobox</summary>
 
 ```tsx
-import { useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
+
+/**
+ * Two ideas carry this component, and both are counter-intuitive:
+ *
+ * 1. FOCUS NEVER LEAVES THE INPUT. Arrow keys move a *virtual* cursor via
+ *    aria-activedescendant, not real DOM focus. Moving real focus into the list
+ *    would stop the user typing — which is the entire point of a typeahead.
+ *    This is the opposite of the roving tabindex used by Tabs and Tree.
+ *
+ * 2. AN ABORTED REQUEST IS NOT A CANCELLED RESULT. AbortController stops the
+ *    network; it does not un-queue a `.then` that already resolved. The
+ *    generation counter is what actually makes stale responses lose.
+ */
 
 export interface ComboboxOption {
   value: string
@@ -1310,12 +1465,16 @@ export interface ComboboxOption {
 }
 
 export interface ComboboxProps {
+  /** Accessible name for the input. */
   label: string
+  /** Must be stable — it's an effect dependency. useCallback it in the parent. */
   fetchOptions: (query: string, signal: AbortSignal) => Promise<ComboboxOption[]>
+  /** Controlled selection. Pair with onValueChange. */
   value?: ComboboxOption | null
   defaultValue?: ComboboxOption | null
   onValueChange?: (option: ComboboxOption | null) => void
   debounceMs?: number
+  /** Don't fire a request for a single stray keystroke. */
   minChars?: number
   placeholder?: string
 }
@@ -1323,9 +1482,14 @@ export interface ComboboxProps {
 type Status = 'idle' | 'loading' | 'ready' | 'error'
 
 export function Combobox({
-  label, fetchOptions,
-  value: valueProp, defaultValue = null, onValueChange,
-  debounceMs = 200, minChars = 1, placeholder,
+  label,
+  fetchOptions,
+  value: valueProp,
+  defaultValue = null,
+  onValueChange,
+  debounceMs = 200,
+  minChars = 1,
+  placeholder,
 }: ComboboxProps) {
   const baseId = useId()
   const inputId = `${baseId}-input`
@@ -1336,6 +1500,9 @@ export function Combobox({
   const isControlled = valueProp !== undefined
   const selected = isControlled ? valueProp : internalValue
 
+  // The query is deliberately NOT part of the controlled API. It's transient
+  // typing state; a parent that owned it would have to re-render on every
+  // keystroke to give you back what you just typed.
   const [query, setQuery] = useState(selected?.label ?? '')
   const [rawOptions, setOptions] = useState<ComboboxOption[]>([])
   const [rawStatus, setStatus] = useState<Status>('idle')
@@ -1346,6 +1513,10 @@ export function Combobox({
   const listRef = useRef<HTMLUListElement>(null)
 
   const q = query.trim()
+  // Derived, not stored. Resetting options/status from inside the effect when the
+  // query drops below minChars would be a synchronous setState in an effect body —
+  // a cascading render, and something React's lint rule correctly rejects. If a
+  // value can be computed during render, compute it during render.
   const enabled = q.length >= minChars
   const options = enabled ? rawOptions : []
   const status: Status = enabled ? rawStatus : 'idle'
@@ -1354,15 +1525,26 @@ export function Combobox({
     if (!enabled) return
 
     const controller = new AbortController()
+    // Bump on every request; only the newest generation is allowed to write state.
     const generation = ++generationRef.current
 
     const timer = setTimeout(() => {
+      // Inside the timeout, not beside it: "loading" should mean a request is
+      // actually in flight, not that a key was pressed. It also keeps the last
+      // results on screen during the debounce window instead of flashing.
       setStatus('loading')
       fetchOptions(q, controller.signal)
         .then((next) => {
+          // The two guards are not redundant.
+          //   signal.aborted  → the request we cancelled, if the source honors it
+          //   generation      → everything else: a cache hit that resolved
+          //                     synchronously, a source that ignores the signal,
+          //                     or a promise that resolved microseconds before abort
           if (generation !== generationRef.current) return
           setOptions(next)
           setStatus('ready')
+          // Pre-highlight the first result so Enter is immediately useful, but
+          // do not auto-select it — that would fight the user's typing.
           setActiveIndex(next.length > 0 ? 0 : -1)
         })
         .catch(() => {
@@ -1372,15 +1554,20 @@ export function Combobox({
         })
     }, debounceMs)
 
+    // Runs on every keystroke: cancels the pending debounce AND the in-flight
+    // request. Without the abort, a fast typist opens one socket per character.
     return () => {
       clearTimeout(timer)
       controller.abort()
     }
   }, [q, enabled, debounceMs, fetchOptions])
 
+  // Keep the highlighted option visible without moving focus.
   useEffect(() => {
     if (activeIndex < 0) return
     const el = listRef.current?.children[activeIndex] as HTMLElement | undefined
+    // jsdom has no layout, so scrollIntoView may not exist. Optional-call rather
+    // than mocking it in every test.
     el?.scrollIntoView?.({ block: 'nearest' })
   }, [activeIndex])
 
@@ -1399,6 +1586,7 @@ export function Combobox({
   function move(delta: number) {
     if (options.length === 0) return
     setActiveIndex((i) => {
+      // From "nothing highlighted", ArrowUp should land on the last option.
       if (i === -1) return delta > 0 ? 0 : options.length - 1
       return (i + delta + options.length) % options.length
     })
@@ -1407,7 +1595,7 @@ export function Combobox({
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     switch (event.key) {
       case 'ArrowDown':
-        event.preventDefault()
+        event.preventDefault() // else the caret jumps to the end of the input
         if (!open) setOpen(true)
         else move(1)
         break
@@ -1428,10 +1616,14 @@ export function Combobox({
         break
       case 'Enter':
         if (!open || activeIndex < 0) return
+        // Only swallow Enter when it actually picks something, so the form this
+        // combobox sits in can still be submitted from the input.
         event.preventDefault()
         select(options[activeIndex])
         break
       case 'Escape':
+        // First Escape closes the list, a second clears the field. Closing and
+        // clearing at once destroys work the user can't get back.
         if (open) setOpen(false)
         else {
           setQuery('')
@@ -1439,6 +1631,8 @@ export function Combobox({
         }
         break
       case 'Tab':
+        // Tab must move on, never select. Leaving the list open would strand a
+        // popup over content the user has already moved past.
         setOpen(false)
         break
       default:
@@ -1464,6 +1658,8 @@ export function Combobox({
         {label}
       </label>
 
+      {/* APG 1.2 puts role="combobox" on the INPUT itself, not on a wrapper.
+          The older 1.0 pattern wrapped it; that markup is now wrong. */}
       <input
         id={inputId}
         type="text"
@@ -1473,6 +1669,7 @@ export function Combobox({
         aria-expanded={showList}
         aria-controls={listboxId}
         aria-autocomplete="list"
+        // The virtual cursor. Points at an option's id while real focus stays here.
         aria-activedescendant={showList && activeIndex >= 0 ? optionId(activeIndex) : undefined}
         aria-busy={status === 'loading'}
         placeholder={placeholder}
@@ -1481,6 +1678,8 @@ export function Combobox({
           setQuery(e.target.value)
           setOpen(true)
           setActiveIndex(-1)
+          // Typing after choosing means the choice is stale. Say so immediately
+          // rather than letting a submitted form carry the old selection.
           if (selected) commit(null)
         }}
         onKeyDown={handleKeyDown}
@@ -1490,6 +1689,8 @@ export function Combobox({
         onBlur={() => setOpen(false)}
       />
 
+      {/* Announced, not shown. Sighted users can see the list appear; screen
+          reader users get nothing unless the count is spoken. */}
       <div className="visually-hidden" role="status" aria-live="polite">
         {showList ? message : ''}
       </div>
@@ -1510,8 +1711,10 @@ export function Combobox({
               role="option"
               className="combobox-option"
               aria-selected={i === activeIndex}
+              // onMouseDown, not onClick: onClick lands after the input's blur has
+              // already closed the list, so the click never reaches this element.
               onMouseDown={(e) => {
-                e.preventDefault()
+                e.preventDefault() // keep focus in the input
                 select(option)
               }}
               onMouseEnter={() => setActiveIndex(i)}
@@ -1521,6 +1724,9 @@ export function Combobox({
           ))}
       </ul>
 
+      {/* Outside the listbox on purpose: a listbox may only own `option` children,
+          so a "Loading…" <li> in there is invalid ARIA. Visual only — the live
+          region above is what actually gets announced. */}
       {showList && (status !== 'ready' || options.length === 0) && (
         <p className="combobox-message" aria-hidden="true">
           {message}
@@ -1720,6 +1926,18 @@ trigger check, clicking it while open would close via this listener and immediat
 import { useEffect, useId, useRef, useState } from 'react'
 import type { KeyboardEvent, ReactNode } from 'react'
 
+/**
+ * A menu is not a listbox and not a combobox. The distinction decides the whole
+ * implementation:
+ *
+ *   listbox  you are CHOOSING a value that persists    → aria-selected
+ *   menu     you are INVOKING a command, then it's gone → no selection state
+ *
+ * So there is no `value` prop here. The only state is open/closed plus which item
+ * has focus — and unlike Combobox, that is REAL DOM focus moved into the menu,
+ * not a virtual cursor, because there is no text input to keep focus in.
+ */
+
 export interface MenuItem {
   value: string
   label: ReactNode
@@ -1727,17 +1945,23 @@ export interface MenuItem {
 }
 
 export interface MenuProps {
+  /** Trigger text. Also the menu's accessible name. */
   label: ReactNode
   items: MenuItem[]
   onSelect: (value: string) => void
+  /** Controlled open state. Pair with onOpenChange. */
   open?: boolean
   defaultOpen?: boolean
   onOpenChange?: (open: boolean) => void
 }
 
 export function Menu({
-  label, items, onSelect,
-  open: openProp, defaultOpen = false, onOpenChange,
+  label,
+  items,
+  onSelect,
+  open: openProp,
+  defaultOpen = false,
+  onOpenChange,
 }: MenuProps) {
   const baseId = useId()
   const triggerId = `${baseId}-trigger`
@@ -1751,8 +1975,11 @@ export function Menu({
   const triggerRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([])
+  // Buffer for type-to-jump. A ref because typing must not trigger renders.
   const typeaheadRef = useRef({ query: '', timer: 0 })
 
+  // A disabled item is skipped by every movement, so navigation only ever visits
+  // indices in this list.
   const enabled = items.map((item, i) => (item.disabled ? -1 : i)).filter((i) => i !== -1)
 
   function setOpen(next: boolean) {
@@ -1768,6 +1995,8 @@ export function Menu({
   function closeMenu(returnFocus: boolean) {
     setOpen(false)
     setActiveIndex(-1)
+    // Escape and selection return focus to the trigger; Tab and outside-click do
+    // not, because the user has already chosen where to go next.
     if (returnFocus) triggerRef.current?.focus()
   }
 
@@ -1777,11 +2006,15 @@ export function Menu({
     closeMenu(true)
   }
 
+  // Real DOM focus follows activeIndex. This is the difference from Combobox:
+  // there is no input to protect, so moving focus is both allowed and expected.
   useEffect(() => {
     if (!open || activeIndex < 0) return
     itemRefs.current[activeIndex]?.focus()
   }, [open, activeIndex])
 
+  // Outside click. pointerdown, not click: a click fires only after mouseup, so a
+  // press-drag-release that starts inside and ends outside would close the menu.
   useEffect(() => {
     if (!open) return
     function onPointerDown(event: PointerEvent) {
@@ -1803,7 +2036,11 @@ export function Menu({
     const state = typeaheadRef.current
     window.clearTimeout(state.timer)
     state.query += char.toLowerCase()
-    state.timer = window.setTimeout(() => { state.query = '' }, 500)
+    // 500ms is the conventional window: "sa" jumps to Save, then the buffer
+    // resets so a later "s" starts fresh rather than searching for "sas".
+    state.timer = window.setTimeout(() => {
+      state.query = ''
+    }, 500)
 
     const match = enabled.find((i) => {
       const text = typeof items[i].label === 'string' ? (items[i].label as string) : items[i].value
@@ -1814,22 +2051,50 @@ export function Menu({
 
   function onTriggerKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
     switch (event.key) {
-      case 'ArrowDown': case 'Enter': case ' ':
-        event.preventDefault(); openMenu('first'); break
+      case 'ArrowDown':
+      case 'Enter':
+      case ' ':
+        event.preventDefault()
+        openMenu('first')
+        break
       case 'ArrowUp':
-        event.preventDefault(); openMenu('last'); break
-      default: break
+        // Opening upward lands on the last item — the one nearest the trigger
+        // when the menu renders above it.
+        event.preventDefault()
+        openMenu('last')
+        break
+      default:
+        break
     }
   }
 
   function onMenuKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     switch (event.key) {
-      case 'ArrowDown': event.preventDefault(); step(1); break
-      case 'ArrowUp':   event.preventDefault(); step(-1); break
-      case 'Home':      event.preventDefault(); setActiveIndex(enabled[0]); break
-      case 'End':       event.preventDefault(); setActiveIndex(enabled[enabled.length - 1]); break
-      case 'Escape':    event.preventDefault(); closeMenu(true); break
-      case 'Tab':       closeMenu(false); break
+      case 'ArrowDown':
+        event.preventDefault()
+        step(1)
+        break
+      case 'ArrowUp':
+        event.preventDefault()
+        step(-1)
+        break
+      case 'Home':
+        event.preventDefault()
+        setActiveIndex(enabled[0])
+        break
+      case 'End':
+        event.preventDefault()
+        setActiveIndex(enabled[enabled.length - 1])
+        break
+      case 'Escape':
+        event.preventDefault()
+        closeMenu(true)
+        break
+      case 'Tab':
+        // Let Tab do its normal thing, but don't leave a menu hanging open over
+        // content the user has moved past.
+        closeMenu(false)
+        break
       default:
         if (event.key.length === 1 && !event.metaKey && !event.ctrlKey && !event.altKey) {
           event.preventDefault()
@@ -1845,6 +2110,7 @@ export function Menu({
         id={triggerId}
         type="button"
         className="menu-trigger"
+        // haspopup="menu" is more specific than "true" and tells AT what's coming.
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
@@ -1867,11 +2133,17 @@ export function Menu({
           {items.map((item, i) => (
             <button
               key={item.value}
-              ref={(el) => { itemRefs.current[i] = el }}
+              ref={(el) => {
+                itemRefs.current[i] = el
+              }}
               type="button"
               role="menuitem"
               className="menu-item"
+              // Roving tabindex: the menu is one tab stop, and -1 keeps the rest
+              // programmatically focusable so the arrow handler can reach them.
               tabIndex={i === activeIndex ? 0 : -1}
+              // aria-disabled, not `disabled`: a disabled element is unfocusable,
+              // so a keyboard user would never learn the option exists.
               aria-disabled={item.disabled || undefined}
               onClick={() => choose(item)}
               onMouseEnter={() => !item.disabled && setActiveIndex(i)}
@@ -2052,16 +2324,45 @@ comes from the shadow, not from empty space.
 import { cloneElement, useEffect, useId, useRef, useState } from 'react'
 import type { KeyboardEvent, ReactElement, ReactNode } from 'react'
 
+/**
+ * The most-underestimated component on this list, because the hard part isn't
+ * positioning — it's WCAG 1.4.13 (Content on Hover or Focus), which has three
+ * requirements almost every implementation fails:
+ *
+ *   DISMISSIBLE  Escape closes it without moving the pointer.
+ *   HOVERABLE    You can move the pointer ONTO the tooltip without it vanishing.
+ *   PERSISTENT   It stays until dismissed, blurred, or the pointer leaves.
+ *                No auto-hide timer.
+ *
+ * And the rule that decides whether you should build one at all:
+ *
+ *   A TOOLTIP MAY NOT CONTAIN INTERACTIVE CONTENT.
+ *
+ * There is no way to reach a link inside a tooltip by keyboard — focus is on the
+ * trigger, and moving it dismisses the tooltip. If you need a button in there you
+ * need a popover, which is a different component with different semantics.
+ */
+
 export interface TooltipProps {
+  /** Description only. Never interactive content — see above. */
   content: ReactNode
+  /** A single focusable element. Receives aria-describedby; its own props are untouched. */
   children: ReactElement<Record<string, unknown>>
+  /** Open delay in ms. Suppresses flicker when sweeping across a toolbar. */
   delay?: number
+  /**
+   * Grace period before closing on pointer-leave. This is what makes the tooltip
+   * hoverable: it gives the pointer time to travel from the trigger to the bubble
+   * without the tooltip disappearing under it mid-journey.
+   */
   closeDelay?: number
 }
 
 export function Tooltip({ content, children, delay = 300, closeDelay = 120 }: TooltipProps) {
   const tooltipId = useId()
   const [open, setOpen] = useState(false)
+  // Two timers, because opening and closing are independently debounced and each
+  // must be able to cancel the other.
   const timers = useRef({ open: 0, close: 0 })
 
   useEffect(() => {
@@ -2075,6 +2376,8 @@ export function Tooltip({ content, children, delay = 300, closeDelay = 120 }: To
   function show(immediate = false) {
     window.clearTimeout(timers.current.close)
     window.clearTimeout(timers.current.open)
+    // Focus opens instantly; hover waits. A keyboard user has already committed to
+    // this control, so making them wait is pure latency.
     if (immediate || delay === 0) setOpen(true)
     else timers.current.open = window.setTimeout(() => setOpen(true), delay)
   }
@@ -2082,22 +2385,45 @@ export function Tooltip({ content, children, delay = 300, closeDelay = 120 }: To
   function hide(immediate = false) {
     window.clearTimeout(timers.current.open)
     window.clearTimeout(timers.current.close)
+    // Blur and Escape are decisions — act now. A pointer leaving might just be
+    // travelling toward the bubble, so that path gets the grace period.
     if (immediate) setOpen(false)
     else timers.current.close = window.setTimeout(() => setOpen(false), closeDelay)
   }
 
   function onTriggerKeyDown(event: KeyboardEvent) {
+    // DISMISSIBLE. Fires whether the tooltip was opened by hover or by focus — a
+    // mouse user with a bubble covering the text they're reading needs the same
+    // escape hatch as a keyboard user.
     if (event.key === 'Escape' && open) {
       event.stopPropagation()
       hide(true)
     }
   }
 
+  // The ONLY thing cloned onto the child is one string. Every handler lives on the
+  // wrapper below, which matters for three reasons:
+  //
+  //   1. You cannot clobber the consumer's handlers if you never touch them. No
+  //      compose helper, no "did I remember to call theirs first?" bug.
+  //   2. React's onFocus/onBlur map to focusin/focusout, which BUBBLE — unlike the
+  //      native focus/blur events. So a wrapper handler sees focus on the child.
+  //   3. Passing ref-reading closures into cloneElement trips the compiler lint
+  //      ("Cannot access refs during render"), because it can't prove cloneElement
+  //      merely stores them.
+  //
+  // describedby, NOT labelledby. A tooltip supplements the control's name; it does
+  // not replace it. With labelledby, a button reading "Save" would be announced as
+  // its own tooltip text and the real label would be lost.
   const trigger = cloneElement(children, {
     'aria-describedby': open ? tooltipId : undefined,
   })
 
   return (
+    // Pointer handlers live here rather than on the trigger. On the trigger,
+    // moving toward the bubble fires pointer-leave first and the tooltip closes
+    // before the pointer arrives. The wrapper contains both, and the closeDelay
+    // covers the gap either way.
     <span
       className="tooltip-root"
       onPointerEnter={() => show()}
@@ -2312,12 +2638,27 @@ With three stacked toasts, three buttons all named "Close" are useless. `message
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 
+/**
+ * The bug almost every toast implementation ships:
+ *
+ *   THE LIVE REGION MUST ALREADY BE IN THE DOM BEFORE THE MESSAGE GOES INTO IT.
+ *
+ * Screen readers watch an existing aria-live container for mutations. Mount the
+ * container and its text in the same commit and there is no mutation to observe —
+ * the toast is visible, and completely silent. So both regions below are mounted
+ * for the life of the app and stay empty until there's something to say.
+ *
+ * The second thing people miss: pausing on hover but not on focus. A keyboard
+ * user who tabs to the dismiss button gets the toast yanked away mid-reach.
+ */
+
 export type Politeness = 'polite' | 'assertive'
 
 export interface Toast {
   id: string
   message: ReactNode
   politeness: Politeness
+  /** ms, or Infinity to require manual dismissal. */
   duration: number
 }
 
@@ -2335,12 +2676,15 @@ const ToastContext = createContext<ToastContextValue | null>(null)
 
 export function useToast(): ToastContextValue {
   const ctx = useContext(ToastContext)
+  // Throwing beats returning undefined: the failure surfaces at the call site
+  // during development instead of as "toast is not a function" at 2am.
   if (!ctx) throw new Error('useToast must be used inside a <ToastProvider>')
   return ctx
 }
 
 export interface ToastProviderProps {
   children: ReactNode
+  /** Oldest toasts are dropped past this. Unbounded stacks cover the whole page. */
   max?: number
   defaultDuration?: number
 }
@@ -2368,6 +2712,8 @@ export function ToastProvider({ children, max = 3, defaultDuration = 4000 }: Toa
     [defaultDuration, max],
   )
 
+  // Memoized so every consumer of the context doesn't re-render on each toast.
+  // `toast` and `dismiss` are already stable, so this object is too.
   const value = useMemo(() => ({ toast, dismiss }), [toast, dismiss])
 
   const polite = toasts.filter((t) => t.politeness === 'polite')
@@ -2378,6 +2724,10 @@ export function ToastProvider({ children, max = 3, defaultDuration = 4000 }: Toa
       {children}
 
       <div className="toast-region">
+        {/* Two containers, both permanently mounted. Splitting by politeness is
+            not cosmetic: a single region can only have one aria-live value, and
+            downgrading an error to polite means it waits behind whatever the
+            screen reader is currently reading. */}
         <div aria-live="polite" className="toast-stack">
           {polite.map((t) => (
             <ToastItem key={t.id} toast={t} onDismiss={dismiss} />
@@ -2395,6 +2745,7 @@ export function ToastProvider({ children, max = 3, defaultDuration = 4000 }: Toa
 
 function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string) => void }) {
   const [paused, setPaused] = useState(false)
+  // Time left, carried across pauses. A ref because changing it must not render.
   const remainingRef = useRef(toast.duration)
   const startedRef = useRef(0)
 
@@ -2406,6 +2757,9 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
 
     return () => {
       clearTimeout(timer)
+      // Bank the elapsed time so resuming continues rather than restarting.
+      // Restarting the full duration on every mouse-out is the other common bug:
+      // a toast the user keeps brushing past never leaves.
       remainingRef.current -= Date.now() - startedRef.current
     }
   }, [paused, toast.id, toast.duration, onDismiss])
@@ -2414,6 +2768,8 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
     <div
       className="toast"
       data-politeness={toast.politeness}
+      // Hover and focus both pause. onFocus/onBlur in React follow focusin/focusout,
+      // so focus landing on the dismiss button inside counts too.
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onFocus={() => setPaused(true)}
@@ -2423,6 +2779,8 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
       <button
         type="button"
         className="toast-dismiss"
+        // The visible × is decorative; the button needs a real name, and it has to
+        // say WHICH toast it closes once several are stacked.
         aria-label={`Dismiss: ${typeof toast.message === 'string' ? toast.message : 'notification'}`}
         onClick={() => onDismiss(toast.id)}
       >
@@ -2608,24 +2966,43 @@ entirely. Falling back to the first row keeps it reachable.
 import { useId, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 
+/**
+ * The insight that makes a tree tractable:
+ *
+ *   RENDER RECURSIVELY, NAVIGATE LINEARLY.
+ *
+ * The DOM is nested, but the keyboard walks a flat list of *visible* rows. Try to
+ * navigate the tree structure directly and ArrowDown becomes a recursive descent
+ * with three special cases. Flatten first and it's `index + 1`.
+ *
+ * The other thing to notice: ← and → each do two different jobs depending on
+ * where you are, which is what makes a tree feel like an editor rather than a list.
+ */
+
 export interface TreeNode {
   value: string
   label: string
+  /** Presence of this array is what makes a node a folder, even when empty. */
   children?: TreeNode[]
 }
 
 interface FlatRow {
   node: TreeNode
   level: number
+  /** 1-based position among siblings, for aria-posinset. */
   position: number
   setSize: number
   parentValue: string | null
   isFolder: boolean
 }
 
+/** Depth-first walk of everything currently visible. Collapsed subtrees are skipped. */
 function flatten(
-  nodes: TreeNode[], expanded: string[],
-  level = 1, parentValue: string | null = null, out: FlatRow[] = [],
+  nodes: TreeNode[],
+  expanded: string[],
+  level = 1,
+  parentValue: string | null = null,
+  out: FlatRow[] = [],
 ): FlatRow[] {
   nodes.forEach((node, i) => {
     const isFolder = Array.isArray(node.children)
@@ -2640,6 +3017,7 @@ function flatten(
 export interface TreeProps {
   nodes: TreeNode[]
   label: string
+  /** Controlled selection. Pair with onValueChange. */
   value?: string | null
   defaultValue?: string | null
   onValueChange?: (value: string) => void
@@ -2647,8 +3025,11 @@ export interface TreeProps {
 }
 
 export function Tree({
-  nodes, label,
-  value: valueProp, defaultValue = null, onValueChange,
+  nodes,
+  label,
+  value: valueProp,
+  defaultValue = null,
+  onValueChange,
   defaultExpanded = [],
 }: TreeProps) {
   const baseId = useId()
@@ -2662,6 +3043,8 @@ export function Tree({
   const rowRefs = useRef(new Map<string, HTMLDivElement | null>())
 
   const rows = flatten(nodes, expanded)
+  // Roving tabindex needs exactly one tabbable row. Falling back to the first row
+  // means the tree is always reachable, even before anything is selected.
   const activeValue = rows.some((r) => r.node.value === value) ? value : rows[0]?.node.value
 
   function commit(next: string) {
@@ -2689,30 +3072,51 @@ export function Tree({
 
     switch (event.key) {
       case 'ArrowDown':
-        event.preventDefault(); focusRow(rows[index + 1]?.node.value); break
+        event.preventDefault()
+        focusRow(rows[index + 1]?.node.value)
+        break
+
       case 'ArrowUp':
-        event.preventDefault(); focusRow(rows[index - 1]?.node.value); break
+        event.preventDefault()
+        focusRow(rows[index - 1]?.node.value)
+        break
+
       case 'ArrowRight':
         event.preventDefault()
+        // Two jobs: open a closed folder, or step INTO an already-open one.
+        // On a leaf it does nothing at all — no wrapping, no jumping to a sibling.
         if (row.isFolder && !isExpanded) setExpandedFor(row.node.value, true)
         else if (row.isFolder && isExpanded) focusRow(rows[index + 1]?.node.value)
         break
+
       case 'ArrowLeft':
         event.preventDefault()
+        // Mirror image: close an open folder, or step OUT to the parent. This is
+        // what lets you climb out of a deep path without arrowing up past every
+        // sibling on the way.
         if (row.isFolder && isExpanded) setExpandedFor(row.node.value, false)
         else if (row.parentValue) focusRow(row.parentValue)
         break
+
       case 'Home':
-        event.preventDefault(); focusRow(rows[0]?.node.value); break
+        event.preventDefault()
+        focusRow(rows[0]?.node.value)
+        break
+
       case 'End':
-        event.preventDefault(); focusRow(rows[rows.length - 1]?.node.value); break
+        event.preventDefault()
+        focusRow(rows[rows.length - 1]?.node.value)
+        break
+
       case 'Enter':
       case ' ':
         event.preventDefault()
         if (row.isFolder) setExpandedFor(row.node.value, !isExpanded)
         else commit(row.node.value)
         break
-      default: break
+
+      default:
+        break
     }
   }
 
@@ -2725,11 +3129,17 @@ export function Tree({
       return (
         <div key={node.value} role="none">
           <div
-            ref={(el) => { rowRefs.current.set(node.value, el) }}
+            ref={(el) => {
+              rowRefs.current.set(node.value, el)
+            }}
             id={rowId(node.value)}
             role="treeitem"
+            // aria-expanded only on folders. On a leaf it would announce a
+            // collapse affordance that doesn't exist.
             aria-expanded={isFolder ? isExpanded : undefined}
             aria-selected={isActive}
+            // The DOM is nested but the a11y tree needs the position spelled out,
+            // because rows are visually indented rather than structurally obvious.
             aria-level={level}
             aria-posinset={i + 1}
             aria-setsize={list.length}
@@ -2747,6 +3157,8 @@ export function Tree({
             <span className="tree-label">{node.label}</span>
           </div>
 
+          {/* role="group" is what tells AT these rows are children of the row
+              above rather than siblings of it. */}
           {isFolder && isExpanded && (
             <div role="group">{renderNodes(node.children!, level + 1)}</div>
           )}
@@ -2955,10 +3367,24 @@ The button is inside the `th` so the header is still a header; the arrow is `ari
 import { useId, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 
+/**
+ * The bug this component exists to teach isn't accessibility, it's derived state:
+ *
+ *   FILTER, THEN SORT, THEN PAGINATE — and reset the page when the filter changes.
+ *
+ * Filter down to two results while sitting on page 5 and you render an empty
+ * table with working pagination. Users report it as "the search is broken".
+ *
+ * The other half is `<table>` semantics. A grid of divs loses row/column
+ * navigation entirely; screen reader users navigate tables with dedicated keys
+ * that only work on real table markup.
+ */
+
 export interface Column<T> {
   key: string
   header: string
   sortable?: boolean
+  /** Sort key. Defaults to the raw cell value. */
   sortValue?: (row: T) => string | number
   render?: (row: T) => ReactNode
 }
@@ -2976,12 +3402,21 @@ export interface DataTableProps<T> {
 type SortState = { key: string; direction: 'ascending' | 'descending' } | null
 
 export function DataTable<T>({
-  rows, columns, caption, getRowId, getCell, pageSize = 5, selectable = false,
+  rows,
+  columns,
+  caption,
+  getRowId,
+  getCell,
+  pageSize = 5,
+  selectable = false,
 }: DataTableProps<T>) {
   const baseId = useId()
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<SortState>(null)
   const [page, setPage] = useState(0)
+  // A Set here, unlike the array in Accordion. Selection is INTERNAL state with
+  // one membership check per rendered row, and it can reach thousands of entries
+  // — exactly where O(1) lookup and O(1) toggling start to matter.
   const [selected, setSelected] = useState<Set<string>>(() => new Set())
 
   const filtered = useMemo(() => {
@@ -2998,6 +3433,8 @@ export function DataTable<T>({
     if (!column) return filtered
 
     const value = (row: T) => column.sortValue?.(row) ?? getCell(row, column.key)
+    // Copy before sorting: Array.prototype.sort mutates, and `filtered` may be
+    // the `rows` prop itself when no query is active.
     return [...filtered].sort((a, b) => {
       const av = value(a)
       const bv = value(b)
@@ -3009,6 +3446,8 @@ export function DataTable<T>({
   }, [filtered, sort, columns, getCell])
 
   const pageCount = Math.max(1, Math.ceil(sorted.length / pageSize))
+  // Clamp rather than store. If the filter shrinks the results while you're on
+  // page 5, deriving the page keeps the table showing rows instead of nothing.
   const safePage = Math.min(page, pageCount - 1)
   const pageRows = sorted.slice(safePage * pageSize, safePage * pageSize + pageSize)
 
@@ -3017,7 +3456,7 @@ export function DataTable<T>({
       prev?.key === key
         ? prev.direction === 'ascending'
           ? { key, direction: 'descending' }
-          : null
+          : null // third click clears — sorting is not a one-way door
         : { key, direction: 'ascending' },
     )
   }
@@ -3025,6 +3464,8 @@ export function DataTable<T>({
   function toggleRow(id: string) {
     setSelected((prev) => {
       const next = new Set(prev)
+      // The copy is the part people forget. Mutating `prev` in place leaves React
+      // holding the same reference, so nothing re-renders.
       if (next.has(id)) next.delete(id)
       else next.add(id)
       return next
@@ -3044,7 +3485,7 @@ export function DataTable<T>({
             value={query}
             onChange={(e) => {
               setQuery(e.target.value)
-              setPage(0)
+              setPage(0) // belt as well as braces; the clamp above is the braces
             }}
           />
         </label>
@@ -3054,6 +3495,8 @@ export function DataTable<T>({
       </div>
 
       <table className="table">
+        {/* A caption is the table's accessible name and is announced when a
+            screen reader user enters it. Better than aria-label: it's visible. */}
         <caption className="table-caption">{caption}</caption>
         <thead>
           <tr>
@@ -3079,9 +3522,19 @@ export function DataTable<T>({
             {columns.map((col) => {
               const active = sort?.key === col.key
               return (
-                <th key={col.key} scope="col" aria-sort={active ? sort!.direction : undefined}>
+                // aria-sort belongs on the TH, not on the button inside it, and
+                // only on the column actually sorted.
+                <th
+                  key={col.key}
+                  scope="col"
+                  aria-sort={active ? sort!.direction : undefined}
+                >
                   {col.sortable ? (
-                    <button type="button" className="table-sort" onClick={() => toggleSort(col.key)}>
+                    <button
+                      type="button"
+                      className="table-sort"
+                      onClick={() => toggleSort(col.key)}
+                    >
                       {col.header}
                       <span aria-hidden="true" className="table-sort-icon">
                         {active ? (sort!.direction === 'ascending' ? '▲' : '▼') : '↕'}
@@ -3113,6 +3566,8 @@ export function DataTable<T>({
                 )}
                 {columns.map((col, i) => {
                   const content = col.render ? col.render(row) : getCell(row, col.key)
+                  // The first column is the row's header, which is what lets AT
+                  // say "Ada Lovelace, Engineering" instead of just "Engineering".
                   return i === 0 ? (
                     <th key={col.key} scope="row" id={`${baseId}-row-${id}`}>
                       {content}
@@ -3135,6 +3590,7 @@ export function DataTable<T>({
         <button type="button" onClick={() => setPage(safePage - 1)} disabled={safePage === 0}>
           Previous
         </button>
+        {/* Announced, because the rows changing underneath is otherwise silent. */}
         <span role="status" aria-live="polite">
           Page {safePage + 1} of {pageCount} · {sorted.length} rows
         </span>
@@ -3307,9 +3763,29 @@ useEffect(() => () => controllerRef.current?.abort(), [])
 ```tsx
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+/**
+ * The highest-probability component at any AI company, and the one where the
+ * accessibility instinct is backwards:
+ *
+ *   DO NOT PUT aria-live ON THE STREAMING TEXT.
+ *
+ * A live region announces every mutation. A token stream mutates thirty times a
+ * second, so a screen reader would read the answer letter by letter, forever
+ * behind, with no way to stop it. Announce the STATUS ("Responding", "Response
+ * complete") in a live region and mark the text `aria-busy` — then the user reads
+ * the finished answer when they choose to.
+ *
+ * The other three are the async ones: stop must be instant, retry must not race,
+ * and unmounting mid-stream must not warn.
+ */
+
 export type StreamStatus = 'idle' | 'streaming' | 'done' | 'stopped' | 'error'
 
 export interface StreamingMessageProps {
+  /**
+   * Push tokens through `onToken`; resolve when the stream ends. Must honor the
+   * signal — the component aborts it on stop, retry, and unmount.
+   */
   stream: (prompt: string, onToken: (token: string) => void, signal: AbortSignal) => Promise<void>
   placeholder?: string
 }
@@ -3321,6 +3797,8 @@ export function StreamingMessage({ stream, placeholder }: StreamingMessageProps)
   const [status, setStatus] = useState<StreamStatus>('idle')
 
   const controllerRef = useRef<AbortController | null>(null)
+  // Same two-layer guard as the combobox: abort stops the source, the generation
+  // counter stops anything that already slipped past it from writing state.
   const generationRef = useRef(0)
 
   const run = useCallback(
@@ -3338,6 +3816,9 @@ export function StreamingMessage({ stream, placeholder }: StreamingMessageProps)
         await stream(
           value,
           (token) => {
+            // Tokens arrive from a closure that outlives the render that made it.
+            // Without this check, a retry's tokens interleave with the previous
+            // stream's and you get two answers spliced together.
             if (generation !== generationRef.current) return
             setText((prev) => prev + token)
           },
@@ -3347,15 +3828,21 @@ export function StreamingMessage({ stream, placeholder }: StreamingMessageProps)
         setStatus('done')
       } catch {
         if (generation !== generationRef.current) return
+        // An abort is not an error. Stopping deliberately shouldn't show a
+        // failure state, and unmounting shouldn't show anything at all.
         setStatus(controller.signal.aborted ? 'stopped' : 'error')
       }
     },
     [stream],
   )
 
+  // Abort on unmount. Without this, navigating away mid-stream leaves the request
+  // running and the onToken closure calling setState on a dead component.
   useEffect(() => () => controllerRef.current?.abort(), [])
 
   function stop() {
+    // Bumping the generation is what makes stop feel instant: tokens already in
+    // flight are dropped rather than trickling in after the button click.
     generationRef.current++
     controllerRef.current?.abort()
     setStatus('stopped')
@@ -3396,6 +3883,7 @@ export function StreamingMessage({ stream, placeholder }: StreamingMessageProps)
 
       {status !== 'idle' && (
         <div className="stream-output">
+          {/* aria-busy, NOT aria-live. The status line below does the announcing. */}
           <p className="stream-text" aria-busy={busy}>
             {text}
             {busy && <span className="stream-caret" aria-hidden="true" />}
@@ -3413,6 +3901,8 @@ export function StreamingMessage({ stream, placeholder }: StreamingMessageProps)
         </div>
       )}
 
+      {/* One short sentence per transition — the entire accessible surface of a
+          stream. Empty while idle so nothing is announced on mount. */}
       <div className="visually-hidden" role="status" aria-live="polite">
         {status === 'streaming'
           ? 'Responding'
@@ -3595,6 +4085,25 @@ read as "left angle bracket". Hide the glyph, name the button.
 import { useEffect, useId, useState } from 'react'
 import type { ReactNode } from 'react'
 
+/**
+ * A carousel is where accessibility law shows up, not just guidance:
+ *
+ *   WCAG 2.2.2 (Pause, Stop, Hide) — LEVEL A. Any motion that starts
+ *   automatically, lasts more than five seconds, and sits alongside other content
+ *   MUST have a pause control. A carousel that auto-advances with no pause button
+ *   is a straight conformance failure, not a nice-to-have.
+ *
+ * Three more that follow from it:
+ *
+ *   - prefers-reduced-motion means don't auto-advance at all. Vestibular
+ *     disorders are the reason the media query exists.
+ *   - Pause on hover AND on focus. A keyboard user tabbing to "next" needs the
+ *     same reprieve a mouse user gets.
+ *   - aria-live flips with the play state. While rotating it's "off" (nobody wants
+ *     a slide announced every four seconds); once the user takes manual control it
+ *     becomes "polite", because now the change is a response to their action.
+ */
+
 export interface CarouselSlide {
   value: string
   content: ReactNode
@@ -3603,18 +4112,25 @@ export interface CarouselSlide {
 export interface CarouselProps {
   slides: CarouselSlide[]
   label: string
+  /** Start auto-rotating. Ignored entirely under prefers-reduced-motion. */
   autoPlay?: boolean
   intervalMs?: number
 }
 
 const REDUCED_MOTION = '(prefers-reduced-motion: reduce)'
 
+/** jsdom has no matchMedia, and neither does an SSR pass. */
 function prefersReducedMotion() {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false
   return window.matchMedia(REDUCED_MOTION).matches
 }
 
+/** Live subscription, because a user can change this setting while the page is open. */
 function usePrefersReducedMotion() {
+  // Lazy initializer rather than useState(false) plus a setState in the effect.
+  // Seeding from the effect would render one frame of motion before correcting
+  // itself — visible to exactly the people the setting exists to protect — and
+  // it's a cascading render the compiler lint rightly rejects.
   const [reduced, setReduced] = useState(prefersReducedMotion)
 
   useEffect(() => {
@@ -3634,6 +4150,9 @@ export function Carousel({ slides, label, autoPlay = false, intervalMs = 4000 }:
 
   const [index, setIndex] = useState(0)
   const reducedMotion = usePrefersReducedMotion()
+  // The user's explicit play/pause choice, separate from the transient hover/focus
+  // pause. Conflating them means moving the mouse away silently restarts motion
+  // the user deliberately stopped.
   const [playing, setPlaying] = useState(autoPlay)
   const [suspended, setSuspended] = useState(false)
 
@@ -3648,12 +4167,16 @@ export function Carousel({ slides, label, autoPlay = false, intervalMs = 4000 }:
 
   const go = (next: number) => {
     setIndex((next + count) % count)
+    // Any manual navigation stops auto-rotation. Fighting the user for control of
+    // the viewport is the single most-hated carousel behavior there is.
     setPlaying(false)
   }
 
   return (
     <div
       className="carousel"
+      // roledescription renames the role for screen readers: "Featured, carousel"
+      // instead of "Featured, group". Requires a real accessible name to attach to.
       role="group"
       aria-roledescription="carousel"
       aria-label={label}
@@ -3663,19 +4186,23 @@ export function Carousel({ slides, label, autoPlay = false, intervalMs = 4000 }:
       onBlur={() => setSuspended(false)}
     >
       <div className="carousel-controls">
+        {/* WCAG 2.2.2. Rendered whenever rotation is possible at all — hiding it
+            while paused would strand a user who paused and wants to resume. */}
         {!reducedMotion && count > 1 && (
           <button
             type="button"
             className="carousel-play"
             onClick={() => setPlaying((p) => !p)}
-            aria-label={
-              playing ? 'Pause automatic slide rotation' : 'Start automatic slide rotation'
-            }
+            // The name states the ACTION, not the state. "Pause" when it's playing.
+            aria-label={playing ? 'Pause automatic slide rotation' : 'Start automatic slide rotation'}
           >
             {playing ? '❚❚' : '▶'}
           </button>
         )}
 
+        {/* The glyph is aria-hidden and the real name is visually hidden. Leaving
+            the bare "‹" in the accessible name yields "‹ Previous slide", which
+            some screen readers read aloud as "left angle bracket". */}
         <button type="button" className="carousel-arrow" onClick={() => go(index - 1)}>
           <span aria-hidden="true">‹</span>
           <span className="visually-hidden">Previous slide</span>
@@ -3686,6 +4213,8 @@ export function Carousel({ slides, label, autoPlay = false, intervalMs = 4000 }:
         </button>
       </div>
 
+      {/* Off while rotating, polite once the user drives. Announcing every slide
+          during autoplay makes the page unusable with a screen reader. */}
       <div className="carousel-viewport" aria-live={rotating ? 'off' : 'polite'}>
         {slides.map((slide, i) => (
           <div
@@ -3693,6 +4222,7 @@ export function Carousel({ slides, label, autoPlay = false, intervalMs = 4000 }:
             id={slideId(i)}
             role="group"
             aria-roledescription="slide"
+            // "3 of 5" is genuinely useful; "Slide" alone is not.
             aria-label={`${i + 1} of ${count}`}
             className="carousel-slide"
             hidden={i !== index}
@@ -3709,6 +4239,8 @@ export function Carousel({ slides, label, autoPlay = false, intervalMs = 4000 }:
             type="button"
             className="carousel-dot"
             aria-label={`Go to slide ${i + 1} of ${count}`}
+            // aria-current, not aria-selected: these are navigation controls, not
+            // options in a listbox.
             aria-current={i === index ? 'true' : undefined}
             aria-controls={slideId(i)}
             onClick={() => go(i)}
@@ -3881,15 +4413,33 @@ affordance and a fast Enter-Enter can still get through.
 import { useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 
+/**
+ * Validation TIMING is the whole component, and almost everyone gets it backwards.
+ *
+ *   Validate on change from the first keystroke and you tell someone their email
+ *   is invalid while they're typing the "j" of "jane@…". It's hostile, and users
+ *   learn to ignore the red.
+ *
+ *   The rule: validate a field on BLUR. After it has errored once, switch that
+ *   field to validating on CHANGE, so the error clears the moment it's fixed
+ *   rather than making them tab away to find out.
+ *
+ * Everything else follows: errors are wired with aria-describedby, submit
+ * validates everything and moves focus to the first problem, and the submit
+ * button is disabled while in flight so a double-click can't post twice.
+ */
+
 export interface FormField {
   name: string
   label: string
   type?: 'text' | 'email' | 'password'
+  /** Return an error string, or null when valid. */
   validate?: (value: string, values: Record<string, string>) => string | null
 }
 
 export interface FormProps {
   fields: FormField[]
+  /** Reject to surface a form-level error. Values are kept either way. */
   onSubmit: (values: Record<string, string>) => Promise<void>
   submitLabel?: string
 }
@@ -3901,6 +4451,8 @@ export function Form({ fields, onSubmit, submitLabel = 'Submit' }: FormProps) {
     Object.fromEntries(fields.map((f) => [f.name, ''])),
   )
   const [errors, setErrors] = useState<Record<string, string>>({})
+  // "This field has already been told off once", which is what flips it from
+  // validate-on-blur to validate-on-change.
   const [erred, setErred] = useState<Record<string, boolean>>({})
   const [status, setStatus] = useState<Status>('idle')
   const [formError, setFormError] = useState<string | null>(null)
@@ -3924,6 +4476,8 @@ export function Form({ fields, onSubmit, submitLabel = 'Submit' }: FormProps) {
   function handleChange(field: FormField, value: string) {
     const nextValues = { ...values, [field.name]: value }
     setValues(nextValues)
+    // Only re-validate a field that has already failed. Before that, typing is
+    // just typing.
     if (erred[field.name]) setError(field.name, validateField(field, nextValues))
   }
 
@@ -3932,6 +4486,8 @@ export function Form({ fields, onSubmit, submitLabel = 'Submit' }: FormProps) {
   }
 
   async function handleSubmit(event: FormEvent) {
+    // Before any await. Miss it and the browser does a full-page form post,
+    // which looks like "my handler never ran".
     event.preventDefault()
     if (status === 'submitting') return
 
@@ -3948,6 +4504,8 @@ export function Form({ fields, onSubmit, submitLabel = 'Submit' }: FormProps) {
 
     const firstBad = fields.find((f) => nextErrors[f.name])
     if (firstBad) {
+      // Move focus to the problem. Without this a keyboard or screen-reader user
+      // gets a rejected submit with no idea where the error is.
       inputRefs.current.get(firstBad.name)?.focus()
       return
     }
@@ -3973,16 +4531,22 @@ export function Form({ fields, onSubmit, submitLabel = 'Submit' }: FormProps) {
 
         return (
           <div className="form-row" key={field.name}>
+            {/* A real <label htmlFor>. Placeholder-as-label disappears the moment
+                the user types, and is not an accessible name. */}
             <label className="form-label" htmlFor={field.name}>
               {field.label}
             </label>
             <input
-              ref={(el) => { inputRefs.current.set(field.name, el) }}
+              ref={(el) => {
+                inputRefs.current.set(field.name, el)
+              }}
               id={field.name}
               name={field.name}
               type={field.type ?? 'text'}
               className="form-input"
               value={values[field.name] ?? ''}
+              // Only when there IS an error — aria-invalid="false" on every field
+              // is noise, and a describedby pointing at nothing is a broken promise.
               aria-invalid={error ? true : undefined}
               aria-describedby={error ? errorId : undefined}
               disabled={submitting}
@@ -4002,6 +4566,8 @@ export function Form({ fields, onSubmit, submitLabel = 'Submit' }: FormProps) {
         {submitting ? 'Submitting…' : submitLabel}
       </button>
 
+      {/* Form-level outcome. role="alert" is assertive on purpose: the user just
+          acted and is waiting on exactly this answer. */}
       <div role="alert" className="form-status">
         {status === 'success' && <span className="form-success">Saved.</span>}
         {status === 'error' && formError && <span className="form-error">{formError}</span>}
