@@ -28,7 +28,36 @@ Reading this front to back teaches you almost nothing. The loop that works:
 
 Step 4 before step 2 is passive rereading, and passive rereading is not preparation.
 
-### B. WHAT IS ACTUALLY GRADED
+### B. TWO SIZES OF EVERY COMPONENT
+
+Every §E implementation is a **reference**: what the component should be when nobody is holding a
+stopwatch. Several are larger than anything you would type in a timed round, and that is
+deliberate — you cannot decide what to leave out of something you have never seen whole.
+
+**§H (INTERVIEW SCOPE)** is the other half. For each component it gives the line budget, what is
+genuinely core, and what to drop — with the sentence to say when you drop it. Four components have
+a complete pared implementation there, because their references are the ones that genuinely
+overrun a round:
+
+| Component | Reference | Interview cut | Runnable |
+|---|---:|---:|---|
+| Combobox | 208 | **117** | `combobox-interview` |
+| Data table | 193 | **111** | `data-table-interview` |
+| Menu | 178 | **125** | `menu-interview` |
+| Tree | 154 | **131** | `tree-interview` |
+
+Every other component is already between 62 and 113 lines, which is a round's worth of typing. For
+those, §H lists what to cut without a separate implementation.
+
+Line counts are the component only — no demo, comments, imports, or `meta` export. The files on
+disk look larger because they carry the teaching apparatus this guide is built from.
+
+**Naming a cut scores better than making it silently.** *"I've left the live region out — screen
+reader users need the result count spoken, it's about four lines and I'd add it next"* demonstrates
+the same knowledge as writing it, and costs eight seconds instead of four minutes. That is the
+skill §H is trying to build.
+
+### C. WHAT IS ACTUALLY GRADED
 
 In roughly this order, and it is not the order most candidates optimize for:
 
@@ -43,7 +72,7 @@ In roughly this order, and it is not the order most candidates optimize for:
 
 Almost everyone spends their time on 6 and 5. The separation is at 1 and 2.
 
-### C. THE TEN-MINUTE VERSION
+### D. THE TEN-MINUTE VERSION
 
 If you have one sitting before a screen, re-derive these four from memory on paper:
 
@@ -464,6 +493,29 @@ with horizontal arrows inert
 outside
 
 **Wiring** — every `aria-controls` and `aria-labelledby` resolves · two instances don't share ids
+
+### H. INTERVIEW SCOPE
+
+**Reference: 109 lines of code.** Already interview-sized — build it as written.
+
+**Core, and none of it is optional:**
+
+- `role="tab"` / `role="tablist"` / `role="tabpanel"`, `aria-selected`, `aria-controls`, `aria-labelledby`
+- Roving tabindex: the whole list is one tab stop
+- Arrow keys with wrapping, plus `preventDefault`
+- Automatic activation — arrows move selection, not just focus
+- `hidden` on unselected panels rather than conditional rendering
+
+**Cut only if the clock beats you:**
+
+| Drop | Say |
+|---|---|
+| `orientation` prop | "Vertical tabs swap to Up/Down and set `aria-orientation`." |
+| Controlled/uncontrolled dual API | "`value`/`defaultValue`/`onValueChange` for a library component. The URL-sync follow-up needs it." |
+| Home / End | "APG lists them; two lines each." |
+
+Expect the controlled-mode follow-up — "make the selected tab shareable by URL" — so know the
+four-line dual-API shape cold even if you don't write it up front.
 
 ## 04 — Accordion / Disclosure
 
@@ -946,6 +998,29 @@ The two worth stealing for every component you build: **"every `aria-controls` r
 **"two instances don't collide."** Four lines each, and between them they catch the majority of
 component-level accessibility bugs.
 
+### H. INTERVIEW SCOPE
+
+**Reference: 98 lines of code.** The smallest of the widget patterns. Build it as written.
+
+**Core:**
+
+- `aria-expanded` on the header button — *not* `aria-selected`, which isn't valid on `button`
+- `aria-controls` pointing at a panel that exists
+- Every header its own tab stop — **no** roving tabindex, the opposite of Tabs
+- A heading element wrapping each button
+- `hidden` panels
+
+**Cut freely:**
+
+| Drop | Say |
+|---|---|
+| Arrow-key navigation between headers | "APG makes it optional for accordions, unlike tabs where it's required." |
+| `allowMultiple` / `collapsible` | "One flag each; the four-branch toggle covers every combination." |
+| Controlled API | "Same dual-API shape as tabs." |
+
+The arrow keys being *optional* here is worth saying out loud — it shows you know the patterns
+differ rather than applying one keyboard model to everything.
+
 ## 05 — Modal / Dialog
 
 > Runnable: `uie-practice/src/exercises/modal-reference/` · Spec: 14 tests
@@ -1313,9 +1388,34 @@ starting inside and ending on the backdrop does **not** · `closeOnBackdrop={fal
 
 **Scroll lock** — locks the body while open and restores the previous value
 
+### H. INTERVIEW SCOPE
+
+**Reference: 107 lines of code**, and the trap is where the time goes, not the markup.
+
+**Core:**
+
+- `role="dialog"`, `aria-modal="true"`, an accessible name from the title
+- Portal to `document.body`
+- Focus into the dialog on open, back to the trigger on close
+- Escape closes; backdrop click closes but a click *inside* does not
+- Focus trap wrapping Tab and Shift+Tab at the edges
+
+**Cut, and say so:**
+
+| Drop | Say |
+|---|---|
+| The exhaustive `FOCUSABLE` selector | "Four or five entries covers it. The tail — `details > summary`, `contenteditable`, media with controls — is why production uses `focus-trap` or Radix." |
+| `isConnected` / `returnFocus` fallback | "If the trigger unmounted while the dialog was open, `.focus()` is a silent no-op and the user lands on `<body>`." |
+| The pointerdown-and-click backdrop check | "Otherwise selecting text inside and releasing outside closes the dialog." |
+| `inert` on the background | "`inert` is the modern answer and cheaper than a trap — it just doesn't wrap." |
+
+If you're out of time, ship **focus restore** over the trap. It's four lines, and an untrapped
+dialog is a smaller failure than one that strands the user on `<body>` after every close.
+
 ## 06 — Combobox / Typeahead
 
-> Runnable: `uie-practice/src/exercises/combobox-reference/` · Spec: 16 tests
+> Runnable: `uie-practice/src/exercises/combobox-reference/` · Spec: 16 tests  
+> Interview cut (§H): `uie-practice/src/exercises/combobox-interview/` · Spec: 9 tests
 
 ### A. ASKED AS
 
@@ -1799,9 +1899,245 @@ selects and closes · Escape closes then clears · Tab leaves without selecting
 **Selection** — pointer selection works despite blur · editing after selecting clears it ·
 controlled mode
 
+### H. INTERVIEW SCOPE
+
+**Reference: 208 lines of code — the largest in the set, and too big for a timed round.**
+The cut below is 117 and keeps everything that gets graded.
+
+**Core:**
+
+- Debounce, so a burst of keystrokes is one request
+- **Both** race guards — the generation counter is what makes stale responses lose; `AbortController`
+  saves the socket but cannot un-queue a resolved `.then`
+- `aria-activedescendant` with real focus never leaving the input
+- APG 1.2 markup: `role="combobox"` on the input itself, not a wrapper
+- Arrows with wrapping, Enter to select, Escape to dismiss
+- `onMouseDown` not `onClick` on options — blur closes the list before a click would land
+
+**Cut, and say so:**
+
+| Drop | Say |
+|---|---|
+| `aria-live` result count | "Sighted users see the list appear; screen reader users need the count spoken. Four lines — the one I'd add back first." |
+| Controlled/uncontrolled API | "For a library component." |
+| `minChars` | "One-line guard against firing on a stray keystroke." |
+| Home / End | "APG lists them; lowest value of the keys." |
+| `scrollIntoView` on the active option | "Needed once the list can overflow." |
+| Distinct error state | "Right now a failure looks like an empty result set." |
+
+<details>
+<summary>The interview cut — Combobox</summary>
+
+```tsx
+import { useEffect, useId, useRef, useState } from 'react'
+import type { KeyboardEvent } from 'react'
+
+/**
+ * THE INTERVIEW CUT of combobox-reference: 208 lines of code down to 117.
+ *
+ * Everything load-bearing is still here — debounce, both race guards,
+ * aria-activedescendant, the listbox markup, arrow/enter/escape. What went is
+ * listed at the bottom of this file, with the sentence to say for each. Naming
+ * what you cut is worth more than silently shipping less.
+ */
+
+export interface Option {
+  value: string
+  label: string
+}
+
+interface ComboboxProps {
+  label: string
+  fetchOptions: (query: string, signal: AbortSignal) => Promise<Option[]>
+  onSelect?: (option: Option) => void
+}
+
+export function Combobox({ label, fetchOptions, onSelect }: ComboboxProps) {
+  const baseId = useId()
+  const optionId = (i: number) => `${baseId}-option-${i}`
+
+  const [query, setQuery] = useState('')
+  const [rawOptions, setOptions] = useState<Option[]>([])
+  const [loading, setLoading] = useState(false)
+  const [open, setOpen] = useState(false)
+  const [activeIndex, setActiveIndex] = useState(-1)
+  const generationRef = useRef(0)
+
+  // Derived, not reset from inside the effect. Clearing state synchronously in an
+  // effect body is a cascading render, and React's lint rule rejects it.
+  const q = query.trim()
+  const options = q ? rawOptions : []
+
+  useEffect(() => {
+    if (!q) return
+
+    const controller = new AbortController()
+    // Only the newest request may write state. AbortController stops the
+    // network but cannot un-queue a `.then` that already resolved — this is
+    // what actually makes stale responses lose.
+    const generation = ++generationRef.current
+
+    const timer = setTimeout(() => {
+      setLoading(true)
+      fetchOptions(q, controller.signal)
+        .then((next) => {
+          if (generation !== generationRef.current) return
+          setOptions(next)
+          setActiveIndex(next.length > 0 ? 0 : -1)
+          setLoading(false)
+        })
+        .catch(() => {
+          if (generation !== generationRef.current) return
+          setLoading(false)
+        })
+    }, 200)
+
+    return () => {
+      clearTimeout(timer)
+      controller.abort()
+    }
+  }, [q, fetchOptions])
+
+  function select(option: Option) {
+    setQuery(option.label)
+    setOpen(false)
+    onSelect?.(option)
+  }
+
+  function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (!open || options.length === 0) return
+    switch (event.key) {
+      case 'ArrowDown':
+        event.preventDefault()
+        setActiveIndex((i) => (i + 1) % options.length)
+        break
+      case 'ArrowUp':
+        event.preventDefault()
+        setActiveIndex((i) => (i - 1 + options.length) % options.length)
+        break
+      case 'Enter':
+        if (activeIndex < 0) return
+        event.preventDefault()
+        select(options[activeIndex])
+        break
+      case 'Escape':
+        setOpen(false)
+        break
+      default:
+        break
+    }
+  }
+
+  const showList = open && (loading || options.length > 0)
+
+  return (
+    <div className="cbi">
+      <label className="cbi-label" htmlFor={`${baseId}-input`}>
+        {label}
+      </label>
+      <input
+        id={`${baseId}-input`}
+        className="cbi-input"
+        role="combobox"
+        autoComplete="off"
+        aria-expanded={showList}
+        aria-controls={`${baseId}-listbox`}
+        aria-autocomplete="list"
+        // The virtual cursor: real focus stays in the input so typing keeps working.
+        aria-activedescendant={showList && activeIndex >= 0 ? optionId(activeIndex) : undefined}
+        value={query}
+        onChange={(e) => {
+          setQuery(e.target.value)
+          setOpen(true)
+          setActiveIndex(-1)
+        }}
+        onKeyDown={handleKeyDown}
+        onBlur={() => setOpen(false)}
+      />
+
+      <ul id={`${baseId}-listbox`} role="listbox" aria-label={label} hidden={!showList} className="cbi-list">
+        {options.map((option, i) => (
+          <li
+            key={option.value}
+            id={optionId(i)}
+            role="option"
+            aria-selected={i === activeIndex}
+            className="cbi-option"
+            // mousedown, not click: blur closes the list before click would fire.
+            onMouseDown={(e) => {
+              e.preventDefault()
+              select(option)
+            }}
+            onMouseEnter={() => setActiveIndex(i)}
+          >
+            {option.label}
+          </li>
+        ))}
+      </ul>
+      {showList && loading && <p className="cbi-msg">Loading…</p>}
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ cut ----
+ * Dropped from the reference, and what to say if asked:
+ *
+ * - Controlled/uncontrolled dual API   "I'd add value/defaultValue/onValueChange
+ *                                       if this were a library component."
+ * - minChars                           "One-line guard; I'd add it to avoid
+ *                                       firing on a single stray keystroke."
+ * - Home / End                         "APG lists them; lower value than the
+ *                                       arrows and I'd add them last."
+ * - scrollIntoView on the active option "Needed once the list can overflow."
+ * - aria-live result-count announcement "Sighted users see the list appear;
+ *                                       screen reader users need the count
+ *                                       spoken. Real gap, and it's four lines."
+ * - Distinct error state               "Right now a failure looks like no
+ *                                       results. I'd split those."
+ * - Tab closing the list               "Tab should leave without selecting."
+ *
+ * Of those, the live region is the one I'd actually spend time on if the
+ * interviewer signals accessibility matters.
+ * -------------------------------------------------------------------------- */
+
+/* ----------------------------------------------------------------- demo ---- */
+
+const PACKAGES = ['react', 'react-dom', 'redux', 'vite', 'vitest', 'typescript', 'eslint']
+
+export default function ComboboxInterview() {
+  const [picked, setPicked] = useState<Option | null>(null)
+
+  return (
+    <div className="cbi-demo">
+      <p className="cbi-note">
+        The same widget as <code>combobox-reference</code>, scoped to what fits in a timed round —
+        117 lines of code instead of 208. Everything that would actually be graded is still here.
+      </p>
+      <Combobox
+        label="Search packages"
+        fetchOptions={async (query) => {
+          await new Promise((r) => setTimeout(r, 180))
+          return PACKAGES.filter((p) => p.includes(query.toLowerCase())).map((p) => ({
+            value: p,
+            label: p,
+          }))
+        }}
+        onSelect={setPicked}
+      />
+      <p className="cbi-picked">
+        Selected: <code>{picked ? picked.label : 'nothing'}</code>
+      </p>
+    </div>
+  )
+}
+```
+
+</details>
+
 ## 07 — Dropdown Menu
 
-> Runnable: `uie-practice/src/exercises/menu-reference/` · Spec: 19 tests
+> Runnable: `uie-practice/src/exercises/menu-reference/` · Spec: 19 tests  
+> Interview cut (§H): `uie-practice/src/exercises/menu-interview/` · Spec: 12 tests
 
 ### A. ASKED AS
 
@@ -2218,6 +2554,248 @@ focus · Tab closes
 
 **Controlled** — reports open changes and does not open on its own
 
+### H. INTERVIEW SCOPE
+
+**Reference: 178 lines of code.** The cut below is 125.
+
+**Core:**
+
+- `aria-haspopup="menu"` and `aria-expanded` on the trigger
+- `role="menu"` / `role="menuitem"`, and **no** `aria-selected` — a menu invokes a command, it
+  doesn't hold a value. That distinction is the thing being tested.
+- Real DOM focus moved into the menu (the opposite of Combobox, which has an input to protect)
+- Enter / Space / ArrowDown open onto the first item; ArrowUp opens onto the last
+- Escape and selection return focus to the trigger; Tab and outside-click do not
+- Outside click on `pointerdown`, not `click`
+
+**Cut, and say so:**
+
+| Drop | Say |
+|---|---|
+| Disabled items | "`aria-disabled`, not the `disabled` attribute — a disabled button is unfocusable, so it vanishes instead of being announced. Then movement skips those indices." |
+| Type-to-jump | "APG asks for it: printable characters accumulate in a 500ms buffer." |
+| Controlled open state | "For a library component." |
+| Submenus, `menuitemcheckbox` / `menuitemradio` | "Those *do* carry state, unlike a plain menuitem — different pattern." |
+| Positioning and collision detection | "floating-ui in production, not hand-rolled." |
+
+Disabled items are the most common follow-up. Know the `aria-disabled` reasoning even if you
+don't write it.
+
+<details>
+<summary>The interview cut — Menu</summary>
+
+```tsx
+import { useEffect, useId, useRef, useState } from 'react'
+import type { KeyboardEvent, ReactNode } from 'react'
+
+/**
+ * THE INTERVIEW CUT of menu-reference: 178 lines of code down to 125.
+ *
+ * The idea that decides everything: A MENU IS NOT A LISTBOX. You are invoking a
+ * command, not choosing a value that persists — so there is no `value` prop and
+ * no aria-selected. The only state is open/closed plus which item has focus.
+ *
+ * And unlike Combobox, that is REAL DOM focus moved into the menu, because there
+ * is no text input to protect. Combobox needs a virtual cursor; a menu does not.
+ *
+ * What went, and the sentence to say, is at the bottom of the file.
+ */
+
+export interface MenuItem {
+  value: string
+  label: ReactNode
+}
+
+interface MenuProps {
+  label: ReactNode
+  items: MenuItem[]
+  onSelect: (value: string) => void
+}
+
+export function Menu({ label, items, onSelect }: MenuProps) {
+  const baseId = useId()
+  const menuId = `${baseId}-menu`
+
+  const [open, setOpen] = useState(false)
+  const [activeIndex, setActiveIndex] = useState(-1)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const itemRefs = useRef<(HTMLButtonElement | null)[]>([])
+
+  function openMenu(focus: 'first' | 'last') {
+    setOpen(true)
+    setActiveIndex(focus === 'first' ? 0 : items.length - 1)
+  }
+
+  function closeMenu(returnFocus: boolean) {
+    setOpen(false)
+    setActiveIndex(-1)
+    // Escape and selection return focus to the trigger; Tab and outside-click do
+    // not, because the user has already chosen where to go next.
+    if (returnFocus) triggerRef.current?.focus()
+  }
+
+  // Real DOM focus follows activeIndex.
+  useEffect(() => {
+    if (!open || activeIndex < 0) return
+    itemRefs.current[activeIndex]?.focus()
+  }, [open, activeIndex])
+
+  // Outside click. pointerdown, not click: click fires only on mouseup, so a
+  // press-drag-release starting inside the menu would close it.
+  useEffect(() => {
+    if (!open) return
+    function onPointerDown(event: PointerEvent) {
+      const target = event.target as Node
+      if (menuRef.current?.contains(target) || triggerRef.current?.contains(target)) return
+      setOpen(false)
+      setActiveIndex(-1)
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    return () => document.removeEventListener('pointerdown', onPointerDown)
+  }, [open])
+
+  function onTriggerKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+    switch (event.key) {
+      case 'ArrowDown':
+      case 'Enter':
+      case ' ':
+        event.preventDefault()
+        openMenu('first')
+        break
+      case 'ArrowUp':
+        // Opening upward lands on the last item — nearest the trigger.
+        event.preventDefault()
+        openMenu('last')
+        break
+      default:
+        break
+    }
+  }
+
+  function onMenuKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    switch (event.key) {
+      case 'ArrowDown':
+        event.preventDefault()
+        setActiveIndex((i) => (i + 1) % items.length)
+        break
+      case 'ArrowUp':
+        event.preventDefault()
+        setActiveIndex((i) => (i - 1 + items.length) % items.length)
+        break
+      case 'Home':
+        event.preventDefault()
+        setActiveIndex(0)
+        break
+      case 'End':
+        event.preventDefault()
+        setActiveIndex(items.length - 1)
+        break
+      case 'Escape':
+        event.preventDefault()
+        closeMenu(true)
+        break
+      case 'Tab':
+        // Let Tab move on, but don't strand an open menu over content behind it.
+        closeMenu(false)
+        break
+      default:
+        break
+    }
+  }
+
+  return (
+    <div className="mi">
+      <button
+        ref={triggerRef}
+        type="button"
+        className="mi-trigger"
+        // "menu" is more specific than "true" — it tells AT what is coming.
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-controls={open ? menuId : undefined}
+        onClick={() => (open ? closeMenu(false) : openMenu('first'))}
+        onKeyDown={onTriggerKeyDown}
+      >
+        {label}
+      </button>
+
+      {open && (
+        <div ref={menuRef} id={menuId} role="menu" className="mi-menu" onKeyDown={onMenuKeyDown}>
+          {items.map((item, i) => (
+            <button
+              key={item.value}
+              ref={(el) => {
+                itemRefs.current[i] = el
+              }}
+              type="button"
+              role="menuitem"
+              className="mi-item"
+              // Every item is tabIndex -1; focus is moved programmatically, so the
+              // menu is a single stop in the page's tab order.
+              tabIndex={-1}
+              onClick={() => {
+                onSelect(item.value)
+                closeMenu(true)
+              }}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ cut ----
+ * Dropped from the reference, and what to say if asked:
+ *
+ * - Disabled items          "aria-disabled rather than the disabled attribute —
+ *                            a disabled button is unfocusable, so it vanishes
+ *                            from the menu instead of being announced. Then
+ *                            every movement skips those indices."
+ * - Type-to-jump            "APG asks for it: printable characters accumulate in
+ *                            a 500ms buffer and jump to the first match."
+ * - Controlled open state   "open / defaultOpen / onOpenChange if this were a
+ *                            library component."
+ * - Submenus, checkbox and  "menuitemcheckbox and menuitemradio DO carry state,
+ *   radio items              unlike a plain menuitem — different pattern."
+ * - Positioning / collision "In production this is floating-ui, not hand-rolled."
+ *
+ * Disabled-item handling is the one I'd add first — it's the most commonly asked
+ * follow-up, and the aria-disabled reasoning is what gets credit.
+ * -------------------------------------------------------------------------- */
+
+/* ----------------------------------------------------------------- demo ---- */
+
+const ITEMS: MenuItem[] = [
+  { value: 'new', label: 'New file' },
+  { value: 'open', label: 'Open…' },
+  { value: 'save', label: 'Save' },
+  { value: 'export', label: 'Export as PDF' },
+]
+
+export default function MenuInterview() {
+  const [last, setLast] = useState<string | null>(null)
+
+  return (
+    <div className="mi-demo">
+      <p className="mi-note">
+        Enter, Space or ↓ opens on the first item; ↑ opens on the last. Escape closes and returns
+        focus to the trigger. 125 lines of code against the reference’s 178.
+      </p>
+      <Menu label="File ▾" items={ITEMS} onSelect={setLast} />
+      <p className="mi-picked">
+        Last command: <code>{last ?? 'none'}</code>
+      </p>
+    </div>
+  )
+}
+```
+
+</details>
+
 ## 08 — Tooltip
 
 > Runnable: `uie-practice/src/exercises/tooltip-reference/` · Spec: 12 tests
@@ -2505,6 +3083,25 @@ the bubble itself is hoverable · leaving without reaching it closes after the g
 persistent with no auto-hide
 
 **Composition** — the child keeps its own handlers · an icon button still has its own name
+
+### H. INTERVIEW SCOPE
+
+**Reference: 62 lines of code** — the smallest component in the set. Build it as written; there
+is nothing to cut.
+
+**Core:**
+
+- `role="tooltip"` and `aria-describedby` on the trigger, only while open
+- Opens on hover **and** on focus; a hover-only tooltip is invisible to keyboard users
+- Escape dismisses without moving the pointer
+- Handlers on a wrapper, not the trigger, so moving the pointer onto the bubble doesn't close it
+
+Those last three are **WCAG 1.4.13** (Content on Hover or Focus): dismissible, hoverable,
+persistent. Naming the criterion is worth more than any amount of extra code here.
+
+The one thing to say out loud: **a tooltip is not a popover.** Tooltips hold a short text
+description and nothing interactive. The moment there's a link or a button inside, it's a popover
+or a dialog and the whole keyboard contract changes.
 
 ## 09 — Toast
 
@@ -2850,9 +3447,36 @@ pauses and resuming continues from where it stopped · keyboard focus pauses it 
 
 **Context** — `useToast` outside a provider fails loudly
 
+### H. INTERVIEW SCOPE
+
+**Reference: 101 lines of code.** Interview-sized. What makes this one different is that you're
+designing an **imperative API**, not a rendered component — `toast('Saved')` from anywhere.
+
+**Core:**
+
+- Context + a `useToast()` hook; the provider owns the queue
+- Two live regions that are **permanently mounted** — a region inserted at the same moment as its
+  content announces nothing. This is the single most common toast bug.
+- `role="status"` (polite) for normal messages, `role="alert"` (assertive) for errors
+- Auto-dismiss on a timer, paused on hover and focus
+
+**Cut, and say so:**
+
+| Drop | Say |
+|---|---|
+| Banking the remaining time across pauses | "Otherwise hovering restarts the full duration each time." |
+| Max-visible queueing | "Past three or four, older ones should queue rather than stack." |
+| Swipe / drag to dismiss | "Pointer-events work, out of scope here." |
+| Exit animations | "Needs the element to outlive its removal from state." |
+
+If asked why the regions are always mounted: screen readers only announce *changes* to a live
+region that was already being observed. Mount it and fill it in the same commit and there's
+nothing to observe.
+
 ## 10 — Tree / File explorer
 
-> Runnable: `uie-practice/src/exercises/tree-reference/` · Spec: 17 tests
+> Runnable: `uie-practice/src/exercises/tree-reference/` · Spec: 17 tests  
+> Interview cut (§H): `uie-practice/src/exercises/tree-interview/` · Spec: 10 tests
 
 ### A. ASKED AS
 
@@ -3234,9 +3858,276 @@ reaches the parent directly · → on a leaf does nothing · an empty folder is 
 **Selection** — Enter toggles a folder rather than selecting it · clicking a leaf reports it ·
 controlled mode
 
+### H. INTERVIEW SCOPE
+
+**Reference: 154 lines of code.** The cut below is 131 — the smallest saving of the four, because
+`flatten` genuinely is the answer and there's no honest way to shrink it.
+
+**Core:**
+
+- **Render recursively, navigate linearly.** `flatten` produces the visible rows in order, so
+  ArrowDown from a folder's last child reaches the folder's next sibling instead of dead-ending.
+- Roving tabindex — exactly one row tabbable, with a fallback so the tree is reachable before
+  anything is selected
+- Left/right arrows meaning two things each: open/close a folder, or step into/out of one
+- `aria-expanded` on folders only; on a leaf it announces a state that can never change
+- `role="group"` wrapping children so the nesting is real to assistive tech
+
+**Cut, and say so:**
+
+| Drop | Say |
+|---|---|
+| `aria-posinset` / `aria-setsize` | "Screen readers announce '2 of 5' from these, and `flatten` already computes them. Cheapest thing on this list." |
+| Controlled selection, `defaultExpanded` | "For a library component; `defaultExpanded` is useful for deep-linking." |
+| Type-to-jump | "APG asks for it." |
+| Multi-select, drag, rename | "Different feature, not the tree pattern." |
+| Virtualisation | "Past a few thousand visible rows — and `flatten` already gives you the flat list to window over." |
+
+Write `flatten` first and narrate it. It's the part that separates a working tree from a broken one.
+
+<details>
+<summary>The interview cut — Tree</summary>
+
+```tsx
+import { useId, useRef, useState } from 'react'
+import type { KeyboardEvent } from 'react'
+
+/**
+ * THE INTERVIEW CUT of tree-reference: 154 lines of code down to 131 — the
+ * smallest saving of the four, because `flatten` really is the answer and there
+ * is no honest way to shrink it.
+ *
+ * RENDER RECURSIVELY, NAVIGATE LINEARLY. The markup nests, but the keyboard sees
+ * one flat list of visible rows — so ArrowDown from the last child of a folder
+ * lands on the folder's next sibling, not on nothing. `flatten` is the whole
+ * trick, and it is the part worth being able to write cold.
+ *
+ * The other half is that left/right arrows mean TWO things depending on where you
+ * are: open/close a folder, or step into/out of one.
+ *
+ * What went, and the sentence to say, is at the bottom of the file.
+ */
+
+export interface TreeNode {
+  value: string
+  label: string
+  /** Presence of this array makes a node a folder, even when empty. */
+  children?: TreeNode[]
+}
+
+interface FlatRow {
+  node: TreeNode
+  level: number
+  parentValue: string | null
+  isFolder: boolean
+}
+
+/** Depth-first walk of everything currently visible; collapsed subtrees are skipped. */
+function flatten(
+  nodes: TreeNode[],
+  expanded: string[],
+  level = 1,
+  parentValue: string | null = null,
+  out: FlatRow[] = [],
+): FlatRow[] {
+  for (const node of nodes) {
+    const isFolder = Array.isArray(node.children)
+    out.push({ node, level, parentValue, isFolder })
+    if (isFolder && expanded.includes(node.value)) {
+      flatten(node.children!, expanded, level + 1, node.value, out)
+    }
+  }
+  return out
+}
+
+interface TreeProps {
+  nodes: TreeNode[]
+  label: string
+  onSelect?: (value: string) => void
+}
+
+export function Tree({ nodes, label, onSelect }: TreeProps) {
+  const baseId = useId()
+  const [selected, setSelected] = useState<string | null>(null)
+  const [expanded, setExpanded] = useState<string[]>([])
+  const rowRefs = useRef(new Map<string, HTMLDivElement | null>())
+
+  const rows = flatten(nodes, expanded)
+  // Roving tabindex needs exactly one tabbable row. Falling back to the first
+  // keeps the tree reachable before anything is selected.
+  const activeValue = rows.some((r) => r.node.value === selected) ? selected : rows[0]?.node.value
+
+  function focusRow(next: string | undefined) {
+    if (!next) return
+    setSelected(next)
+    onSelect?.(next)
+    rowRefs.current.get(next)?.focus()
+  }
+
+  function setExpandedFor(value: string, open: boolean) {
+    setExpanded((prev) => (open ? [...new Set([...prev, value])] : prev.filter((v) => v !== value)))
+  }
+
+  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    const index = rows.findIndex((r) => r.node.value === activeValue)
+    if (index === -1) return
+    const row = rows[index]
+    const isExpanded = expanded.includes(row.node.value)
+
+    switch (event.key) {
+      case 'ArrowDown':
+        event.preventDefault()
+        focusRow(rows[index + 1]?.node.value)
+        break
+      case 'ArrowUp':
+        event.preventDefault()
+        focusRow(rows[index - 1]?.node.value)
+        break
+      case 'ArrowRight':
+        event.preventDefault()
+        // Open a closed folder, or step INTO an open one. Nothing on a leaf.
+        if (row.isFolder && !isExpanded) setExpandedFor(row.node.value, true)
+        else if (row.isFolder && isExpanded) focusRow(rows[index + 1]?.node.value)
+        break
+      case 'ArrowLeft':
+        event.preventDefault()
+        // Mirror image: close an open folder, or step OUT to the parent. This is
+        // what lets you climb out of a deep path without arrowing past siblings.
+        if (row.isFolder && isExpanded) setExpandedFor(row.node.value, false)
+        else if (row.parentValue) focusRow(row.parentValue)
+        break
+      case 'Home':
+        event.preventDefault()
+        focusRow(rows[0]?.node.value)
+        break
+      case 'End':
+        event.preventDefault()
+        focusRow(rows[rows.length - 1]?.node.value)
+        break
+      case 'Enter':
+      case ' ':
+        event.preventDefault()
+        if (row.isFolder) setExpandedFor(row.node.value, !isExpanded)
+        else focusRow(row.node.value)
+        break
+      default:
+        break
+    }
+  }
+
+  function renderNodes(list: TreeNode[], level: number) {
+    return list.map((node) => {
+      const isFolder = Array.isArray(node.children)
+      const isExpanded = expanded.includes(node.value)
+      const isActive = node.value === activeValue
+
+      return (
+        <div key={node.value} role="none">
+          <div
+            ref={(el) => {
+              rowRefs.current.set(node.value, el)
+            }}
+            role="treeitem"
+            // aria-expanded only on folders — on a leaf it announces a collapsed
+            // state that can never open.
+            aria-expanded={isFolder ? isExpanded : undefined}
+            aria-selected={node.value === selected}
+            aria-level={level}
+            tabIndex={isActive ? 0 : -1}
+            className="ti-row"
+            style={{ paddingLeft: `${(level - 1) * 16 + 6}px` }}
+            onClick={() => {
+              if (isFolder) setExpandedFor(node.value, !isExpanded)
+              focusRow(node.value)
+            }}
+          >
+            <span aria-hidden="true" className="ti-caret">
+              {isFolder ? (isExpanded ? '▾' : '▸') : '·'}
+            </span>
+            {node.label}
+          </div>
+          {isFolder && isExpanded && (
+            // The group wrapper is what makes the nesting real to assistive tech.
+            <div role="group">{renderNodes(node.children!, level + 1)}</div>
+          )}
+        </div>
+      )
+    })
+  }
+
+  return (
+    <div id={`${baseId}-tree`} role="tree" aria-label={label} className="ti" onKeyDown={handleKeyDown}>
+      {renderNodes(nodes, 1)}
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ cut ----
+ * Dropped from the reference, and what to say if asked:
+ *
+ * - aria-posinset / aria-setsize  "Screen readers announce '2 of 5' from these.
+ *                                  flatten already computes them — I'd thread
+ *                                  them through if accessibility is being graded."
+ * - Controlled selection API      "value / defaultValue / onValueChange for a
+ *                                  library component."
+ * - defaultExpanded               "Trivial to add; useful for deep-linking."
+ * - Type-to-jump                  "APG asks for it — printable characters jump to
+ *                                  the next matching node."
+ * - Multi-select, drag, rename    "Different feature, not the tree pattern."
+ * - Virtualisation                "Only past a few thousand visible rows, and
+ *                                  flatten already gives you the flat list it
+ *                                  would window over."
+ *
+ * aria-posinset/setsize is the cheapest of these and the one I'd add first.
+ * -------------------------------------------------------------------------- */
+
+/* ----------------------------------------------------------------- demo ---- */
+
+const FILES: TreeNode[] = [
+  {
+    value: 'src',
+    label: 'src',
+    children: [
+      {
+        value: 'components',
+        label: 'components',
+        children: [
+          { value: 'button.tsx', label: 'Button.tsx' },
+          { value: 'modal.tsx', label: 'Modal.tsx' },
+        ],
+      },
+      { value: 'app.tsx', label: 'App.tsx' },
+      { value: 'main.tsx', label: 'main.tsx' },
+    ],
+  },
+  { value: 'readme', label: 'README.md' },
+  { value: 'empty', label: 'assets' , children: [] },
+]
+
+export default function TreeInterview() {
+  const [picked, setPicked] = useState<string | null>(null)
+
+  return (
+    <div className="ti-demo">
+      <p className="ti-note">
+        ↓ ↑ walk every visible row regardless of depth. → opens a folder then steps into it; ←
+        closes it then climbs to the parent. 131 lines of code against the reference’s 154.
+      </p>
+      <Tree nodes={FILES} label="Project files" onSelect={setPicked} />
+      <p className="ti-picked">
+        Selected: <code>{picked ?? 'nothing'}</code>
+      </p>
+    </div>
+  )
+}
+```
+
+</details>
+
 ## 11 — Data table
 
-> Runnable: `uie-practice/src/exercises/data-table-reference/` · Spec: 15 tests
+> Runnable: `uie-practice/src/exercises/data-table-reference/` · Spec: 15 tests  
+> Interview cut (§H): `uie-practice/src/exercises/data-table-interview/` · Spec: 10 tests
 
 ### A. ASKED AS
 
@@ -3667,6 +4558,241 @@ page still shows rows** · announces page and total · shows an empty state
 **Selection** — toggles and counts · checkboxes named by their row · select-all covers the current
 page only · **selection survives sorting**
 
+### H. INTERVIEW SCOPE
+
+**Reference: 193 lines of code.** The cut below is 111.
+
+**Core, and it's one idea:**
+
+**Filter, then sort, then paginate — and derive the page rather than storing it.** Filter down to
+two results while sitting on page 5 and a stored page index renders an empty table with working
+pagination. Users report that as "the search is broken."
+
+Everything else is table markup, and the markup matters more than it looks:
+
+- A real `<table>`, not a grid of divs — screen reader users navigate tables with dedicated keys
+  that only work on real table markup
+- `<caption>` as the accessible name; visible, unlike `aria-label`
+- `<th scope="row">` on the first cell so AT says "Ada, Compilers" rather than just "Compilers"
+- `aria-sort` on the `th`, only on the sorted column
+- Copy before sorting — `Array.prototype.sort` mutates, and the filtered array may be the `rows`
+  prop itself
+- Sort cycling ascending → descending → none; sorting shouldn't be a one-way door
+
+**Cut, and say so:**
+
+| Drop | Say |
+|---|---|
+| Row selection | "Keyed by row id, not index, so sorting doesn't move it. A `Set` for O(1) membership per rendered row." |
+| Custom `sortValue` / `render` props | "So a column can sort on a date while displaying a formatted string." |
+| Column resize / reorder | "Out of scope unless asked." |
+| Virtualisation | "Past a few thousand rows — and it breaks native table semantics, so it's a real trade-off, not a free win." |
+
+<details>
+<summary>The interview cut — DataTable</summary>
+
+```tsx
+import { useMemo, useState } from 'react'
+
+/**
+ * THE INTERVIEW CUT of data-table-reference: 193 lines of code down to 111.
+ *
+ * The whole component is one idea — FILTER, THEN SORT, THEN PAGINATE, and derive
+ * the page rather than storing it. Filter to two results while sitting on page 5
+ * and a stored page index renders an empty table; users report that as "the
+ * search is broken". Everything else is table markup.
+ *
+ * What went, and the sentence to say, is at the bottom of the file.
+ */
+
+export interface Column {
+  key: string
+  header: string
+  sortable?: boolean
+}
+
+interface DataTableProps<T> {
+  rows: T[]
+  columns: Column[]
+  caption: string
+  getRowId: (row: T) => string
+  getCell: (row: T, key: string) => string | number
+  pageSize?: number
+}
+
+type SortState = { key: string; direction: 'ascending' | 'descending' } | null
+
+export function DataTable<T>({
+  rows,
+  columns,
+  caption,
+  getRowId,
+  getCell,
+  pageSize = 5,
+}: DataTableProps<T>) {
+  const [query, setQuery] = useState('')
+  const [sort, setSort] = useState<SortState>(null)
+  const [page, setPage] = useState(0)
+
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    const filtered = q
+      ? rows.filter((row) => columns.some((c) => String(getCell(row, c.key)).toLowerCase().includes(q)))
+      : rows
+    if (!sort) return filtered
+    // Copy first: sort mutates, and `filtered` may be the rows prop itself.
+    return [...filtered].sort((a, b) => {
+      const av = getCell(a, sort.key)
+      const bv = getCell(b, sort.key)
+      const result =
+        typeof av === 'number' && typeof bv === 'number' ? av - bv : String(av).localeCompare(String(bv))
+      return sort.direction === 'ascending' ? result : -result
+    })
+  }, [rows, columns, query, sort, getCell])
+
+  const pageCount = Math.max(1, Math.ceil(visible.length / pageSize))
+  // Clamp rather than store — this is the bug the component exists to avoid.
+  const safePage = Math.min(page, pageCount - 1)
+  const pageRows = visible.slice(safePage * pageSize, safePage * pageSize + pageSize)
+
+  function toggleSort(key: string) {
+    setSort((prev) =>
+      prev?.key === key
+        ? prev.direction === 'ascending'
+          ? { key, direction: 'descending' }
+          : null // third click clears — sorting is not a one-way door
+        : { key, direction: 'ascending' },
+    )
+  }
+
+  return (
+    <div>
+      <label className="dti-search">
+        <span className="visually-hidden">Filter rows</span>
+        <input type="search" placeholder="Filter…" value={query} onChange={(e) => setQuery(e.target.value)} />
+      </label>
+
+      <table className="dti-table">
+        {/* The table's accessible name, and visible — better than aria-label. */}
+        <caption>{caption}</caption>
+        <thead>
+          <tr>
+            {columns.map((col) => {
+              const active = sort?.key === col.key
+              // aria-sort goes on the th, and only on the sorted column.
+              return (
+                <th key={col.key} scope="col" aria-sort={active ? sort.direction : undefined}>
+                  {col.sortable ? (
+                    <button type="button" onClick={() => toggleSort(col.key)}>
+                      {col.header}
+                      <span aria-hidden="true"> {active ? (sort.direction === 'ascending' ? '▲' : '▼') : '↕'}</span>
+                    </button>
+                  ) : (
+                    col.header
+                  )}
+                </th>
+              )
+            })}
+          </tr>
+        </thead>
+        <tbody>
+          {pageRows.map((row) => (
+            <tr key={getRowId(row)}>
+              {columns.map((col, i) =>
+                // The first cell is the row's header, so AT says "Ada, Compilers".
+                i === 0 ? (
+                  <th key={col.key} scope="row">
+                    {getCell(row, col.key)}
+                  </th>
+                ) : (
+                  <td key={col.key}>{getCell(row, col.key)}</td>
+                ),
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {visible.length === 0 && <p className="dti-empty">No rows match “{query}”.</p>}
+
+      <div className="dti-pager">
+        <button type="button" onClick={() => setPage(safePage - 1)} disabled={safePage === 0}>
+          Previous
+        </button>
+        {/* Announced — the rows changing underneath is otherwise silent. */}
+        <span role="status">
+          Page {safePage + 1} of {pageCount} · {visible.length} rows
+        </span>
+        <button type="button" onClick={() => setPage(safePage + 1)} disabled={safePage >= pageCount - 1}>
+          Next
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ cut ----
+ * Dropped from the reference, and what to say if asked:
+ *
+ * - Row selection (Set + select-all)  "Selection is keyed by row id, not index,
+ *                                      so sorting doesn't move it. A Set for
+ *                                      O(1) membership per rendered row."
+ * - Custom sortValue / render props   "I'd add them so a column can sort on a
+ *                                      date while displaying a formatted string."
+ * - Column resize / reorder           "Out of scope unless asked."
+ * - Virtualisation                    "Only past a few thousand rows — and it
+ *                                      breaks native table semantics, so it's a
+ *                                      real trade-off, not a free win."
+ *
+ * The reference keeps all of these; this is the version that fits the clock.
+ * -------------------------------------------------------------------------- */
+
+/* ----------------------------------------------------------------- demo ---- */
+
+interface Person {
+  id: string
+  name: string
+  team: string
+  commits: number
+}
+
+const PEOPLE: Person[] = [
+  { id: '1', name: 'Ada Lovelace', team: 'Compilers', commits: 412 },
+  { id: '2', name: 'Grace Hopper', team: 'Compilers', commits: 388 },
+  { id: '3', name: 'Alan Turing', team: 'Runtime', commits: 274 },
+  { id: '4', name: 'Barbara Liskov', team: 'Languages', commits: 501 },
+  { id: '5', name: 'Katherine Johnson', team: 'Runtime', commits: 143 },
+  { id: '6', name: 'Margaret Hamilton', team: 'Flight', commits: 655 },
+]
+
+const COLUMNS: Column[] = [
+  { key: 'name', header: 'Name', sortable: true },
+  { key: 'team', header: 'Team', sortable: true },
+  { key: 'commits', header: 'Commits', sortable: true },
+]
+
+export default function DataTableInterview() {
+  return (
+    <div className="dti-demo">
+      <p className="dti-note">
+        Filter to something narrow while on page 2 — the page clamps to one that has rows instead of
+        rendering blank. 111 lines of code against the reference’s 193.
+      </p>
+      <DataTable
+        rows={PEOPLE}
+        columns={COLUMNS}
+        caption="Engineers by team"
+        getRowId={(r) => r.id}
+        getCell={(r, key) => r[key as keyof Person]}
+        pageSize={3}
+      />
+    </div>
+  )
+}
+```
+
+</details>
+
 ## 14 — Streaming message
 
 > Runnable: `uie-practice/src/exercises/streaming-message-reference/` · Spec: 12 tests
@@ -3977,6 +5103,33 @@ partial text stays visible
 and clears the old text · a new send discards the previous stream rather than interleaving
 
 **Unmount** — aborts in flight without warning
+
+### H. INTERVIEW SCOPE
+
+**Reference: 107 lines of code.** Interview-sized as written.
+
+**Core:**
+
+- An `AbortController` **and** a generation counter — same two guards as Combobox, same reason
+- `stop()` bumps the generation *before* aborting, so a token already in flight can't land
+- Abort on unmount
+- Retry and supersede both routed through one `run()`, so there's a single place where a stream
+  can start
+
+**The counter-intuitive one, and the reason this gets asked:** `aria-live` on a streaming message
+is **wrong**. A polite region re-announces on every mutation, so a token-by-token stream produces
+a stutter of partial words. Announce once when the message completes instead.
+
+Saying that unprompted is worth more than the rest of the component put together — it's the
+difference between having used a screen reader and having read about ARIA.
+
+**Cut, and say so:**
+
+| Drop | Say |
+|---|---|
+| Token batching / rAF coalescing | "One setState per token is fine up to a point; past that you batch into animation frames." |
+| Markdown rendering mid-stream | "Needs an incremental parser — partial fences break naive renderers." |
+| Scroll-anchoring at the bottom | "Stick to the bottom unless the user has scrolled up." |
 
 ## 15 — Carousel
 
@@ -4309,6 +5462,33 @@ playing · pausing stops it and the control offers to resume · hovering suspend
 resumes · focus suspends too · manual navigation stops it permanently · the live region is `off`
 while rotating and `polite` once stopped
 
+### H. INTERVIEW SCOPE
+
+**Reference: 106 lines of code.** Interview-sized.
+
+**Core, and it's mostly WCAG rather than code:**
+
+- **WCAG 2.2.2 (Pause, Stop, Hide)** — anything auto-advancing for more than five seconds needs a
+  pause control. The single most-missed requirement, and the most likely to be probed.
+- Pause on hover *and* on focus, composed so neither clobbers an explicit user pause
+- `prefers-reduced-motion` disables auto-rotation entirely — seeded with a lazy `useState`
+  initializer, or you render one frame of motion before the effect catches up
+- `aria-live` off while auto-rotating, polite once the user drives it. Announcing every
+  auto-advance is noise that looks like thoroughness.
+- Slide labelling — "3 of 7", each slide named
+
+**Cut, and say so:**
+
+| Drop | Say |
+|---|---|
+| The slide transition itself | "A translated track with a transition — and it'd be behind a reduced-motion guard, which is why I left it as a cut." |
+| Infinite looping | "Clone the first and last slides, then jump back with the transition disabled on `transitionend`." |
+| Touch / swipe | "Pointer events plus a velocity threshold." |
+| Lazy-loading slide images | "`loading="lazy"` past the first slide." |
+
+A carousel that slides beautifully but can't be paused scores below a hard-cut one with a pause
+button. Get the state machine right first, then say what you'd animate.
+
 ## 16 — Form + validation
 
 > Runnable: `uie-practice/src/exercises/form-reference/` · Spec: 13 tests
@@ -4639,6 +5819,35 @@ double-clicking cannot submit twice · fields are locked while in flight
 **Outcomes** — success is announced · a server error is announced and the values are kept
 
 **Cross-field** — a field can validate against the other values
+
+### H. INTERVIEW SCOPE
+
+**Reference: 113 lines of code.** Interview-sized.
+
+**Core:**
+
+- **Two-phase validation**: validate on blur, then on every keystroke *once a field has erred*.
+  Validating while someone first types their email is hostile; not clearing the error until they
+  tab away again is worse.
+- A real `<label>` per input — placeholder-as-label fails as soon as there's text in the field
+- `aria-invalid` and `aria-describedby` pointing at the error, and only while it exists
+- `preventDefault()` before the await
+- Focus the first invalid field on a rejected submit — otherwise a keyboard user gets a rejection
+  and no idea where to look
+- Disable the submit while in flight, so a double-click can't submit twice
+- Keep the values on a server error
+
+**Cut, and say so:**
+
+| Drop | Say |
+|---|---|
+| Cross-field validation | "The validator takes all values, so confirm-password compares against them." |
+| A schema library | "Zod or Valibot in production — this is the same shape, hand-rolled." |
+| Async / server-side field validation | "Debounced, with the same race guards as the combobox." |
+| Dirty tracking, unsaved-changes prompt | "Compare against the initial values." |
+
+If the prompt says "contact form", the two-phase validation timing *is* the question. Everything
+else is scaffolding.
 
 ## 17 — Techniques
 
