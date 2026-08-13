@@ -260,3 +260,53 @@ button {
 .hljs-strong {
   font-weight: 700;
 }
+
+/* --------------------------------------------------------------------------
+   Desktop guide layout (xl and up).
+
+   Below 1280px nothing here applies: the sidebar is display:none and the guide
+   renders exactly as it did before, in one narrow column. Every rule is inside
+   the media query for that reason.
+   -------------------------------------------------------------------------- */
+
+/* The sidebar's own scrollbar. Overlay-thin so it doesn't read as a second
+   page scrollbar sitting next to the real one. */
+.toc-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #3f3f46 transparent;
+}
+.toc-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.toc-scroll::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+  border-radius: 3px;
+}
+.toc-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@media (min-width: 1280px) {
+  /* Running text keeps a readable measure — roughly 80 characters — while code
+     blocks, tables and collapsibles use the whole column. Letting prose stretch
+     to 1000px would "use the space" and be harder to read, which is the opposite
+     of the point. Headings stay full width so the h2 rule spans the column. */
+  .prose > p,
+  .prose > ul,
+  .prose > ol,
+  .prose > blockquote {
+    max-width: 82ch;
+  }
+
+  /* Same treatment one level down, inside the collapsibles. */
+  .prose details > p,
+  .prose details > ul,
+  .prose details > ol {
+    max-width: 82ch;
+  }
+
+  /* A little more air now that lines are shorter than the column. */
+  .prose {
+    font-size: 1.05rem;
+  }
+}

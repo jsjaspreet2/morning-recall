@@ -1,5 +1,5 @@
 import { Suspense, lazy } from 'react'
-import { NavLink, Route, Routes } from 'react-router-dom'
+import { NavLink, Route, Routes, useMatch } from 'react-router-dom'
 import PracticePage from './practice/PracticePage'
 
 // The Learn section pulls in the markdown renderer + syntax highlighter, which
@@ -26,8 +26,18 @@ function TabLink({ to, label }: { to: string; label: string }) {
 }
 
 export default function App() {
+  // Practice is a phone-first morning drill and stays in a single narrow column
+  // at every size. A guide is long-form reading with wide code blocks, so it gets
+  // the desktop width — and only there, so nothing else in the app reflows.
+  const onGuide = useMatch('/learn/:guideId') !== null
+
   return (
-    <div className="min-h-full flex flex-col max-w-2xl mx-auto w-full">
+    <div
+      className={[
+        'min-h-full flex flex-col mx-auto w-full',
+        onGuide ? 'max-w-2xl xl:max-w-[88rem]' : 'max-w-2xl',
+      ].join(' ')}
+    >
       <header className="px-4 pt-3 pb-2 sticky top-0 z-20 bg-[#0a0a0b]/90 backdrop-blur border-b border-zinc-900">
         <nav className="flex gap-1 p-1 rounded-xl bg-zinc-900/60 ring-1 ring-zinc-800">
           <TabLink to="/" label="Practice" />

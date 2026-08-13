@@ -33,3 +33,29 @@ export function extractHeadings(md: string): Heading[] {
   }
   return out
 }
+
+export interface TocSection {
+  /** The `##` itself. */
+  heading: Heading
+  /** Its `###` children, in document order. */
+  children: Heading[]
+}
+
+/**
+ * Group the flat heading list into `##` sections with their `###` children.
+ *
+ * The UIE guide has 132 headings, and a flat sidebar list of that is a scrollbar
+ * with words in it. Nesting lets the sidebar show ~15 sections and expand only
+ * the one being read.
+ *
+ * A `###` appearing before any `##` is dropped rather than orphaned — every guide
+ * opens with a `##`, so this only guards malformed input.
+ */
+export function groupHeadings(headings: Heading[]): TocSection[] {
+  const out: TocSection[] = []
+  for (const h of headings) {
+    if (h.depth === 2) out.push({ heading: h, children: [] })
+    else out[out.length - 1]?.children.push(h)
+  }
+  return out
+}
