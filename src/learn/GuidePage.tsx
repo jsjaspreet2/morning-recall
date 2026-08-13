@@ -12,7 +12,7 @@ export default function GuidePage() {
   const guide = guideById(guideId)
   const headings = useMemo(() => (guide ? extractHeadings(guide.md) : []), [guide])
   const sections = useMemo(() => groupHeadings(headings), [headings])
-  const activeId = useActiveHeading(headings)
+  const { activeId, jumpTo } = useActiveHeading(headings)
 
   // Start each guide at the top when navigating in.
   useEffect(() => {
@@ -32,9 +32,9 @@ export default function GuidePage() {
 
   const ac = accent(guide.accent)
 
-  function jump(id: string) {
-    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
+  // jumpTo, not a bare scrollIntoView: it also suspends active-section tracking
+  // for the duration of the animation. See useActiveHeading.
+  const jump = jumpTo
 
   return (
     <div className="px-4 py-5">

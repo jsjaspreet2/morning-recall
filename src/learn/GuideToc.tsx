@@ -15,13 +15,22 @@ interface GuideTocProps {
 export default function GuideToc({ sections, activeId, onJump }: GuideTocProps) {
   const navRef = useRef<HTMLElement>(null)
 
-  // Keep the highlighted entry inside the sidebar's own scroll box. `nearest`
-  // so it only moves when the entry is actually out of view, and it scrolls the
-  // sidebar rather than the page.
+  // Keep the highlighted entry inside the sidebar's own scroll box.
+  //
+  // Deliberately not scrollIntoView: that walks every scrollable ancestor, so it
+  // can scroll the PAGE as well as the sidebar — and during a smooth jump that
+  // means the sidebar fighting the animation it is supposed to be following.
+  // Setting scrollTop on the container touches nothing else.
   useEffect(() => {
     if (!activeId) return
+    const box = navRef.current?.parentElement
     const el = navRef.current?.querySelector<HTMLElement>(`[data-toc-id="${CSS.escape(activeId)}"]`)
-    el?.scrollIntoView({ block: 'nearest' })
+    if (!box || !el) return
+
+    const top = el.offsetTop - box.offsetTop
+    const bottom = top + el.offsetHeight
+    if (top < box.scrollTop) box.scrollTop = top
+    else if (bottom > box.scrollTop + box.clientHeight) box.scrollTop = bottom - box.clientHeight
   }, [activeId])
 
   function entryClass(h: Heading, isActive: boolean) {
