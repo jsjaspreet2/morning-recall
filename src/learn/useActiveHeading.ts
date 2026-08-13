@@ -1,10 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Heading } from './toc'
 
-/** Give up on a smooth scroll after this long, so the lock can never stick. */
-const JUMP_CEILING_MS = 1200
-/** How long the page must be still before a jump counts as finished. */
-const SETTLE_MS = 120
+/**
+ * Safety net only. Nothing observable happens when this fires — measurement runs
+ * on scroll, so unlocking with the page still is invisible until the reader
+ * moves. It exists so the lock can never be stuck forever.
+ */
+const JUMP_CEILING_MS = 4000
+
+/**
+ * Events that mean the reader has taken the scroll back: trackpad and mouse
+ * wheel, touch, keyboard paging, and pressing the scrollbar.
+ */
+const TAKEOVER = ['wheel', 'touchstart', 'keydown', 'pointerdown'] as const
 
 /**
  * Which heading is currently being read, plus the jump that navigates to one.
@@ -18,25 +26,33 @@ const SETTLE_MS = 120
  *    top has passed the reading line. That always names a section, including
  *    while you sit in the middle of a 300-line code block.
  *
- * 2. PROGRAMMATIC SCROLL MUST NOT BE TRACKED. `scrollIntoView({behavior:
- *    'smooth'})` fires a scroll event every frame of its animation, so tracking
- *    it sweeps the highlight through every heading between origin and target —
- *    120 of them in this guide. Each step re-renders the sidebar and expands a
- *    different section, so entries jump around under the pointer until it lands.
- *    Debouncing only delays that sweep. Instead `jumpTo` sets the target
- *    immediately and suspends measurement until the page is still again.
+ * 2. A JUMP IS AN ANSWER, NOT A JOURNEY. `scrollIntoView({behavior:'smooth'})`
+ *    fires a scroll event every frame of its animation. Tracking those sweeps the
+ *    highlight through all ~120 headings between origin and target, expanding a
+ *    different group each step, so entries shift under the pointer the whole way
+ *    down. Debouncing only delays that.
+ *
+ *    So `jumpTo` pins the clicked heading and stops measuring — and critically,
+ *    it does NOT unpin when the scrolling stops. Releasing on scroll-idle means
+ *    the release itself re-measures the moment the animation lands, and if the
+ *    target could not reach the reading line (anything near the end of the
+ *    document, where the page runs out of room to scroll) the highlight snaps
+ *    somewhere else. That snap is the jank.
+ *
+ *    The pin lifts only when the reader scrolls of their own accord, which is
+ *    the only moment their position genuinely differs from what they clicked.
  */
 export function useActiveHeading(headings: Heading[], offset = 96) {
   const [active, setActive] = useState<string | null>(null)
-  // While true, scroll events are ours and are ignored.
-  const jumpingRef = useRef(false)
+  // While true, scroll is ours and is not measured.
+  const pinnedRef = useRef(false)
   // Tears down whatever jump is in flight. Held in a ref so a second click, or
-  // an unmount, can cancel the first jump's listeners and timers.
-  const endJumpRef = useRef<(() => void) | null>(null)
+  // an unmount, can cancel the first jump's listeners and timer.
+  const unpinRef = useRef<(() => void) | null>(null)
 
   // A jump can outlive the component — click a heading, hit back mid-animation —
   // and its listeners would leak.
-  useEffect(() => () => endJumpRef.current?.(), [])
+  useEffect(() => () => unpinRef.current?.(), [])
 
   useEffect(() => {
     if (headings.length === 0) return
@@ -45,7 +61,8 @@ export function useActiveHeading(headings: Heading[], offset = 96) {
 
     function measure() {
       frame = 0
-      if (jumpingRef.current) return
+      if (pinnedRef.current) return
+
       let current: string | null = null
       for (const h of headings) {
         const el = document.getElementById(h.id)
@@ -54,6 +71,21 @@ export function useActiveHeading(headings: Heading[], offset = 96) {
         else break // headings are in document order, so the first one below the
         // line means every later one is too
       }
+
+      // At the very bottom the page has run out of scroll, so the last few
+      // headings never cross the reading line and the highlight sticks on
+      // whichever one did. Relax the line to the middle of the viewport there —
+      // enough to reach the trailing headings, strict enough that a heading
+      // sitting low on screen is still ahead of you rather than behind.
+      const atBottom = window.innerHeight + window.scrollY >= document.body.scrollHeight - 2
+      if (atBottom) {
+        const line = window.innerHeight / 2
+        for (const h of headings) {
+          const top = document.getElementById(h.id)?.getBoundingClientRect().top
+          if (top !== undefined && top < line) current = h.id
+        }
+      }
+
       // Before the first heading scrolls past, highlight it anyway rather than
       // showing nothing at the very top of the page.
       setActive(current ?? headings[0]?.id ?? null)
@@ -78,47 +110,26 @@ export function useActiveHeading(headings: Heading[], offset = 96) {
     const el = document.getElementById(id)
     if (!el) return
 
-    // A click during an earlier animation supersedes it. Without this, the first
-    // jump's own backstop timer fires mid-flight and unlocks tracking while the
-    // second is still moving — the sweep comes straight back.
-    endJumpRef.current?.()
+    // A second click supersedes the first jump, so the earlier one's timer can't
+    // unpin while this one is still moving.
+    unpinRef.current?.()
 
     // Land on the answer straight away rather than arriving there via every
-    // section in between.
+    // section in between — and stay there.
     setActive(id)
-    jumpingRef.current = true
+    pinnedRef.current = true
 
-    let settle = 0
     let ceiling = 0
-
-    // If the reader grabs the wheel mid-flight, they own the scroll again — hand
-    // tracking straight back rather than making them wait out the animation.
-    const TAKEOVER = ['wheel', 'touchstart', 'keydown'] as const
-
-    const release = () => {
-      window.clearTimeout(settle)
+    const unpin = () => {
       window.clearTimeout(ceiling)
-      window.removeEventListener('scroll', onScrollWhileJumping)
-      for (const type of TAKEOVER) window.removeEventListener(type, release)
-      jumpingRef.current = false
-      if (endJumpRef.current === release) endJumpRef.current = null
+      for (const type of TAKEOVER) window.removeEventListener(type, unpin)
+      pinnedRef.current = false
+      if (unpinRef.current === unpin) unpinRef.current = null
     }
 
-    function onScrollWhileJumping() {
-      // Each scroll event pushes the settle timer out; when they stop arriving,
-      // the animation has finished. Works without the `scrollend` event, which
-      // still isn't everywhere.
-      window.clearTimeout(settle)
-      settle = window.setTimeout(release, SETTLE_MS)
-    }
-
-    window.addEventListener('scroll', onScrollWhileJumping, { passive: true })
-    for (const type of TAKEOVER) window.addEventListener(type, release, { passive: true })
-    // Backstop: if the target is already in place, no scroll event ever fires and
-    // nothing above would release the lock.
-    ceiling = window.setTimeout(release, JUMP_CEILING_MS)
-    settle = window.setTimeout(release, SETTLE_MS * 3)
-    endJumpRef.current = release
+    for (const type of TAKEOVER) window.addEventListener(type, unpin, { passive: true })
+    ceiling = window.setTimeout(unpin, JUMP_CEILING_MS)
+    unpinRef.current = unpin
 
     el.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }, [])
