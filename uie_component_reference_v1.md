@@ -496,7 +496,8 @@ outside
 
 ### H. INTERVIEW SCOPE
 
-**Reference: 109 lines of code.** Already interview-sized — build it as written.
+**Reference: 109 lines of code — already a round's worth of typing.** Nothing to cut; the
+collapsible at the end of this section is the target, unchanged.
 
 **Core, and none of it is optional:**
 
@@ -516,6 +517,164 @@ outside
 
 Expect the controlled-mode follow-up — "make the selected tab shareable by URL" — so know the
 four-line dual-API shape cold even if you don't write it up front.
+
+<details>
+<summary>The interview target — Tabs (identical to the reference above)</summary>
+
+```tsx
+import { useId, useRef, useState } from 'react'
+import type { KeyboardEvent, ReactNode } from 'react'
+
+/**
+ * Everything here is reachable in a 40-minute pairing round. Three things are
+ * doing the heavy lifting, and they are the three worth saying out loud:
+ *
+ *   1. Controlled OR uncontrolled. The first follow-up to any tabs question is
+ *      "how does the parent change the tab?" — deep-link, a Next button, analytics.
+ *   2. useId. Hardcoded ids collide the moment two <Tabs> share a page.
+ *   3. Roving tabindex. The tablist is ONE tab stop; arrows move within it.
+ */
+
+export interface TabItem {
+  value: string
+  label: ReactNode
+  panel: ReactNode
+}
+
+export interface TabsProps {
+  items: TabItem[]
+  /** Controlled selection. Pair with onValueChange. */
+  value?: string
+  /** Uncontrolled initial selection. Defaults to the first item. */
+  defaultValue?: string
+  onValueChange?: (value: string) => void
+  orientation?: 'horizontal' | 'vertical'
+}
+
+export function Tabs({
+  items,
+  value: valueProp,
+  defaultValue,
+  onValueChange,
+  orientation = 'horizontal',
+}: TabsProps) {
+  const baseId = useId()
+  const tabId = (v: string) => `${baseId}-tab-${v}`
+  const panelId = (v: string) => `${baseId}-panel-${v}`
+
+  // Controlled when `value` is passed, uncontrolled otherwise — never a mix.
+  // The internal state still exists in controlled mode; it just stops being read.
+  const [internalValue, setInternalValue] = useState(defaultValue ?? items[0]?.value)
+  const isControlled = valueProp !== undefined
+  const value = isControlled ? valueProp : internalValue
+
+  // A ref array, not document.getElementById: keeps focus inside React's tree,
+  // so this still works under a portal or a shadow root.
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([])
+
+  function select(next: string) {
+    if (!isControlled) setInternalValue(next)
+    onValueChange?.(next)
+  }
+
+  function selectByIndex(index: number) {
+    const item = items[index]
+    if (!item) return
+    select(item.value)
+    // Automatic activation: arrows move focus AND select. Right call when panels
+    // are cheap. If a panel fetched, switch to manual — arrows move focus only,
+    // Enter/Space commits.
+    tabRefs.current[index]?.focus()
+  }
+
+  const prevKey = orientation === 'vertical' ? 'ArrowUp' : 'ArrowLeft'
+  const nextKey = orientation === 'vertical' ? 'ArrowDown' : 'ArrowRight'
+
+  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    const current = items.findIndex((item) => item.value === value)
+    let next: number
+
+    // event.key, not event.code. `code` is the physical key position, so the
+    // numpad arrows arrive as Numpad4/Numpad7 and would slip straight through.
+    switch (event.key) {
+      case prevKey:
+        next = (current - 1 + items.length) % items.length
+        break
+      case nextKey:
+        next = (current + 1) % items.length
+        break
+      case 'Home':
+        next = 0
+        break
+      case 'End':
+        next = items.length - 1
+        break
+      default:
+        return
+    }
+
+    // Without this, Home/End scroll the page out from under the tabs.
+    event.preventDefault()
+    selectByIndex(next)
+  }
+
+  return (
+    <div className="tabs" data-orientation={orientation}>
+      <div
+        className="tabs-list"
+        role="tablist"
+        aria-orientation={orientation}
+        onKeyDown={handleKeyDown}
+      >
+        {items.map((item, i) => {
+          const selected = item.value === value
+          return (
+            <button
+              key={item.value}
+              // Block body: a ref callback must return void or a cleanup function,
+              // and `ref={(el) => (arr[i] = el)}` returns the element.
+              ref={(el) => {
+                tabRefs.current[i] = el
+              }}
+              id={tabId(item.value)}
+              type="button"
+              role="tab"
+              className="tabs-tab"
+              aria-selected={selected}
+              aria-controls={panelId(item.value)}
+              tabIndex={selected ? 0 : -1}
+              onClick={() => select(item.value)}
+            >
+              {item.label}
+            </button>
+          )
+        })}
+      </div>
+
+      {items.map((item) => {
+        const selected = item.value === value
+        return (
+          <div
+            key={item.value}
+            id={panelId(item.value)}
+            role="tabpanel"
+            className="tabs-panel"
+            aria-labelledby={tabId(item.value)}
+            // APG makes the panel focusable only when it holds nothing focusable.
+            // Scoped to the visible panel — a hidden one isn't reachable anyway.
+            tabIndex={selected ? 0 : undefined}
+            hidden={!selected}
+          >
+            {item.panel}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+```
+
+</details>
 
 ## 04 — Accordion / Disclosure
 
@@ -1000,7 +1159,8 @@ component-level accessibility bugs.
 
 ### H. INTERVIEW SCOPE
 
-**Reference: 98 lines of code.** The smallest of the widget patterns. Build it as written.
+**Reference: 98 lines of code** — the smallest of the widget patterns. Nothing to cut; the
+collapsible at the end of this section is the target, unchanged.
 
 **Core:**
 
@@ -1020,6 +1180,158 @@ component-level accessibility bugs.
 
 The arrow keys being *optional* here is worth saying out loud — it shows you know the patterns
 differ rather than applying one keyboard model to everything.
+
+<details>
+<summary>The interview target — Accordion (identical to the reference above)</summary>
+
+```tsx
+import { useId, useRef, useState } from 'react'
+import type { KeyboardEvent, ReactNode } from 'react'
+
+/**
+ * The contrast with Tabs is the whole lesson, and it's the thing to say out loud:
+ *
+ *   Tabs      one panel visible · roving tabindex · arrow keys REQUIRED
+ *   Accordion any number visible · every header is a tab stop · arrows OPTIONAL
+ *
+ * Reaching for roving tabindex here would be wrong. Accordion headers are
+ * independent buttons; a keyboard user expects Tab to walk them.
+ */
+
+export interface AccordionItem {
+  value: string
+  header: ReactNode
+  panel: ReactNode
+}
+
+export interface AccordionProps {
+  items: AccordionItem[]
+  /** Controlled open set. Pair with onValueChange. */
+  value?: string[]
+  /** Uncontrolled initial open set. Defaults to all closed. */
+  defaultValue?: string[]
+  onValueChange?: (value: string[]) => void
+  /** false = radio behavior: opening one closes the rest. */
+  allowMultiple?: boolean
+  /** Single mode only: may the open item be closed again? */
+  collapsible?: boolean
+  /** Headings must nest correctly in the surrounding document outline. */
+  headingLevel?: 2 | 3 | 4
+}
+
+export function Accordion({
+  items,
+  value: valueProp,
+  defaultValue,
+  onValueChange,
+  allowMultiple = false,
+  collapsible = true,
+  headingLevel = 3,
+}: AccordionProps) {
+  const baseId = useId()
+  const headerId = (v: string) => `${baseId}-header-${v}`
+  const panelId = (v: string) => `${baseId}-panel-${v}`
+
+  // Same controlled/uncontrolled shape as Tabs. Worth keeping identical across
+  // every component you write — the reviewer sees one idea, not five.
+  const [internalValue, setInternalValue] = useState<string[]>(defaultValue ?? [])
+  const isControlled = valueProp !== undefined
+  const value = isControlled ? valueProp : internalValue
+
+  const headerRefs = useRef<(HTMLButtonElement | null)[]>([])
+
+  function commit(next: string[]) {
+    if (!isControlled) setInternalValue(next)
+    onValueChange?.(next)
+  }
+
+  function toggle(itemValue: string) {
+    const isOpen = value.includes(itemValue)
+    if (allowMultiple) {
+      commit(isOpen ? value.filter((v) => v !== itemValue) : [...value, itemValue])
+      return
+    }
+    // Single mode. `collapsible: false` is the "one is always open" variant —
+    // clicking the open header must then be a no-op, not a close.
+    if (isOpen) commit(collapsible ? [] : value)
+    else commit([itemValue])
+  }
+
+  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    // Which header has focus? Reading it off the refs means panel content that
+    // happens to be focusable doesn't get hijacked by these arrow keys.
+    // Which header has focus? Reading it off the refs also means focus sitting on
+    // a link inside an open panel falls through (current === -1) and keeps its
+    // own arrow-key behavior.
+    const current = headerRefs.current.indexOf(document.activeElement as HTMLButtonElement)
+    if (current === -1) return
+
+    let next: number
+    switch (event.key) {
+      case 'ArrowDown':
+        next = (current + 1) % items.length
+        break
+      case 'ArrowUp':
+        next = (current - 1 + items.length) % items.length
+        break
+      case 'Home':
+        next = 0
+        break
+      case 'End':
+        next = items.length - 1
+        break
+      default:
+        return
+    }
+    event.preventDefault()
+    // Arrows move focus ONLY. Unlike Tabs, they must not open anything —
+    // an accordion header's expanded state belongs to Enter/Space.
+    headerRefs.current[next]?.focus()
+  }
+
+  const Heading = `h${headingLevel}` as 'h2' | 'h3' | 'h4'
+
+  return (
+    <div className="accordion" onKeyDown={handleKeyDown}>
+      {items.map((item, i) => {
+        const isOpen = value.includes(item.value)
+        return (
+          <div className="accordion-item" key={item.value}>
+            {/* APG requires the trigger to be wrapped in a heading so screen
+                reader users can jump section to section by heading. The button
+                stays the interactive element — never put onClick on the h3. */}
+            <Heading className="accordion-heading">
+              <button
+                ref={(el) => {
+                  headerRefs.current[i] = el
+                }}
+                id={headerId(item.value)}
+                type="button"
+                className="accordion-trigger"
+                aria-expanded={isOpen}
+                aria-controls={panelId(item.value)}
+                onClick={() => toggle(item.value)}
+              >
+                <span className="accordion-marker" aria-hidden="true" />
+                {item.header}
+              </button>
+            </Heading>
+
+            {/* No tabIndex here. Tabs panels take tabIndex={0} when they hold no
+                focusable content; the accordion pattern does not, and copying it
+                across adds a dead tab stop between every header. */}
+            <div id={panelId(item.value)} className="accordion-panel" hidden={!isOpen}>
+              {item.panel}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+```
+
+</details>
 
 ## 05 — Modal / Dialog
 
@@ -1411,6 +1723,201 @@ starting inside and ending on the backdrop does **not** · `closeOnBackdrop={fal
 
 If you're out of time, ship **focus restore** over the trap. It's four lines, and an untrapped
 dialog is a smaller failure than one that strands the user on `<body>` after every close.
+
+<details>
+<summary>The interview target — Modal (identical to the reference above)</summary>
+
+```tsx
+import { useEffect, useId, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import type { KeyboardEvent, MouseEvent, PointerEvent, ReactNode, RefObject } from 'react'
+
+/**
+ * Five things are load-bearing, and four of them are focus:
+ *
+ *   1. Portal out to <body>, so an ancestor's overflow/transform can't clip or
+ *      re-parent the dialog's containing block.
+ *   2. Move focus IN on open.
+ *   3. Trap Tab inside while open.
+ *   4. Put focus BACK on close — including when the trigger no longer exists.
+ *   5. Escape closes, and the innermost dialog wins.
+ *
+ * Everything else (scroll lock, backdrop click) is polish you can name and skip
+ * under time pressure. Focus is not.
+ */
+
+/** Everything the browser will hand focus to via Tab. */
+const FOCUSABLE = [
+  'a[href]',
+  'button:not([disabled])',
+  'input:not([disabled]):not([type="hidden"])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(',')
+
+function focusableWithin(root: HTMLElement): HTMLElement[] {
+  return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
+    // A node inside a `hidden` subtree still matches the selector but cannot take
+    // focus, so it has to be filtered out or Tab appears to stick.
+    //
+    // The tempting one-liner here is `el.offsetParent !== null`. Don't: offsetParent
+    // is also null for every position:fixed element, so a fixed toolbar inside the
+    // dialog would silently drop out of the trap.
+    (el) => !el.closest('[hidden]') && el.getAttribute('aria-hidden') !== 'true',
+  )
+}
+
+export interface ModalProps {
+  /** Controlled only. A dialog whose open state the parent can't drive is useless. */
+  open: boolean
+  onClose: () => void
+  /** Names the dialog. Rendered as the visible heading and wired to aria-labelledby. */
+  title: ReactNode
+  children: ReactNode
+  /** Where focus lands on open. Defaults to the first focusable node inside. */
+  initialFocus?: RefObject<HTMLElement | null>
+  /** Where focus goes on close when the trigger no longer exists. */
+  returnFocus?: RefObject<HTMLElement | null>
+  /** Clicking the backdrop closes. Turn off for destructive confirmations. */
+  closeOnBackdrop?: boolean
+}
+
+export function Modal({ open, ...rest }: ModalProps) {
+  // Mount/unmount IS the state machine. Rendering nothing when closed means every
+  // effect below runs exactly once per opening and cleans up exactly on close —
+  // no `if (!open) return` guard smeared through five different effects.
+  if (!open) return null
+  return createPortal(<ModalContent {...rest} />, document.body)
+}
+
+function ModalContent({
+  onClose,
+  title,
+  children,
+  initialFocus,
+  returnFocus,
+  closeOnBackdrop = true,
+}: Omit<ModalProps, 'open'>) {
+  const titleId = useId()
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const pointerDownTarget = useRef<EventTarget | null>(null)
+
+  // Focus in on mount, focus back on unmount.
+  useEffect(() => {
+    const previouslyFocused = document.activeElement as HTMLElement | null
+
+    const target = initialFocus?.current ?? focusableWithin(dialogRef.current!)[0] ?? dialogRef.current
+    target?.focus()
+
+    return () => {
+      // The trigger can disappear while the dialog is open — think a row's
+      // "Delete" button whose row the dialog just deleted.
+      //
+      // .focus() on a detached node doesn't throw, it silently does nothing and
+      // focus falls to <body>, stranding a keyboard user at the top of the page.
+      // Because the failure is silent, the isConnected check isn't defensive
+      // decoration: it is the only way to know restore failed and route focus
+      // somewhere deliberate instead.
+      if (previouslyFocused?.isConnected) previouslyFocused.focus()
+      // Reading .current at cleanup time is the point here. The lint rule's usual
+      // advice — copy the ref into a variable inside the effect — would capture
+      // whatever existed when the dialog OPENED, and the fallback target is
+      // precisely the thing that may have been added or replaced while it was open.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      else returnFocus?.current?.focus()
+    }
+  }, [initialFocus, returnFocus])
+
+  // Scroll lock. Restore the previous value rather than clearing it, so nested
+  // dialogs don't unlock the page when the inner one closes.
+  useEffect(() => {
+    const previous = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = previous
+    }
+  }, [])
+
+  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key === 'Escape') {
+      // stopPropagation so a nested dialog closes only itself. Because focus is
+      // inside the dialog, this keydown bubbles here first — no document-level
+      // listener, and therefore no ordering puzzle between two open dialogs.
+      event.stopPropagation()
+      onClose()
+      return
+    }
+
+    if (event.key !== 'Tab') return
+
+    const focusable = focusableWithin(dialogRef.current!)
+    if (focusable.length === 0) {
+      // Nothing to move to; keep focus on the dialog itself rather than letting
+      // Tab escape to the page behind.
+      event.preventDefault()
+      return
+    }
+
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+
+    // Wrap only at the two edges. Everywhere else, native Tab already does the
+    // right thing — reimplementing it is how you break screen-reader modes.
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault()
+      last.focus()
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault()
+      first.focus()
+    }
+  }
+
+  function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
+    pointerDownTarget.current = event.target
+  }
+
+  function handleClick(event: MouseEvent<HTMLDivElement>) {
+    if (!closeOnBackdrop) return
+    // Close only when the gesture STARTED and ENDED on the backdrop. Without the
+    // pointerdown half, selecting text inside the dialog and releasing outside it
+    // closes the dialog and throws away what the user typed.
+    const startedOnBackdrop = pointerDownTarget.current === event.currentTarget
+    const endedOnBackdrop = event.target === event.currentTarget
+    if (startedOnBackdrop && endedOnBackdrop) onClose()
+  }
+
+  return (
+    <div
+      className="modal-backdrop"
+      onPointerDown={handlePointerDown}
+      onClick={handleClick}
+      onKeyDown={handleKeyDown}
+    >
+      <div
+        ref={dialogRef}
+        role="dialog"
+        // aria-modal tells assistive tech to ignore everything outside this node.
+        // It is a declaration, not enforcement: it does not stop a sighted mouse
+        // user reaching the page behind. Real inertness needs `inert` on siblings.
+        aria-modal="true"
+        aria-labelledby={titleId}
+        // The dialog container itself is focusable so there is somewhere to put
+        // focus when the content has no focusable elements at all.
+        tabIndex={-1}
+        className="modal-dialog"
+      >
+        <h2 id={titleId} className="modal-title">
+          {title}
+        </h2>
+        <div className="modal-body">{children}</div>
+      </div>
+    </div>
+  )
+}
+```
+
+</details>
 
 ## 06 — Combobox / Typeahead
 
@@ -3086,8 +3593,8 @@ persistent with no auto-hide
 
 ### H. INTERVIEW SCOPE
 
-**Reference: 62 lines of code** — the smallest component in the set. Build it as written; there
-is nothing to cut.
+**Reference: 62 lines of code** — the smallest component in the set, and there is genuinely
+nothing to cut. The collapsible at the end of this section is the target, unchanged.
 
 **Core:**
 
@@ -3102,6 +3609,140 @@ persistent. Naming the criterion is worth more than any amount of extra code her
 The one thing to say out loud: **a tooltip is not a popover.** Tooltips hold a short text
 description and nothing interactive. The moment there's a link or a button inside, it's a popover
 or a dialog and the whole keyboard contract changes.
+
+<details>
+<summary>The interview target — Tooltip (identical to the reference above)</summary>
+
+```tsx
+import { cloneElement, useEffect, useId, useRef, useState } from 'react'
+import type { KeyboardEvent, ReactElement, ReactNode } from 'react'
+
+/**
+ * The most-underestimated component on this list, because the hard part isn't
+ * positioning — it's WCAG 1.4.13 (Content on Hover or Focus), which has three
+ * requirements almost every implementation fails:
+ *
+ *   DISMISSIBLE  Escape closes it without moving the pointer.
+ *   HOVERABLE    You can move the pointer ONTO the tooltip without it vanishing.
+ *   PERSISTENT   It stays until dismissed, blurred, or the pointer leaves.
+ *                No auto-hide timer.
+ *
+ * And the rule that decides whether you should build one at all:
+ *
+ *   A TOOLTIP MAY NOT CONTAIN INTERACTIVE CONTENT.
+ *
+ * There is no way to reach a link inside a tooltip by keyboard — focus is on the
+ * trigger, and moving it dismisses the tooltip. If you need a button in there you
+ * need a popover, which is a different component with different semantics.
+ */
+
+export interface TooltipProps {
+  /** Description only. Never interactive content — see above. */
+  content: ReactNode
+  /** A single focusable element. Receives aria-describedby; its own props are untouched. */
+  children: ReactElement<Record<string, unknown>>
+  /** Open delay in ms. Suppresses flicker when sweeping across a toolbar. */
+  delay?: number
+  /**
+   * Grace period before closing on pointer-leave. This is what makes the tooltip
+   * hoverable: it gives the pointer time to travel from the trigger to the bubble
+   * without the tooltip disappearing under it mid-journey.
+   */
+  closeDelay?: number
+}
+
+export function Tooltip({ content, children, delay = 300, closeDelay = 120 }: TooltipProps) {
+  const tooltipId = useId()
+  const [open, setOpen] = useState(false)
+  // Two timers, because opening and closing are independently debounced and each
+  // must be able to cancel the other.
+  const timers = useRef({ open: 0, close: 0 })
+
+  useEffect(() => {
+    const current = timers.current
+    return () => {
+      window.clearTimeout(current.open)
+      window.clearTimeout(current.close)
+    }
+  }, [])
+
+  function show(immediate = false) {
+    window.clearTimeout(timers.current.close)
+    window.clearTimeout(timers.current.open)
+    // Focus opens instantly; hover waits. A keyboard user has already committed to
+    // this control, so making them wait is pure latency.
+    if (immediate || delay === 0) setOpen(true)
+    else timers.current.open = window.setTimeout(() => setOpen(true), delay)
+  }
+
+  function hide(immediate = false) {
+    window.clearTimeout(timers.current.open)
+    window.clearTimeout(timers.current.close)
+    // Blur and Escape are decisions — act now. A pointer leaving might just be
+    // travelling toward the bubble, so that path gets the grace period.
+    if (immediate) setOpen(false)
+    else timers.current.close = window.setTimeout(() => setOpen(false), closeDelay)
+  }
+
+  function onTriggerKeyDown(event: KeyboardEvent) {
+    // DISMISSIBLE. Fires whether the tooltip was opened by hover or by focus — a
+    // mouse user with a bubble covering the text they're reading needs the same
+    // escape hatch as a keyboard user.
+    if (event.key === 'Escape' && open) {
+      event.stopPropagation()
+      hide(true)
+    }
+  }
+
+  // The ONLY thing cloned onto the child is one string. Every handler lives on the
+  // wrapper below, which matters for three reasons:
+  //
+  //   1. You cannot clobber the consumer's handlers if you never touch them. No
+  //      compose helper, no "did I remember to call theirs first?" bug.
+  //   2. React's onFocus/onBlur map to focusin/focusout, which BUBBLE — unlike the
+  //      native focus/blur events. So a wrapper handler sees focus on the child.
+  //   3. Passing ref-reading closures into cloneElement trips the compiler lint
+  //      ("Cannot access refs during render"), because it can't prove cloneElement
+  //      merely stores them.
+  //
+  // describedby, NOT labelledby. A tooltip supplements the control's name; it does
+  // not replace it. With labelledby, a button reading "Save" would be announced as
+  // its own tooltip text and the real label would be lost.
+  const trigger = cloneElement(children, {
+    'aria-describedby': open ? tooltipId : undefined,
+  })
+
+  return (
+    // Pointer handlers live here rather than on the trigger. On the trigger,
+    // moving toward the bubble fires pointer-leave first and the tooltip closes
+    // before the pointer arrives. The wrapper contains both, and the closeDelay
+    // covers the gap either way.
+    <span
+      className="tooltip-root"
+      onPointerEnter={() => show()}
+      onPointerLeave={() => hide()}
+      onFocus={() => show(true)}
+      onBlur={() => hide(true)}
+      onKeyDown={onTriggerKeyDown}
+    >
+      {trigger}
+      {open && (
+        <span
+          id={tooltipId}
+          role="tooltip"
+          className="tooltip-bubble"
+          onPointerEnter={() => show(true)}
+          onPointerLeave={() => hide()}
+        >
+          {content}
+        </span>
+      )}
+    </span>
+  )
+}
+```
+
+</details>
 
 ## 09 — Toast
 
@@ -3449,7 +4090,8 @@ pauses and resuming continues from where it stopped · keyboard focus pauses it 
 
 ### H. INTERVIEW SCOPE
 
-**Reference: 101 lines of code.** Interview-sized. What makes this one different is that you're
+**Reference: 101 lines of code**, unchanged as the target — the collapsible is at the end of this
+section. What makes this one different is that you're
 designing an **imperative API**, not a rendered component — `toast('Saved')` from anywhere.
 
 **Core:**
@@ -3472,6 +4114,168 @@ designing an **imperative API**, not a rendered component — `toast('Saved')` f
 If asked why the regions are always mounted: screen readers only announce *changes* to a live
 region that was already being observed. Mount it and fill it in the same commit and there's
 nothing to observe.
+
+<details>
+<summary>The interview target — Toast (identical to the reference above)</summary>
+
+```tsx
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
+
+/**
+ * The bug almost every toast implementation ships:
+ *
+ *   THE LIVE REGION MUST ALREADY BE IN THE DOM BEFORE THE MESSAGE GOES INTO IT.
+ *
+ * Screen readers watch an existing aria-live container for mutations. Mount the
+ * container and its text in the same commit and there is no mutation to observe —
+ * the toast is visible, and completely silent. So both regions below are mounted
+ * for the life of the app and stay empty until there's something to say.
+ *
+ * The second thing people miss: pausing on hover but not on focus. A keyboard
+ * user who tabs to the dismiss button gets the toast yanked away mid-reach.
+ */
+
+export type Politeness = 'polite' | 'assertive'
+
+export interface Toast {
+  id: string
+  message: ReactNode
+  politeness: Politeness
+  /** ms, or Infinity to require manual dismissal. */
+  duration: number
+}
+
+export interface ToastOptions {
+  politeness?: Politeness
+  duration?: number
+}
+
+interface ToastContextValue {
+  toast: (message: ReactNode, options?: ToastOptions) => string
+  dismiss: (id: string) => void
+}
+
+const ToastContext = createContext<ToastContextValue | null>(null)
+
+export function useToast(): ToastContextValue {
+  const ctx = useContext(ToastContext)
+  // Throwing beats returning undefined: the failure surfaces at the call site
+  // during development instead of as "toast is not a function" at 2am.
+  if (!ctx) throw new Error('useToast must be used inside a <ToastProvider>')
+  return ctx
+}
+
+export interface ToastProviderProps {
+  children: ReactNode
+  /** Oldest toasts are dropped past this. Unbounded stacks cover the whole page. */
+  max?: number
+  defaultDuration?: number
+}
+
+export function ToastProvider({ children, max = 3, defaultDuration = 4000 }: ToastProviderProps) {
+  const [toasts, setToasts] = useState<Toast[]>([])
+  const idRef = useRef(0)
+
+  const dismiss = useCallback((id: string) => {
+    setToasts((list) => list.filter((t) => t.id !== id))
+  }, [])
+
+  const toast = useCallback(
+    (message: ReactNode, options: ToastOptions = {}) => {
+      const id = `toast-${idRef.current++}`
+      const next: Toast = {
+        id,
+        message,
+        politeness: options.politeness ?? 'polite',
+        duration: options.duration ?? defaultDuration,
+      }
+      setToasts((list) => [...list, next].slice(-max))
+      return id
+    },
+    [defaultDuration, max],
+  )
+
+  // Memoized so every consumer of the context doesn't re-render on each toast.
+  // `toast` and `dismiss` are already stable, so this object is too.
+  const value = useMemo(() => ({ toast, dismiss }), [toast, dismiss])
+
+  const polite = toasts.filter((t) => t.politeness === 'polite')
+  const assertive = toasts.filter((t) => t.politeness === 'assertive')
+
+  return (
+    <ToastContext.Provider value={value}>
+      {children}
+
+      <div className="toast-region">
+        {/* Two containers, both permanently mounted. Splitting by politeness is
+            not cosmetic: a single region can only have one aria-live value, and
+            downgrading an error to polite means it waits behind whatever the
+            screen reader is currently reading. */}
+        <div aria-live="polite" className="toast-stack">
+          {polite.map((t) => (
+            <ToastItem key={t.id} toast={t} onDismiss={dismiss} />
+          ))}
+        </div>
+        <div aria-live="assertive" className="toast-stack">
+          {assertive.map((t) => (
+            <ToastItem key={t.id} toast={t} onDismiss={dismiss} />
+          ))}
+        </div>
+      </div>
+    </ToastContext.Provider>
+  )
+}
+
+function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string) => void }) {
+  const [paused, setPaused] = useState(false)
+  // Time left, carried across pauses. A ref because changing it must not render.
+  const remainingRef = useRef(toast.duration)
+  const startedRef = useRef(0)
+
+  useEffect(() => {
+    if (paused || toast.duration === Infinity) return
+
+    startedRef.current = Date.now()
+    const timer = setTimeout(() => onDismiss(toast.id), remainingRef.current)
+
+    return () => {
+      clearTimeout(timer)
+      // Bank the elapsed time so resuming continues rather than restarting.
+      // Restarting the full duration on every mouse-out is the other common bug:
+      // a toast the user keeps brushing past never leaves.
+      remainingRef.current -= Date.now() - startedRef.current
+    }
+  }, [paused, toast.id, toast.duration, onDismiss])
+
+  return (
+    <div
+      className="toast"
+      data-politeness={toast.politeness}
+      // Hover and focus both pause. onFocus/onBlur in React follow focusin/focusout,
+      // so focus landing on the dismiss button inside counts too.
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onFocus={() => setPaused(true)}
+      onBlur={() => setPaused(false)}
+    >
+      <span className="toast-message">{toast.message}</span>
+      <button
+        type="button"
+        className="toast-dismiss"
+        // The visible × is decorative; the button needs a real name, and it has to
+        // say WHICH toast it closes once several are stacked.
+        aria-label={`Dismiss: ${typeof toast.message === 'string' ? toast.message : 'notification'}`}
+        onClick={() => onDismiss(toast.id)}
+      >
+        <span aria-hidden="true">×</span>
+      </button>
+    </div>
+  )
+}
+```
+
+</details>
 
 ## 10 — Tree / File explorer
 
@@ -5106,7 +5910,8 @@ and clears the old text · a new send discards the previous stream rather than i
 
 ### H. INTERVIEW SCOPE
 
-**Reference: 107 lines of code.** Interview-sized as written.
+**Reference: 107 lines of code**, unchanged as the target — the collapsible is at the end of this
+section.
 
 **Core:**
 
@@ -5130,6 +5935,170 @@ difference between having used a screen reader and having read about ARIA.
 | Token batching / rAF coalescing | "One setState per token is fine up to a point; past that you batch into animation frames." |
 | Markdown rendering mid-stream | "Needs an incremental parser — partial fences break naive renderers." |
 | Scroll-anchoring at the bottom | "Stick to the bottom unless the user has scrolled up." |
+
+<details>
+<summary>The interview target — StreamingMessage (identical to the reference above)</summary>
+
+```tsx
+import { useCallback, useEffect, useRef, useState } from 'react'
+
+/**
+ * The highest-probability component at any AI company, and the one where the
+ * accessibility instinct is backwards:
+ *
+ *   DO NOT PUT aria-live ON THE STREAMING TEXT.
+ *
+ * A live region announces every mutation. A token stream mutates thirty times a
+ * second, so a screen reader would read the answer letter by letter, forever
+ * behind, with no way to stop it. Announce the STATUS ("Responding", "Response
+ * complete") in a live region and mark the text `aria-busy` — then the user reads
+ * the finished answer when they choose to.
+ *
+ * The other three are the async ones: stop must be instant, retry must not race,
+ * and unmounting mid-stream must not warn.
+ */
+
+export type StreamStatus = 'idle' | 'streaming' | 'done' | 'stopped' | 'error'
+
+export interface StreamingMessageProps {
+  /**
+   * Push tokens through `onToken`; resolve when the stream ends. Must honor the
+   * signal — the component aborts it on stop, retry, and unmount.
+   */
+  stream: (prompt: string, onToken: (token: string) => void, signal: AbortSignal) => Promise<void>
+  placeholder?: string
+}
+
+export function StreamingMessage({ stream, placeholder }: StreamingMessageProps) {
+  const [prompt, setPrompt] = useState('')
+  const [sent, setSent] = useState('')
+  const [text, setText] = useState('')
+  const [status, setStatus] = useState<StreamStatus>('idle')
+
+  const controllerRef = useRef<AbortController | null>(null)
+  // Same two-layer guard as the combobox: abort stops the source, the generation
+  // counter stops anything that already slipped past it from writing state.
+  const generationRef = useRef(0)
+
+  const run = useCallback(
+    async (value: string) => {
+      controllerRef.current?.abort()
+      const controller = new AbortController()
+      controllerRef.current = controller
+      const generation = ++generationRef.current
+
+      setSent(value)
+      setText('')
+      setStatus('streaming')
+
+      try {
+        await stream(
+          value,
+          (token) => {
+            // Tokens arrive from a closure that outlives the render that made it.
+            // Without this check, a retry's tokens interleave with the previous
+            // stream's and you get two answers spliced together.
+            if (generation !== generationRef.current) return
+            setText((prev) => prev + token)
+          },
+          controller.signal,
+        )
+        if (generation !== generationRef.current) return
+        setStatus('done')
+      } catch {
+        if (generation !== generationRef.current) return
+        // An abort is not an error. Stopping deliberately shouldn't show a
+        // failure state, and unmounting shouldn't show anything at all.
+        setStatus(controller.signal.aborted ? 'stopped' : 'error')
+      }
+    },
+    [stream],
+  )
+
+  // Abort on unmount. Without this, navigating away mid-stream leaves the request
+  // running and the onToken closure calling setState on a dead component.
+  useEffect(() => () => controllerRef.current?.abort(), [])
+
+  function stop() {
+    // Bumping the generation is what makes stop feel instant: tokens already in
+    // flight are dropped rather than trickling in after the button click.
+    generationRef.current++
+    controllerRef.current?.abort()
+    setStatus('stopped')
+  }
+
+  const busy = status === 'streaming'
+
+  return (
+    <div className="stream">
+      <form
+        className="stream-form"
+        onSubmit={(event) => {
+          event.preventDefault()
+          if (!prompt.trim()) return
+          run(prompt.trim())
+        }}
+      >
+        <label className="visually-hidden" htmlFor="stream-prompt">
+          Message
+        </label>
+        <input
+          id="stream-prompt"
+          className="stream-input"
+          value={prompt}
+          placeholder={placeholder}
+          onChange={(e) => setPrompt(e.target.value)}
+        />
+        {busy ? (
+          <button type="button" className="stream-stop" onClick={stop}>
+            Stop
+          </button>
+        ) : (
+          <button type="submit" className="stream-send" disabled={!prompt.trim()}>
+            Send
+          </button>
+        )}
+      </form>
+
+      {status !== 'idle' && (
+        <div className="stream-output">
+          {/* aria-busy, NOT aria-live. The status line below does the announcing. */}
+          <p className="stream-text" aria-busy={busy}>
+            {text}
+            {busy && <span className="stream-caret" aria-hidden="true" />}
+          </p>
+
+          {status === 'stopped' && <p className="stream-meta">Stopped.</p>}
+          {status === 'error' && (
+            <p className="stream-meta stream-meta--error">Something went wrong.</p>
+          )}
+          {(status === 'error' || status === 'stopped') && (
+            <button type="button" className="stream-retry" onClick={() => run(sent)}>
+              Retry
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* One short sentence per transition — the entire accessible surface of a
+          stream. Empty while idle so nothing is announced on mount. */}
+      <div className="visually-hidden" role="status" aria-live="polite">
+        {status === 'streaming'
+          ? 'Responding'
+          : status === 'done'
+            ? 'Response complete'
+            : status === 'stopped'
+              ? 'Response stopped'
+              : status === 'error'
+                ? 'Response failed'
+                : ''}
+      </div>
+    </div>
+  )
+}
+```
+
+</details>
 
 ## 15 — Carousel
 
@@ -5464,7 +6433,8 @@ while rotating and `polite` once stopped
 
 ### H. INTERVIEW SCOPE
 
-**Reference: 106 lines of code.** Interview-sized.
+**Reference: 106 lines of code**, unchanged as the target — the collapsible is at the end of this
+section.
 
 **Core, and it's mostly WCAG rather than code:**
 
@@ -5488,6 +6458,182 @@ while rotating and `polite` once stopped
 
 A carousel that slides beautifully but can't be paused scores below a hard-cut one with a pause
 button. Get the state machine right first, then say what you'd animate.
+
+<details>
+<summary>The interview target — Carousel (identical to the reference above)</summary>
+
+```tsx
+import { useEffect, useId, useState } from 'react'
+import type { ReactNode } from 'react'
+
+/**
+ * A carousel is where accessibility law shows up, not just guidance:
+ *
+ *   WCAG 2.2.2 (Pause, Stop, Hide) — LEVEL A. Any motion that starts
+ *   automatically, lasts more than five seconds, and sits alongside other content
+ *   MUST have a pause control. A carousel that auto-advances with no pause button
+ *   is a straight conformance failure, not a nice-to-have.
+ *
+ * Three more that follow from it:
+ *
+ *   - prefers-reduced-motion means don't auto-advance at all. Vestibular
+ *     disorders are the reason the media query exists.
+ *   - Pause on hover AND on focus. A keyboard user tabbing to "next" needs the
+ *     same reprieve a mouse user gets.
+ *   - aria-live flips with the play state. While rotating it's "off" (nobody wants
+ *     a slide announced every four seconds); once the user takes manual control it
+ *     becomes "polite", because now the change is a response to their action.
+ */
+
+export interface CarouselSlide {
+  value: string
+  content: ReactNode
+}
+
+export interface CarouselProps {
+  slides: CarouselSlide[]
+  label: string
+  /** Start auto-rotating. Ignored entirely under prefers-reduced-motion. */
+  autoPlay?: boolean
+  intervalMs?: number
+}
+
+const REDUCED_MOTION = '(prefers-reduced-motion: reduce)'
+
+/** jsdom has no matchMedia, and neither does an SSR pass. */
+function prefersReducedMotion() {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false
+  return window.matchMedia(REDUCED_MOTION).matches
+}
+
+/** Live subscription, because a user can change this setting while the page is open. */
+function usePrefersReducedMotion() {
+  // Lazy initializer rather than useState(false) plus a setState in the effect.
+  // Seeding from the effect would render one frame of motion before correcting
+  // itself — visible to exactly the people the setting exists to protect — and
+  // it's a cascading render the compiler lint rightly rejects.
+  const [reduced, setReduced] = useState(prefersReducedMotion)
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return
+    const query = window.matchMedia(REDUCED_MOTION)
+    const onChange = (event: MediaQueryListEvent) => setReduced(event.matches)
+    query.addEventListener('change', onChange)
+    return () => query.removeEventListener('change', onChange)
+  }, [])
+
+  return reduced
+}
+
+export function Carousel({ slides, label, autoPlay = false, intervalMs = 4000 }: CarouselProps) {
+  const baseId = useId()
+  const slideId = (i: number) => `${baseId}-slide-${i}`
+
+  const [index, setIndex] = useState(0)
+  const reducedMotion = usePrefersReducedMotion()
+  // The user's explicit play/pause choice, separate from the transient hover/focus
+  // pause. Conflating them means moving the mouse away silently restarts motion
+  // the user deliberately stopped.
+  const [playing, setPlaying] = useState(autoPlay)
+  const [suspended, setSuspended] = useState(false)
+
+  const rotating = playing && !suspended && !reducedMotion
+  const count = slides.length
+
+  useEffect(() => {
+    if (!rotating || count <= 1) return
+    const timer = window.setInterval(() => setIndex((i) => (i + 1) % count), intervalMs)
+    return () => window.clearInterval(timer)
+  }, [rotating, count, intervalMs])
+
+  const go = (next: number) => {
+    setIndex((next + count) % count)
+    // Any manual navigation stops auto-rotation. Fighting the user for control of
+    // the viewport is the single most-hated carousel behavior there is.
+    setPlaying(false)
+  }
+
+  return (
+    <div
+      className="carousel"
+      // roledescription renames the role for screen readers: "Featured, carousel"
+      // instead of "Featured, group". Requires a real accessible name to attach to.
+      role="group"
+      aria-roledescription="carousel"
+      aria-label={label}
+      onPointerEnter={() => setSuspended(true)}
+      onPointerLeave={() => setSuspended(false)}
+      onFocus={() => setSuspended(true)}
+      onBlur={() => setSuspended(false)}
+    >
+      <div className="carousel-controls">
+        {/* WCAG 2.2.2. Rendered whenever rotation is possible at all — hiding it
+            while paused would strand a user who paused and wants to resume. */}
+        {!reducedMotion && count > 1 && (
+          <button
+            type="button"
+            className="carousel-play"
+            onClick={() => setPlaying((p) => !p)}
+            // The name states the ACTION, not the state. "Pause" when it's playing.
+            aria-label={playing ? 'Pause automatic slide rotation' : 'Start automatic slide rotation'}
+          >
+            {playing ? '❚❚' : '▶'}
+          </button>
+        )}
+
+        {/* The glyph is aria-hidden and the real name is visually hidden. Leaving
+            the bare "‹" in the accessible name yields "‹ Previous slide", which
+            some screen readers read aloud as "left angle bracket". */}
+        <button type="button" className="carousel-arrow" onClick={() => go(index - 1)}>
+          <span aria-hidden="true">‹</span>
+          <span className="visually-hidden">Previous slide</span>
+        </button>
+        <button type="button" className="carousel-arrow" onClick={() => go(index + 1)}>
+          <span aria-hidden="true">›</span>
+          <span className="visually-hidden">Next slide</span>
+        </button>
+      </div>
+
+      {/* Off while rotating, polite once the user drives. Announcing every slide
+          during autoplay makes the page unusable with a screen reader. */}
+      <div className="carousel-viewport" aria-live={rotating ? 'off' : 'polite'}>
+        {slides.map((slide, i) => (
+          <div
+            key={slide.value}
+            id={slideId(i)}
+            role="group"
+            aria-roledescription="slide"
+            // "3 of 5" is genuinely useful; "Slide" alone is not.
+            aria-label={`${i + 1} of ${count}`}
+            className="carousel-slide"
+            hidden={i !== index}
+          >
+            {slide.content}
+          </div>
+        ))}
+      </div>
+
+      <div className="carousel-dots">
+        {slides.map((slide, i) => (
+          <button
+            key={slide.value}
+            type="button"
+            className="carousel-dot"
+            aria-label={`Go to slide ${i + 1} of ${count}`}
+            // aria-current, not aria-selected: these are navigation controls, not
+            // options in a listbox.
+            aria-current={i === index ? 'true' : undefined}
+            aria-controls={slideId(i)}
+            onClick={() => go(i)}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+```
+
+</details>
 
 ## 16 — Form + validation
 
@@ -5822,7 +6968,8 @@ double-clicking cannot submit twice · fields are locked while in flight
 
 ### H. INTERVIEW SCOPE
 
-**Reference: 113 lines of code.** Interview-sized.
+**Reference: 113 lines of code**, unchanged as the target — the collapsible is at the end of this
+section.
 
 **Core:**
 
@@ -5848,6 +6995,179 @@ double-clicking cannot submit twice · fields are locked while in flight
 
 If the prompt says "contact form", the two-phase validation timing *is* the question. Everything
 else is scaffolding.
+
+<details>
+<summary>The interview target — Form (identical to the reference above)</summary>
+
+```tsx
+import { useRef, useState } from 'react'
+import type { FormEvent } from 'react'
+
+/**
+ * Validation TIMING is the whole component, and almost everyone gets it backwards.
+ *
+ *   Validate on change from the first keystroke and you tell someone their email
+ *   is invalid while they're typing the "j" of "jane@…". It's hostile, and users
+ *   learn to ignore the red.
+ *
+ *   The rule: validate a field on BLUR. After it has errored once, switch that
+ *   field to validating on CHANGE, so the error clears the moment it's fixed
+ *   rather than making them tab away to find out.
+ *
+ * Everything else follows: errors are wired with aria-describedby, submit
+ * validates everything and moves focus to the first problem, and the submit
+ * button is disabled while in flight so a double-click can't post twice.
+ */
+
+export interface FormField {
+  name: string
+  label: string
+  type?: 'text' | 'email' | 'password'
+  /** Return an error string, or null when valid. */
+  validate?: (value: string, values: Record<string, string>) => string | null
+}
+
+export interface FormProps {
+  fields: FormField[]
+  /** Reject to surface a form-level error. Values are kept either way. */
+  onSubmit: (values: Record<string, string>) => Promise<void>
+  submitLabel?: string
+}
+
+type Status = 'idle' | 'submitting' | 'success' | 'error'
+
+export function Form({ fields, onSubmit, submitLabel = 'Submit' }: FormProps) {
+  const [values, setValues] = useState<Record<string, string>>(() =>
+    Object.fromEntries(fields.map((f) => [f.name, ''])),
+  )
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  // "This field has already been told off once", which is what flips it from
+  // validate-on-blur to validate-on-change.
+  const [erred, setErred] = useState<Record<string, boolean>>({})
+  const [status, setStatus] = useState<Status>('idle')
+  const [formError, setFormError] = useState<string | null>(null)
+
+  const inputRefs = useRef(new Map<string, HTMLInputElement | null>())
+
+  function validateField(field: FormField, nextValues: Record<string, string>) {
+    return field.validate?.(nextValues[field.name] ?? '', nextValues) ?? null
+  }
+
+  function setError(name: string, message: string | null) {
+    setErrors((prev) => {
+      const next = { ...prev }
+      if (message) next[name] = message
+      else delete next[name]
+      return next
+    })
+    if (message) setErred((prev) => ({ ...prev, [name]: true }))
+  }
+
+  function handleChange(field: FormField, value: string) {
+    const nextValues = { ...values, [field.name]: value }
+    setValues(nextValues)
+    // Only re-validate a field that has already failed. Before that, typing is
+    // just typing.
+    if (erred[field.name]) setError(field.name, validateField(field, nextValues))
+  }
+
+  function handleBlur(field: FormField) {
+    setError(field.name, validateField(field, values))
+  }
+
+  async function handleSubmit(event: FormEvent) {
+    // Before any await. Miss it and the browser does a full-page form post,
+    // which looks like "my handler never ran".
+    event.preventDefault()
+    if (status === 'submitting') return
+
+    const nextErrors: Record<string, string> = {}
+    for (const field of fields) {
+      const message = validateField(field, values)
+      if (message) nextErrors[field.name] = message
+    }
+    setErrors(nextErrors)
+    setErred((prev) => ({
+      ...prev,
+      ...Object.fromEntries(Object.keys(nextErrors).map((k) => [k, true])),
+    }))
+
+    const firstBad = fields.find((f) => nextErrors[f.name])
+    if (firstBad) {
+      // Move focus to the problem. Without this a keyboard or screen-reader user
+      // gets a rejected submit with no idea where the error is.
+      inputRefs.current.get(firstBad.name)?.focus()
+      return
+    }
+
+    setStatus('submitting')
+    setFormError(null)
+    try {
+      await onSubmit(values)
+      setStatus('success')
+    } catch (error) {
+      setStatus('error')
+      setFormError(error instanceof Error ? error.message : 'Something went wrong')
+    }
+  }
+
+  const submitting = status === 'submitting'
+
+  return (
+    <form className="form" onSubmit={handleSubmit} noValidate>
+      {fields.map((field) => {
+        const error = errors[field.name]
+        const errorId = `${field.name}-error`
+
+        return (
+          <div className="form-row" key={field.name}>
+            {/* A real <label htmlFor>. Placeholder-as-label disappears the moment
+                the user types, and is not an accessible name. */}
+            <label className="form-label" htmlFor={field.name}>
+              {field.label}
+            </label>
+            <input
+              ref={(el) => {
+                inputRefs.current.set(field.name, el)
+              }}
+              id={field.name}
+              name={field.name}
+              type={field.type ?? 'text'}
+              className="form-input"
+              value={values[field.name] ?? ''}
+              // Only when there IS an error — aria-invalid="false" on every field
+              // is noise, and a describedby pointing at nothing is a broken promise.
+              aria-invalid={error ? true : undefined}
+              aria-describedby={error ? errorId : undefined}
+              disabled={submitting}
+              onChange={(e) => handleChange(field, e.target.value)}
+              onBlur={() => handleBlur(field)}
+            />
+            {error && (
+              <p id={errorId} className="form-error">
+                {error}
+              </p>
+            )}
+          </div>
+        )
+      })}
+
+      <button type="submit" className="form-submit" disabled={submitting}>
+        {submitting ? 'Submitting…' : submitLabel}
+      </button>
+
+      {/* Form-level outcome. role="alert" is assertive on purpose: the user just
+          acted and is waiting on exactly this answer. */}
+      <div role="alert" className="form-status">
+        {status === 'success' && <span className="form-success">Saved.</span>}
+        {status === 'error' && formError && <span className="form-error">{formError}</span>}
+      </div>
+    </form>
+  )
+}
+```
+
+</details>
 
 ## 17 — Techniques
 
