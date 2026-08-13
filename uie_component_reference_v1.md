@@ -238,7 +238,11 @@ a redundant stop before the real content.
    right here since the panels are local; I'd go manual if selecting triggered a request."*
 3. **`event.key`, not `event.code`.** `code` is physical key position, so numpad arrows arrive as
    `Numpad4` and slip through. This is a real bug in a lot of published solutions.
-4. **All panels stay mounted, `hidden` toggles.** Find-in-page works, panel state survives.
+4. **All panels stay mounted, `hidden` toggles.** State inside an inactive panel survives being
+   switched away from — scroll position, uncontrolled inputs, a playing video — instead of
+   unmounting. It does *not* buy find-in-page: `hidden` computes to `display: none`, which search
+   skips. `hidden="until-found"` is the attribute that makes closed content findable, and it
+   reveals the panel on a match; Chromium-only for now, so treat it as an enhancement.
 
 ### E. IMPLEMENTATION
 
@@ -950,10 +954,14 @@ const Heading = `h${headingLevel}` as 'h2' | 'h3' | 'h4'
 
 - **An `id`, and that's the only required attribute.** It exists so the trigger's `aria-controls`
   resolves. `aria-expanded` on the button already tells assistive tech the state.
-- **`hidden` rather than `{isOpen && <div>}`.** The panel stays in the DOM, so browser
-  find-in-page finds closed content and any component state inside survives a collapse. The
-  cost: `[hidden]` is a low-specificity UA rule, so a stray `display` declaration in your CSS
-  defeats it silently.
+- **`hidden` rather than `{isOpen && <div>}`.** The panel stays in the DOM, so component state
+  inside it survives a collapse — scroll position, uncontrolled input values, a playing video —
+  instead of being torn down and remounted. Two costs worth knowing: `[hidden]` is a
+  low-specificity UA rule, so a stray `display` declaration in your CSS defeats it silently; and
+  `hidden` computes to `display: none`, which browser find-in-page skips. If you want closed
+  panels to be findable, that is `hidden="until-found"` — it reveals the panel and fires
+  `beforematch` when a search hits inside it. Baseline in Chromium since 102, still landing
+  elsewhere, so treat it as an enhancement rather than the default.
 - **No `tabIndex={0}`.** Tabs panels take it (APG asks for it when the panel has no focusable
   content); the accordion pattern does not. Copying it across adds a dead tab stop between every
   header — and the spec has a test for exactly that.
