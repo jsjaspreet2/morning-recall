@@ -18,15 +18,22 @@ at your own from-scratch build.
 
 Reading this front to back teaches you almost nothing. The loop that works:
 
-1. Pick a component. Read only **§B (API)** and **§C (ARIA + keyboard contract)**. Close the guide.
-2. Build it cold, from an empty file, on a clock. Say the prop signature out loud before you
+1. Pick a component. **Derive its API and ARIA contract yourself**, using the six tests in
+   §02 B, before opening anything. Write them down.
+2. Read **§B (API)** and **§C (ARIA + keyboard contract)** and mark where you differed. Those
+   marks are the whole lesson — they are the gaps in your method, not in your memory.
+3. Build it cold, from an empty file, on a clock. Say the prop signature out loud before you
    write the body — that narration is what's actually being graded.
-3. Run the reference spec against your build:
+4. Run the reference spec against your build:
    `npx vitest run src/exercises/<name>-reference`
-4. Only once you're green, read **§E (implementation)** and diff it against yours.
-5. Read **§F (traps)** last. If you hit one on your own, you'll never forget it.
+5. Only once you're green, read **§E (implementation)** and diff it against yours.
+6. Read **§F (traps)** last. If you hit one on your own, you'll never forget it.
 
-Step 4 before step 2 is passive rereading, and passive rereading is not preparation.
+Step 5 before step 3 is passive rereading, and passive rereading is not preparation.
+
+Step 1 is the one people skip, and skipping it is what turns this guide into a memorisation
+exercise. A component you can only build after reading its section is a component you have
+memorised. The interview will not be one of these twelve.
 
 ### B. TWO SIZES OF EVERY COMPONENT
 
@@ -121,7 +128,109 @@ single highest-scoring thing you can do in the round.
    the fetch, not after.
 5. **What's the empty/loading/error state?** Decide now, or you'll bolt it on at minute 38.
 
-### B. API CONVENTIONS USED THROUGHOUT
+### B. HOW TO DECIDE — the tests behind those five
+
+§A tells you which questions to ask. This tells you how to answer them for a component you have
+never seen, which is the only version of the skill that survives contact with a real round.
+
+If you find yourself reaching for what a component in this guide did, you are recalling rather
+than deriving, and it will fail the moment the prompt is a chip multi-select instead of a
+combobox. Each test below is a question about the widget in front of you. None of them require
+knowing what any other widget did.
+
+**1. Does interacting leave state behind?**
+
+| Answer | It is | Which gives you |
+|---|---|---|
+| One item is now "the chosen one" | a selection widget | `aria-selected`, and a `value` |
+| It fires and is gone | a command widget | `menuitem`, no selection state, no `value` |
+| It shows or hides adjacent content | a disclosure | `aria-expanded` + `aria-controls` |
+
+This is what separates a menu from a listbox, and an accordion from tabs. You never have to
+remember that menus don't take `aria-selected` — there is nothing for a selection to persist as.
+
+**2. Is there exactly one "current" item?**
+
+This decides the focus model, which is the highest-consequence choice in the component.
+
+| Answer | Focus model |
+|---|---|
+| Something else must stay usable while navigating (a text input being typed into) | Focus stays put, a virtual cursor moves — `aria-activedescendant` |
+| Exactly one item is current | Roving tabindex; the container is one tab stop |
+| There is no such thing as "the current one" | Every item is its own tab stop |
+
+An accordion lands in the third row because several panels can be open at once, so no header is
+"the current" one. Tabs lands in the second because exactly one tab is selected. Apply the test
+per region, not per component: a widget can have a virtual cursor in one part and roving tabindex
+in another.
+
+**3. For each piece of state, can I compute it instead?**
+
+Ask before every `useState`. If a value is a function of other state, deriving it at render is
+not a style preference — storing it means storing something that can disagree with its own
+inputs, which is the bug.
+
+Then two follow-ups: *would a parent ever need to read or set this?* → dual API (§17 C).
+*Is it transient typing state?* → keep it internal, whatever else you expose.
+
+**4. What can arrive late, repeat, or outlive the component?**
+
+For anything async or timed, in this order:
+
+- Two in flight at once → generation counter (§17 F)
+- Fired many times a second → debounce (§17 K)
+- Unmounted mid-flight → cleanup, and abort
+
+**5. The keyboard falls out of question 2.**
+
+There is no key table to memorize. Given the focus model:
+
+| Focus model | Keys |
+|---|---|
+| Roving tabindex | Arrows move focus, Home/End, one tab stop, `preventDefault` on everything you handle |
+| Virtual cursor | Arrows move the cursor, focus never moves, Enter commits, Escape dismisses |
+| All tab stops | Tab does the work; arrow keys are optional |
+
+**6. What changes without the user causing it?**
+
+That is your live region, and only that. Anything the user just did, they already know about.
+
+**Worked example — a multi-select with removable chips.**
+
+Nothing in this guide implements one. The six questions still produce it.
+
+1. **State behind?** Yes, and more than one at a time — a selection widget. Options take
+   `aria-selected`; the listbox takes `aria-multiselectable="true"`.
+2. **One current item?** Two regions, two answers. The text input must stay usable while you
+   arrow the suggestions, so the list gets a **virtual cursor**. The chips are a separate
+   navigable set with one current chip, so they get **roving tabindex** — one Tab stop for the
+   whole chip row, arrows between them.
+3. **Derivable state?** `query` (transient, internal). `selected` (a parent will want it → dual
+   API). Derived, not stored: the visible options are `results` minus anything already chosen,
+   and list visibility is a function of focus, query length, and status.
+4. **Late or repeated?** Identical to any typeahead: debounce the query, generation-guard the
+   response, abort on change, swallow the `AbortError`.
+5. **Keyboard?** Falls out of 2. In the input: arrows move the cursor, Enter adds a chip,
+   Escape dismisses. On the chips: arrows move focus, Delete/Backspace removes and focus moves
+   to the neighbour. Plus one the tests don't give you, which you get by asking what the natural
+   undo is — **Backspace in an empty input removes the last chip.**
+6. **Announce?** The result count, and each chip added or removed — the chip row changes as a
+   consequence of a keystroke somewhere else, so it will not be read otherwise.
+
+That is the whole design, derived, before writing a line. Note that question 5 produced a
+behaviour no amount of recall would have: nothing else in this guide has a Backspace rule.
+
+**How to practise this.**
+
+Reps on the components in this guide measure your memory of them. To measure the method, build
+things that are **not** here: a rating widget, a segmented control, a chip multi-select, a split
+button, a pagination bar, a toolbar, a date picker.
+
+For each, write the API and the ARIA contract from the six questions **before** any code, then
+check yourself against APG. Being wrong is the point — it is information you cannot get from a
+component whose answer you already know.
+
+### C. API CONVENTIONS USED THROUGHOUT
 
 | Prop | Meaning |
 |---|---|
@@ -135,7 +244,7 @@ single highest-scoring thing you can do in the round.
 state: *"controlled when the parent owns it, uncontrolled with a default when it doesn't,
 never both."*
 
-### C. THE ARIA WIRING RULE
+### D. THE ARIA WIRING RULE
 
 Two rules that would have caught most accessibility bugs you'll ever write:
 
@@ -148,7 +257,7 @@ Two rules that would have caught most accessibility bugs you'll ever write:
 And always `useId()` for the base. Hardcoded id prefixes collide the moment two instances
 share a page, which is exactly what happens in the demo the interviewer opens.
 
-### D. STYLE OFF ARIA, NOT OFF A PARALLEL CLASS
+### E. STYLE OFF ARIA, NOT OFF A PARALLEL CLASS
 
 ```css
 .tab[aria-selected='true']       { /* ... */ }
@@ -160,7 +269,7 @@ The accessibility attribute and the visual state then cannot drift apart, and yo
 thing instead of two. Worth saying out loud — it reads as someone who has maintained a design
 system rather than memorized a pattern.
 
-### E. THE TEST PLAN TO NAME
+### F. THE TEST PLAN TO NAME
 
 Even if you write none of them, saying this list is worth more than most candidates' entire
 implementation:
