@@ -31,9 +31,9 @@ A cheatsheet should reduce recall time. It should not replace explaining the inv
 
 04 Async UI fetch, cancellation, races, Suspense, optimistic UI
 
-05 Streaming chat I NEW transport choice, reader loop, SSE frame parsing
+05 Streaming chat I transport choice, reader loop, SSE frame parsing
 
-06 Streaming chat II NEW status machine, stop/retry, chat UX — the OpenAI-screen build
+06 Streaming chat II status machine, stop/retry, chat UX — the OpenAI-screen build
 
 07 Component design state ownership, context, reducer, performance
 

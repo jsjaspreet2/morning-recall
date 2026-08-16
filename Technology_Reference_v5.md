@@ -4,7 +4,7 @@
 
 > This sheet answers **"which technology and why"** — the axis a pattern-organized system design sheet doesn't cover. Every entry follows the same skeleton so it's scannable under pressure: **mechanism → reach for / avoid → numbers → CAP → interview line → pushback.** The interview line is the choosing-not-pattern-matching signal; the pushback is where the obvious answer reverses, which is the staff tell.
 
-> **Verified August 2026** against primary sources (AWS, Apache, PostgreSQL docs). Facts that changed recently — and that older study material still gets wrong — are marked **[CHANGED]** in place.
+> **Verified August 2026** against primary sources (AWS, Apache, PostgreSQL docs).
 
 > **On the numbers:** these are interview anchors — order-of-magnitude figures to reason with out loud, not spec-sheet facts. Treat ranges as talking points, not exact values to be tested against.
 
@@ -38,7 +38,7 @@
 
 B-tree indexes, MVCC, single-leader replication. Crucially, Postgres does not update in place — an `UPDATE` writes a new row version and marks the old one dead, so readers get a consistent snapshot without blocking writers. `VACUUM` reclaims the dead versions (and is why bloat, HOT updates, and index write-amplification are things you tune). One primary takes writes; read replicas stream the WAL (write-ahead log), asynchronously by default. Write ceiling is set by local WAL fsync throughput and hot-row lock contention, not by replicas.
 
-**[CHANGED] Version note.** PG 18 (Sept 2025) added an asynchronous I/O subsystem (faster sequential scans, bitmap heap scans, vacuum), B-tree skip scan, and native `uuidv7()` for time-ordered keys with better index locality. The process-per-connection model is unchanged, so the pooling advice below still holds.
+**Version note.** PG 18 has an asynchronous I/O subsystem (faster sequential scans, bitmap heap scans, vacuum), B-tree skip scan, and native `uuidv7()` for time-ordered keys with better index locality. Connections are still process-per-connection, which is why the pooling advice below matters.
 
 ### Reach for it when
 
@@ -113,14 +113,14 @@ LSM tree + consistent hashing + masterless replication. Writes append to a memta
 
 ### The model tax (know cold)
 
-- **[CHANGED]** No joins, and no genuinely ad-hoc queries. Cassandra 5.0 (Sept 2024) added **Storage Attached Indexes (SAI)** — real secondary indexes on most column types — so "query by non-partition column = full scan" is now too strong. But a query that doesn't hit the partition key still fans out across the ring: cheaper than before, never free.
+- **No joins, and no genuinely ad-hoc queries.** **Storage Attached Indexes (SAI)** give real secondary indexes on most column types, so "query by non-partition column = full scan" is too strong. But a query that doesn't hit the partition key still fans out across the ring: cheaper than a scan, never free.
 - One table per query — denormalize, dual-write, own consistency across copies yourself.
 - No general transactions. LWT (Paxos) does single-partition compare-and-set only, and it's slow. General-purpose transactions (Accord, CEP-15) have been in development for years and are *still not GA* — don't claim them in a design.
 - Incomplete clustering key silently upserts (clobbers rows).
 - **Tombstones:** deletes don't remove data, they write a marker that lingers until compaction. Read across many tombstones and latency craters — this is why Cassandra is a terrible queue (write-then-delete churns tombstones). The #1 footgun after clustering-key upserts.
 - **Hot partition:** throughput and storage are spread by partition key, so one oversized or over-read partition (a celebrity user, a global bucket) pins load to one replica set while the cluster looks idle. Keep partitions bounded — a working ceiling is ~100 MB / ~100k rows — and bucket by time or hash suffix when a natural key grows unbounded.
 
-### [CHANGED] Mutation cost — the read tax
+### Mutation cost — the read tax
 
 - **Writes are cheap, and an update is just a write** — appended to the memtable, no read-before-write. Cassandra absorbs update volume fine; the write path is not where you pay.
 - **The cost lands on reads.** SSTables are immutable, so each update leaves another fragment of that row in another SSTable. A read merges fragments across SSTables — bloom filters skip most, not all — so an overwrite-heavy row gets steadily more expensive to read until compaction consolidates it.
@@ -199,7 +199,7 @@ The partition key is hashed to place an item on a partition; an optional sort ke
 
 ### CAP / consistency
 
-AP by default, CP on request. Within a Region, reads are eventually consistent unless you set `ConsistentRead`. **[CHANGED]** Across Regions there are now *two* modes. **MREC** (multi-Region eventual consistency) is the long-standing default: last-writer-wins, async replication. **MRSC** (multi-Region strong consistency) went GA on 30 June 2025 and acknowledges a write only once it is durable across the Region set — RPO zero, and any Region can read the latest value.
+AP by default, CP on request. Within a Region, reads are eventually consistent unless you set `ConsistentRead`. Across Regions there are *two* modes. **MREC** (multi-Region eventual consistency) is the default: last-writer-wins, async replication. **MRSC** (multi-Region strong consistency) acknowledges a write only once it is durable across the Region set — RPO zero, and any Region can read the latest value.
 
 MRSC is tightly constrained, and the constraints are the interesting part: exactly three Regions (three replicas, or two replicas plus a DynamoDB-managed **witness** that holds data but serves no traffic); all within one Region set (US / EU / AP — no mixing); the table must be empty when you enable it; the transaction APIs are unavailable; and writes and strongly-consistent reads pay a cross-Region round trip. Conflicting concurrent writes surface as `ReplicatedWriteConflictException`.
 
@@ -209,7 +209,7 @@ DynamoDB is the managed Dynamo-lineage store: partition-key scaling and global r
 
 ### Pushback / when it flips
 
-Below real scale, Postgres still wins — you keep joins, transactions, and the ad-hoc queries Dynamo's single-table model forbids. DynamoDB vs Cassandra is mostly buy vs run: same data model and tradeoffs, DynamoDB is managed/serverless with per-request cost, Cassandra is self-hosted with fixed cluster cost. The classic incident is the hot partition — a skewed key throttles one partition while the table looks under-provisioned. **[CHANGED]** And retire the stale claim that global tables are eventually consistent full stop; MRSC has been GA since mid-2025. The real question is whether the workload will pay a cross-Region round trip on every write to get it — usually only money and inventory will.
+Below real scale, Postgres still wins — you keep joins, transactions, and the ad-hoc queries Dynamo's single-table model forbids. DynamoDB vs Cassandra is mostly buy vs run: same data model and tradeoffs, DynamoDB is managed/serverless with per-request cost, Cassandra is self-hosted with fixed cluster cost. The classic incident is the hot partition — a skewed key throttles one partition while the table looks under-provisioned. Note that global tables are not eventually consistent full stop: MRSC gives you a strongly consistent multi-Region table when the requirement genuinely needs one. The real question is whether the workload will pay a cross-Region round trip on every write to get it — usually only money and inventory will.
 
 ---
 
@@ -241,9 +241,9 @@ RAM-resident data structures with single-threaded command execution — every co
 - Dataset > RAM. It's memory-bound; that's the cost model.
 - **TTL as a business trigger:** expiry deletes a key, it doesn't run your compensation. Keyspace notifications are at-most-once — don't rely on them for correctness.
 
-### [CHANGED] Redis vs Valkey (know the one-liner)
+### Redis vs Valkey (know the one-liner)
 
-- Redis left BSD in March 2024 for RSALv2/SSPL; the Linux Foundation forked 7.2.4 as **Valkey** (BSD, backed by AWS/Google/Oracle); Redis 8 (May 2025) added AGPLv3 as a third option.
+- Redis is licensed RSALv2/SSPL, with AGPLv3 as a third option from Redis 8. The Linux Foundation forked 7.2.4 as **Valkey**, which is BSD and backed by AWS, Google and Oracle.
 - AWS ElastiCache now defaults new clusters to Valkey and prices it below Redis. Valkey is wire-compatible — same commands, same clients.
 - Nothing on this page changes between them. Just don't be surprised when an interviewer says "Valkey."
 
@@ -287,21 +287,21 @@ Partitioned append-only log; consumers track offsets. Each topic splits into par
 ### Operational realities (know cold)
 
 - **Partition count is your parallelism ceiling:** within a consumer group, consumers ≤ partitions (extra consumers sit idle). You pick partition count up front and it's awkward to reduce — size for peak parallelism.
-- **[CHANGED] Consumer-group rebalancing:** when a consumer joins or leaves, partitions are reassigned. Under the classic protocol this is a stop-the-world pause, and frequent rebalances (flapping consumers, long processing) are a classic Kafka incident. The new protocol (KIP-848, GA in Kafka 4.0) makes reassignment incremental and broker-driven, so the global pause is largely gone — name which protocol you're assuming.
-- **[CHANGED] KRaft, not ZooKeeper:** Kafka 4.0 (March 2025) removed ZooKeeper outright. Metadata lives in an internal Raft quorum of controller nodes. Describing Kafka as needing a ZooKeeper ensemble now describes a version nobody deploys new.
+- **Consumer-group rebalancing:** when a consumer joins or leaves, partitions are reassigned. Under the classic protocol this is a stop-the-world pause, and frequent rebalances (flapping consumers, long processing) are a classic Kafka incident. The newer protocol (KIP-848) makes reassignment incremental and broker-driven, so the global pause is largely gone — name which protocol you're assuming.
+- **KRaft, not ZooKeeper:** metadata lives in an internal Raft quorum of controller nodes. ZooKeeper was removed outright in Kafka 4.0, so describing Kafka as needing a ZooKeeper ensemble describes a version nobody deploys new.
 - **Ordering vs. parallelism tension:** you get order within a partition, so more partitions = more parallelism but coarser ordering. Key by the entity whose order matters.
 
 ### Avoid / careful when
 
-- You need priority or delayed/scheduled delivery — still absent; that's a task queue. (Per-message ack is no longer a clean separator — see share groups.)
+- You need priority or delayed/scheduled delivery — still absent; that's a task queue. (Per-message ack is not a clean separator — see share groups.)
 - You need global ordering — you only get per-partition.
 - Low-volume simple job dispatch — Kafka is operational weight you may not need.
 
-### [CHANGED] Share groups (KIP-932) — Kafka learned to queue
+### Share groups (KIP-932) — where Kafka can queue
 
-- Early access in 4.0, preview in 4.1, GA alongside 4.2: a **share group** lets multiple consumers read the *same* partition cooperatively, with per-message acknowledgement, a broker-side delivery count, and poison messages archived after a configurable limit (default 5).
-- Consumer count is no longer capped by partition count for those groups — the parallelism ceiling above applies to classic consumer groups.
-- It narrows the log-vs-queue gap but doesn't close it: no priority, no delay, and it's new enough that "use a real queue" is still the safe interview answer. Knowing it exists is the differentiator.
+- A **share group** lets multiple consumers read the *same* partition cooperatively, with per-message acknowledgement, a broker-side delivery count, and poison messages archived after a configurable limit (default 5).
+- Consumer count is not capped by partition count for a share group — the parallelism ceiling above applies to classic consumer groups only.
+- It narrows the log-vs-queue gap without closing it: no priority, no delay, and recent enough that "use a real queue" is still the safe interview answer. Knowing it exists is the differentiator.
 
 **Numbers to anchor**
 
@@ -398,7 +398,7 @@ A broker holds messages; workers pull (or are pushed) one, process it, and **ack
 - **Kafka (log):** retained, replayable, multiple independent consumer groups, ordering per partition. "Many readers, rewindable history."
 - **Queue (SQS/RabbitMQ):** consumed-and-deleted, per-message ack/retry/DLQ, work distributed across competing consumers. "One logical reader, work drains."
 - **Rule of thumb:** need replay or multiple consumers of the same event → log. Need work distribution with retry/DLQ → queue.
-- **[CHANGED] Caveat worth voicing:** Kafka share groups (KIP-932) now give per-message ack and redelivery, so that half of the distinction is softer than it was. Priority, delay, and mature DLQ tooling are still queue territory.
+- **Caveat worth voicing:** Kafka share groups (KIP-932) give per-message ack and redelivery, so that half of the distinction is soft. Priority, delay, and mature DLQ tooling are still queue territory.
 
 ### Avoid / careful when
 
@@ -449,7 +449,7 @@ Key→object store over HTTP, ~11-nines durability. Not a filesystem — flat ke
 
 - **Presigned direct upload** — client PUTs straight to S3; API only issues URLs. Bytes bypass your tier.
 - **Multipart for big files** — one presigned URL per part, parallel, per-part retry, resumable via `ListParts`. Client picks part size subject to 5 MB min / 10k parts max.
-- **[CHANGED] Conditional writes** — `If-None-Match: *` writes only if the key is absent (Aug 2024); `If-Match: <etag>` is compare-and-swap against the current version (Nov 2024); conditional copy followed in Oct 2025. Failure is a 412. This is what makes S3-only leader election, optimistic locking, and lock-free table formats possible with no separate coordination service.
+- **Conditional writes** — `If-None-Match: *` writes only if the key is absent; `If-Match: <etag>` is compare-and-swap against the current version; conditional copy works the same way. Failure is a 412. This is what makes S3-only leader election, optimistic locking, and lock-free table formats possible with no separate coordination service.
 
 **Numbers to anchor**
 
@@ -463,7 +463,7 @@ Key→object store over HTTP, ~11-nines durability. Not a filesystem — flat ke
 
 ### CAP / consistency
 
-**Strongly read-after-write consistent** for all operations since Dec 2020 — a GET after a PUT returns the latest object. What it does *not* have: cross-object transactions, multi-key atomicity, or querying inside objects. **[CHANGED]** It *does* now have single-object conditional writes, which is genuine compare-and-swap on one key. It's a durable key→blob store with a CAS primitive, not a database.
+**Strongly read-after-write consistent** for all operations — a GET after a PUT returns the latest object. What it does *not* have: cross-object transactions, multi-key atomicity, or querying inside objects. It *does* have single-object conditional writes, which is genuine compare-and-swap on one key. It's a durable key→blob store with a CAS primitive, not a database.
 
 ### Interview line
 
@@ -632,7 +632,7 @@ A replicated in-memory tree of znodes (etcd: a flat key space), kept consistent 
 - **Not a database:** kilobytes per znode, whole tree in memory. Store pointers and coordination state, never bulk data.
 - **Consistency over availability:** writes need quorum, so a minority partition can't write — CP by design. That's the point; you want the lock wrong-proof, not always-available.
 - **Redis lock ≠ this:** `SET NX` + fencing is a best-effort lease (safe with a fencing token, but availability-first); ZooKeeper/etcd give consensus-backed correctness. Name the difference when a double-holder is a correctness bug.
-- **[CHANGED] Increasingly invisible — and increasingly etcd:** ZooKeeper was the thing under other systems for a decade, but that's receding. Kafka 4.0 (2025) removed it in favour of its own Raft implementation (KRaft); HBase still uses it; and for most engineers today consensus coordination is met as etcd under Kubernetes.
+- **Increasingly invisible — and increasingly etcd:** ZooKeeper sat under other systems for a decade, and that is receding. Kafka replaced it with its own Raft implementation (KRaft); HBase still uses it; and for most engineers today consensus coordination is met as etcd under Kubernetes.
 
 **Numbers to anchor**
 

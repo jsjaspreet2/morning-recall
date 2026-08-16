@@ -66,10 +66,12 @@ export const guides: Guide[] = [
   {
     id: 'system-design',
     title: 'System Design',
-    subtitle: 'Staff+ framework, component vocabulary, and the tradeoffs interviewers probe.',
+    subtitle:
+      'A decision reference, not a course: the 45-minute loop, capacity math, correctness, failure, and AI-native systems.',
     accent: 'amber',
     md: systemDesignMd,
-    pdf: 'system_design_interview_field_guide_staff_plus_v2.pdf',
+    // No PDF: the markdown has diverged from the shipped PDF. Regenerate before
+    // re-adding the link rather than serving the older text.
   },
   {
     id: 'animation',
@@ -93,7 +95,8 @@ export const guides: Guide[] = [
     subtitle: 'Which technology and why — 14 stores, mechanism, CAP, when to reach for it, and when it flips.',
     accent: 'teal',
     md: technologyMd,
-    pdf: 'Technology_Reference_v5.pdf',
+    // No PDF: the shipped PDF still carries the per-fact change markers the
+    // markdown has folded away. Regenerate before re-adding the link.
   },
 ]
 
