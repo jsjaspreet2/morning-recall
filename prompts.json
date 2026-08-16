@@ -2,7 +2,7 @@
   "meta": {
     "title": "Morning Recall",
     "subtitle": "Produce the answer before you look.",
-    "version": 7,
+    "version": 8,
     "rule": "Attempt each prompt from memory first, out loud or on paper. A short answer is revealed only after you mark the card, so a blank is recoverable; the guides hold the full detail.",
     "dailyDeckSize": 12,
     "tracks": {
@@ -2192,8 +2192,8 @@
       "type": "spoken",
       "timeboxSec": 150,
       "weight": 5,
-      "prompt": "Tab completion: state the latency budget out loud and say what it forces.",
-      "answer": "100ms total: ~20ms edge RTT, ~10ms client debounce, ~10ms serialize and paint, leaving ~60ms for inference. No frontier model fits, so the frontier model must be doing something the user is not waiting on — hence a small edge model with escalation, a prefix cache, speculative prefetch on pause, and aggressive cancellation.",
+      "prompt": "Tab completion: state the latency budget out loud, and say what the published numbers add to it.",
+      "answer": "~100ms is the felt bar: ~20ms edge RTT, ~10ms client debounce, ~10ms serialize and paint leave ~60ms for inference, and no frontier model fits. Cursor publishes p50 SERVER latency of 260ms against that ~100ms target, so roughly 160ms is hidden on the client — which makes prefix caching, speculation on a pause, and aggressive cancellation structural rather than optimizations.",
       "answerKey": "Cursor Screen v1"
     },
     {
@@ -2233,7 +2233,7 @@
       "timeboxSec": 60,
       "weight": 3,
       "prompt": "Background agents: why microVMs rather than containers, and what else does the sandbox need?",
-      "answer": "Model-authored code is untrusted and shared-kernel escapes are a real class, so a real kernel boundary (Firecracker-class, ~125ms boot). Plus default-deny egress with an allowlist, short-lived scoped tokens never the user’s git credentials, per-run cost and wall-clock ceilings, and a self-destruct on lost heartbeat.",
+      "answer": "Model-authored code is untrusted and shared-kernel escapes are a real class, so argue for a real kernel boundary (Firecracker-class microVMs, ~125ms boot) — as your POV, since Cursor has only published that cloud agents run on Linux VMs from a Cursor-defined Dockerfile. What is confirmed is the posture: default-deny egress with an allowlist, scoped and proxied git remotes, secret scanning in commits, secret redaction in tool results, per-run cost and wall-clock ceilings, and self-destruct on lost heartbeat.",
       "answerKey": "Cursor Screen v1"
     },
     {
@@ -2384,6 +2384,16 @@
       "weight": 3,
       "prompt": "Build order in the coding round, and the two things you must never start with.",
       "answer": "Static render with hardcoded data; core interaction happy path; state correctness (derive everything derivable); async guards; keyboard and semantics; tests; edge cases. Never start with CSS, never start with folder structure — the invitation says neither is graded.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-43",
+      "track": "cursor",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 5,
+      "prompt": "Cursor Tab: what is the reward structure behind \"when to suggest\", and why is it the better answer than a debounce?",
+      "answer": "+0.75 for an accepted suggestion, -0.25 for one shown and rejected, 0 for staying silent — so a reward-maximizing policy only suggests when it estimates at least a 25% chance of acceptance. It prices a bad suggestion as actively negative rather than free, which turns the trigger from a client heuristic into a decision the model learns. Result: 21% fewer suggestions at a 28% higher accept rate.",
       "answerKey": "Cursor Screen v1"
     }
   ]

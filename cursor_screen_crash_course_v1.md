@@ -136,12 +136,35 @@ Twelve days is short enough that resource choice matters. In order:
 3. **Your `Accessibility` and `Technology Choices` guides.** The first is load-bearing rather than
    optional here, because for an interactive component the ARIA contract *is* part of the
    interface being graded. The second directly serves "clear technology decisions, POV."
-4. **cursor.com/blog.** Two evenings. Their posts on the Tab model, fast-apply, and background
-   agents are what the design round will rhyme with, and §05 A–D are built from that shape.
+4. **Four posts from cursor.com/blog** — two evenings, and only these four. The blog is mostly
+   product and company announcements; the engineering posts are the minority and they are the ones
+   the design round rhymes with.
+
+   | Post | Read it for | Maps to |
+   |---|---|---|
+   | `/blog/tab-rl` — Improving Tab with online RL | The single most usable idea on the blog: *when to suggest* is part of the learned policy, not a heuristic | §05 A |
+   | `/blog/tab-update` — the Fusion Tab model | Real production numbers to anchor a latency budget against | §05 A, §04 J |
+   | `/blog/instant-apply` — Editing at 1000 tokens/second | Their best pure systems post; the plan-with-the-big-model, apply-with-the-fast-one split | §05 B |
+   | `/blog/how-cursor-router-works` | A documented production model cascade, with real cost deltas | §05 A, §12 C |
+
+   Read `tab-rl` and `tab-update` together — they're one story. If you have a third evening,
+   `/blog/cloud-agent-environment` and `/blog/builds` cover §05 D, though the first is more about
+   their internal developer experience than isolation internals. **Skip** the model cards,
+   acquisitions, the AIUC-1 certification, and Mixture-of-Kittens — the last is genuinely good work
+   with zero leverage in a product-engineering loop.
+
 5. **Cursor itself, daily, between now and the 28th.** Candidate reports are consistent that
    interviewers detect inauthentic product usage within minutes. You use Claude Code — make that an
    honest comparison rather than a gap. Keep a running list: **three things you'd fix, one feature
    you'd build.** Both are likely to be asked, and a specific answer is disproportionately strong.
+
+   **Read `/blog/joining-spacex` before you write that answer.** Cursor was acquired by SpaceX on
+   14 August 2026, completing a partnership that began in April; the stated rationale is access to
+   the largest GPU fleet in the world, and therefore more capable models at lower cost per request.
+   Two consequences for you. Your "why Cursor" needs a version that survives it — answering as
+   though this is still an independent startup will land badly two weeks after the announcement.
+   And cost-per-request, already their obsession, is now the acquisition thesis, which raises the
+   value of every cost-and-latency argument in §04 J and §12 C.
 6. **Hello Interview** for server-side depth only. Don't lead with its templates — a pure
    distributed-systems opening reads as pattern-matching against a prompt that explicitly asked for
    both halves.
@@ -153,6 +176,8 @@ none of them are awkward to ask:
 - JavaScript or TypeScript for the component round?
 - Is the design round product-shaped ("design feature X") or infrastructure-shaped?
 - What's the next stage if these two go well, and is there a behavioural round?
+- Given the SpaceX acquisition closed on the 14th, is the loop for this role unchanged? A
+  two-week-old acquisition moves interview processes often enough that asking is routine.
 
 ### G. THE FIVE-MINUTE VERSION
 
@@ -616,16 +641,31 @@ worse than nothing** because the user has typed past it. Acceptance rate is the 
 also the cost lever. Constraint to raise unprompted: source code leaves the machine, so there must
 be a privacy posture and an enterprise story.
 
-**The budget, stated before any boxes.** 100 ms total. ~20 ms RTT to a nearby edge, ~10 ms of
-client debounce, ~10 ms serialize/deserialize and paint → **~60 ms for inference**. That number is
-the entire architecture: no frontier model fits in 60 ms, so the frontier model must be doing
-something the user is not waiting on. Everything below follows from that one subtraction.
+**The budget, stated before any boxes.** ~100 ms is the *felt* bar — under it a suggestion is
+ambient, over ~300 ms it arrives after the user has typed past it. Subtract the fixed costs: ~20 ms
+RTT to a nearby edge, ~10 ms of client debounce, ~10 ms serialize/deserialize and paint → **~60 ms
+left for inference**. No frontier model fits in 60 ms.
+
+That subtraction is the whole architecture, and the real numbers make the point more sharply than
+the derivation does. Cursor publishes p50 **server** latency of 260 ms for its Tab model — down
+from 475 ms — against a felt target of ~100 ms. In other words the gap is real and permanent, and
+it is closed on the client, not by making the model faster. Prefix caching, speculation on a pause,
+and aggressive cancellation are therefore load-bearing structure rather than optimizations. Saying
+*"their published p50 is 260 ms, so the client has to be hiding roughly 160 ms"* is a much stronger
+opening than any budget you derive from first principles.
 
 **Client (the half that matters here).**
 
-1. *Trigger policy.* Not every keystroke. Debounce ~10–30 ms, and suppress entirely inside a word,
-   during fast continuous typing, or immediately after a rejection at the same position. Fewer,
-   better-timed requests improve both latency and cost.
+1. *Trigger policy — and this is where the interesting answer lives.* The obvious version is
+   heuristics: debounce ~10–30 ms, suppress inside a word, during fast continuous typing, and
+   immediately after a rejection at the same position. The better version, and what Cursor actually
+   ships, is to make **"should I suggest at all" part of the model's learned policy** rather than a
+   rule. Their reward is +0.75 for an accepted suggestion, −0.25 for one shown and rejected, and 0
+   for staying silent — so a reward-maximizing policy suggests only when it estimates at least a
+   25% chance of acceptance. That reframing is worth saying out loud: **a bad suggestion is not
+   free, it is actively negative**, and once you price it that way the trigger stops being a
+   debounce and becomes a decision the model makes. It bought them 21% fewer suggestions at a 28%
+   higher accept rate.
 2. *Context assembly.* This is the interesting client problem. The prompt is not "the file" — it's
    a budgeted window: the ~100 lines around the cursor, plus recently edited regions, plus the
    current diff, plus a few symbols resolved from the local index. Assemble it in a **worker** so
@@ -881,12 +921,19 @@ Postgres-backed.
 *Data plane:* the sandboxes. Ephemeral, isolated, disposable, and the expensive part.
 
 **Isolation — the decision to have a POV on.** Containers alone are not sufficient for
-model-authored code; shared-kernel escapes are a real class. I'd use **microVMs** (Firecracker-class)
-per run: a real kernel boundary, ~125 ms boot, and a memory footprint that still allows density.
-Network egress default-deny with an allowlist (package registries, the git remote), because
-otherwise the sandbox is an exfiltration channel. Secrets injected as short-lived scoped tokens,
-never long-lived credentials, and never the user's own git credentials — the agent pushes to a
-namespaced branch via a scoped bot identity.
+model-authored code; shared-kernel escapes are a real class. I'd argue for **microVMs**
+(Firecracker-class) per run: a real kernel boundary, ~125 ms boot, and a memory footprint that
+still allows density. Network egress default-deny with an allowlist (package registries, the git
+remote), because otherwise the sandbox is an exfiltration channel. Secrets injected as short-lived
+scoped tokens, never long-lived credentials, and never the user's own git credentials — the agent
+pushes to a namespaced branch via a scoped bot identity.
+
+Present the microVM choice as **your** position, not as what Cursor does. What they have published
+is that cloud agents run on Linux VMs built from a Cursor-defined Dockerfile, with egress
+restrictions, scoped and proxied git remote access, secret scanning in commits, and secret
+redaction in tool results — the security posture above is confirmed; the specific isolation
+primitive is not. Asserting the wrong internal detail to someone who works on it is a much worse
+outcome than defending a clearly-labelled opinion.
 
 **Scheduling.** Runs go to a queue partitioned by tenant so one customer's burst can't starve
 another (fair queuing, not FIFO). Warm pool of pre-booted VMs to hide boot latency; autoscale on
