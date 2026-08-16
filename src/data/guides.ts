@@ -8,6 +8,7 @@ import systemDesignMd from './guides/system-design.md?raw'
 import animationMd from './guides/animation.md?raw'
 import technologyMd from './guides/technology.md?raw'
 import uieComponentsMd from './guides/uie-components.md?raw'
+import cursorScreenMd from './guides/cursor-screen.md?raw'
 
 export interface Guide {
   id: string
@@ -21,6 +22,15 @@ export interface Guide {
 }
 
 export const guides: Guide[] = [
+  // Pinned to the top through 8/28. Drop it back down the list afterwards.
+  {
+    id: 'cursor-screen',
+    title: 'Cursor Screen — 8/28',
+    subtitle:
+      'Twelve-day plan for the two-hour screen: what each round grades, client-side system design, five worked designs, and the coding-hour script.',
+    accent: 'rose',
+    md: cursorScreenMd,
+  },
   {
     id: 'javascript',
     title: 'JavaScript',
@@ -102,6 +112,7 @@ export function pdfUrl(guide: Guide): string | undefined {
  */
 export function guideForAnswerKey(answerKey: string): Guide | undefined {
   const key = answerKey.toLowerCase()
+  if (key.startsWith('cursor screen')) return guideById('cursor-screen')
   if (key.startsWith('javascript')) return guideById('javascript')
   if (key.startsWith('react')) return guideById('react-css')
   if (key.startsWith('accessibility')) return guideById('accessibility')

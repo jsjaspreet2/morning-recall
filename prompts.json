@@ -2,10 +2,14 @@
   "meta": {
     "title": "Morning Recall",
     "subtitle": "Produce the answer before you look.",
-    "version": 6,
+    "version": 7,
     "rule": "Attempt each prompt from memory first, out loud or on paper. A short answer is revealed only after you mark the card, so a blank is recoverable; the guides hold the full detail.",
     "dailyDeckSize": 12,
     "tracks": {
+      "cursor": {
+        "label": "Cursor Screen",
+        "accent": "rose"
+      },
       "js": {
         "label": "JavaScript",
         "accent": "emerald"
@@ -1961,6 +1965,426 @@
       "prompt": "Pick your most technically challenging project and go deep on the hardest decision.",
       "answer": "Set minimal context fast, then spend the time on ONE hard tradeoff: the options, your evaluation criteria, why you chose, and how it played out. Land on YOUR reasoning and measurable impact, showing depth an interviewer can probe.",
       "answerKey": "Your STAR drafts"
+    },
+    {
+      "id": "cursor-01",
+      "track": "cursor",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 5,
+      "prompt": "The Cursor coding round names three grading axes and explicitly de-emphasises two things. Name all five.",
+      "answer": "Graded: code correctness, component API design (the props and interface exposed), and test quality. De-emphasised: styling and component structure.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-02",
+      "track": "cursor",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 4,
+      "prompt": "What is the three-part form every technology decision should take in the design round?",
+      "answer": "Choice, reason, switching condition: \"I am using X, because Y, and I would switch to Z if W changed.\" A menu of options with tradeoffs and no decision is the anti-signal.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-03",
+      "track": "cursor",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 4,
+      "prompt": "What is the first question to ask when the CoderPad link opens, and why does asking it score?",
+      "answer": "\"Can this pad run tests, and if so what is the runner?\" It determines whether to write executable or read-only tests, and asking it signals up front that you intend to write tests at all.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-04",
+      "track": "cursor",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 3,
+      "prompt": "CoderPad React pads: what bundler, is it multi-file, and what is the catch with Jest?",
+      "answer": "Vite, multi-file, with a Run Main / Run Tests toggle. Jest + Testing Library work but need Babel wiring the interviewer sets up in the template — so confirm rather than assume.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-05",
+      "track": "cursor",
+      "type": "spoken",
+      "timeboxSec": 120,
+      "weight": 5,
+      "prompt": "Deliver the opening ninety seconds of a system design round, out loud, before drawing anything.",
+      "answer": "\"Let me make sure I am building the right thing before I draw. Four categories: users and the core flow, scale, the quality bar, and constraints — about eight minutes, then the contract.\" Then restate the core flow and get it confirmed.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-06",
+      "track": "cursor",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 5,
+      "prompt": "The sixty-minute design clock: name the seven phases and the minute each starts.",
+      "answer": "0 requirements, 8 contract (API + data model), 12 client architecture, 24 server architecture, 36 deep dive, 52 failure and scale, 58 close. Hard rule: if you are not deep in something specific by minute 36, cut breadth and go deep.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-07",
+      "track": "cursor",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 4,
+      "prompt": "Name the six clarifying questions that actually change the architecture.",
+      "answer": "Offline? Concurrent writers on one object? Anything streamed? A hard latency bar? Does data leave the machine? Does cost per request matter? Each one, answered yes, adds boxes to the drawing.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-08",
+      "track": "cursor",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 5,
+      "prompt": "What is the single board habit that most protects this specific interview, and why?",
+      "answer": "Draw two labelled columns — Client and Server — with the network boundary between them, from minute one. An unbalanced answer becomes visible to you in real time, and the invitation explicitly says both halves have real complexity.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-09",
+      "track": "cursor",
+      "type": "spoken",
+      "timeboxSec": 90,
+      "weight": 4,
+      "prompt": "How do you handle scale questions without asking \"how many users?\"",
+      "answer": "Offer the number and let them correct it: \"I will assume a million daily actives, four hours of editor open, keystrokes peaking around five a second — does that sound right?\" Offering a number is a POV; asking for one is not.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-10",
+      "track": "cursor",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 5,
+      "prompt": "Name the seven layers of the client checklist, top to bottom.",
+      "answer": "Input and events; local state and ownership; sync engine; transport; persistence; render strategy; resilience. The forgotten one is state ownership — server state and UI state are different animals.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-11",
+      "track": "cursor",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 5,
+      "prompt": "The transport ladder: six rungs in order, and what each one costs you.",
+      "answer": "Request/response (free) → polling (wasted requests, latency = interval/2) → long polling (a held connection anyway) → SSE (one direction only) → WebSocket (you now own reconnect, heartbeat, resubscribe, ordering, auth refresh) → WebRTC (signalling, NAT, TURN). Climb only as far as the requirement forces.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-12",
+      "track": "cursor",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 5,
+      "prompt": "Why SSE rather than a WebSocket for streamed model output? Three reasons, plus the condition that flips it.",
+      "answer": "One-directional text; plain HTTP so it survives corporate proxies; EventSource reconnects on its own and Last-Event-ID gives resumption nearly free. Flip to a WebSocket when the client must stream back continuously — live cursor presence.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-13",
+      "track": "cursor",
+      "type": "procedure",
+      "timeboxSec": 120,
+      "weight": 5,
+      "prompt": "Write the backpressure buffer for a token stream from blank: arrival rate decoupled from paint rate.",
+      "answer": "Accumulate chunks in a ref; if no frame is scheduled, requestAnimationFrame a flush that clears the handle and setStates the buffer. A 500-token/second stream then costs 60 renders/second, not 500.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-14",
+      "track": "cursor",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 4,
+      "prompt": "A connection drops mid-generation. Name the three resumption postures and when each fits.",
+      "answer": "Restart (cheap, short responses); resume from an offset with Last-Event-ID against a server-kept generation (long or expensive); persist-then-stream, where the server writes tokens durably as it generates (the response must survive the client closing — background agents).",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-15",
+      "track": "cursor",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 4,
+      "prompt": "What three questions does any cache answer have to answer?",
+      "answer": "What is the key, when is it stale, and who invalidates it. Then pick a staleness policy: cache-first, stale-while-revalidate, network-first, or none.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-16",
+      "track": "cursor",
+      "type": "procedure",
+      "timeboxSec": 120,
+      "weight": 5,
+      "prompt": "Write the optimistic write path as five steps.",
+      "answer": "Apply locally with a client-generated uuid; enqueue in an outbox with that uuid as the idempotency key; send; on success reconcile and keep the client-id to server-id mapping; on failure retry with backoff (transient) or roll back preserving the pre-image (permanent). Queue stays ordered per entity.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-17",
+      "track": "cursor",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 4,
+      "prompt": "The conflict-resolution ladder: four rungs, cheapest first. What is the honest answer for code editing?",
+      "answer": "Last-write-wins on a timestamp; per-field merge; operational transform; CRDT. For code, usually none of the top two — file-level ownership plus diff-and-prompt on conflict, because developers already have git for merges.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-18",
+      "track": "cursor",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 4,
+      "prompt": "Client storage: four options, capacity, and which one you must not use for data.",
+      "answer": "In-memory (transient); localStorage ~5MB and synchronous, so it blocks the main thread — prefs only, never data; IndexedDB, large and async, the real answer for documents, outboxes, cached queries; Cache API for HTTP responses via a service worker. OPFS for file-like workloads.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-19",
+      "track": "cursor",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 5,
+      "prompt": "Latency anchors: one frame, \"instantaneous\", train of thought, cross-country RTT, transatlantic RTT, LLM time-to-first-token.",
+      "answer": "16ms; under 100ms; under 1s; ~50-70ms; ~100-150ms; 100ms-1s. Same-region RTT is 1-10ms and per-streamed-token is 10-50ms. The move is not to recite them but to spend them: name a budget, subtract fixed costs, let the remainder dictate the architecture.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-20",
+      "track": "cursor",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 4,
+      "prompt": "Name six levers for perceived performance, as distinct from actual latency.",
+      "answer": "Optimistic UI, speculative prefetch, streaming (first token not last), skeletons over spinners, debounce with a leading edge, stale-while-revalidate, and a local-first read path that takes the network off the critical path.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-21",
+      "track": "cursor",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 3,
+      "prompt": "Rendering at scale: five symptoms and their fixes.",
+      "answer": "50k rows jank → virtualize with overscan. Uneven heights → measure and cache. Typing lags in a big tree → split state so the input owns its own, memo at the item. Parsing blocks input → worker or chunked yielding. Scroll jumps on load-above → anchor to an item id and restore offset after paint.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-22",
+      "track": "cursor",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 4,
+      "prompt": "Run the client failure-mode pass: name six things that break and the response to each.",
+      "answer": "Network drops mid-stream (resume vs restart); response lands out of order (generation counter, not just abort); 500 on an optimistic write (rollback, and is it retryable); two tabs (leader election / BroadcastChannel); token expires mid-stream (silent refresh); IndexedDB quota (eviction, degrade to memory).",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-23",
+      "track": "cursor",
+      "type": "spoken",
+      "timeboxSec": 150,
+      "weight": 5,
+      "prompt": "Tab completion: state the latency budget out loud and say what it forces.",
+      "answer": "100ms total: ~20ms edge RTT, ~10ms client debounce, ~10ms serialize and paint, leaving ~60ms for inference. No frontier model fits, so the frontier model must be doing something the user is not waiting on — hence a small edge model with escalation, a prefix cache, speculative prefetch on pause, and aggressive cancellation.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-24",
+      "track": "cursor",
+      "type": "spoken",
+      "timeboxSec": 120,
+      "weight": 5,
+      "prompt": "Agent chat with streaming multi-file edits: where does run state live, and why does that answer everything else?",
+      "answer": "The run is a server-side durable object with an append-only event log; the client is a subscriber, not the source of truth. Reload resumes from an offset, a dead gateway loses nothing, and typed events (message_delta, file_edit_begin/delta/end, run_status) let the UI attach accept/reject state to a specific edit.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-25",
+      "track": "cursor",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 4,
+      "prompt": "Codebase indexing: how do you chunk, and why is pure vector search the wrong answer?",
+      "answer": "Chunk on syntactic boundaries (tree-sitter: function, class, block) with a parent-context header, because an embedding of half a function is an embedding of nothing. Retrieval is hybrid — dense plus lexical BM25, fused — because developers search for exact identifiers and dense retrieval is bad at rare tokens. Then rerank the top ~50.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-26",
+      "track": "cursor",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 3,
+      "prompt": "Codebase indexing: what makes re-indexing cheap, and what is the privacy fork?",
+      "answer": "Content-hash files, then content-hash chunks — only changed chunks re-embed, so a one-function edit costs one embedding. Fork: cloud-indexed stores vectors plus path and line spans but not source, and the client reads bytes off local disk; or a local-only embedding model for enterprise, behind the same retrieval interface.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-27",
+      "track": "cursor",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 3,
+      "prompt": "Background agents: why microVMs rather than containers, and what else does the sandbox need?",
+      "answer": "Model-authored code is untrusted and shared-kernel escapes are a real class, so a real kernel boundary (Firecracker-class, ~125ms boot). Plus default-deny egress with an allowlist, short-lived scoped tokens never the user’s git credentials, per-run cost and wall-clock ceilings, and a self-destruct on lost heartbeat.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-28",
+      "track": "cursor",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 3,
+      "prompt": "Review comments anchored to diff lines: the author force-pushes. What is the re-anchoring ladder?",
+      "answer": "Store {commitSha, path, side, line, contextHash}. Then: exact match of surrounding lines → move it; fuzzy context match with small drift → move it and mark \"moved\"; no match → mark outdated, keep it on the old commit, collapse it. Never guess silently — a comment on the wrong line is worse than an outdated one.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-29",
+      "track": "cursor",
+      "type": "spoken",
+      "timeboxSec": 120,
+      "weight": 5,
+      "prompt": "You get a design prompt that is not one you prepared. What is the method, in six moves?",
+      "answer": "Name the constraint that makes it hard, out loud. Turn it into a number and subtract the fixed costs. Draw two columns and fill both, walking the seven client layers. Pick the lowest rung on every ladder and say why the next is unnecessary. Go deep on one thing by minute 36. Failure pass, then close with risk / first build / open question.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-30",
+      "track": "cursor",
+      "type": "procedure",
+      "timeboxSec": 90,
+      "weight": 5,
+      "prompt": "Write the controlled/uncontrolled dual API from blank, and name the three things people get wrong.",
+      "answer": "isControlled = valueProp !== undefined (not defaultValue === undefined, which inverts it); value = isControlled ? valueProp : uncontrolled; commit() sets internal state only when uncontrolled but calls onChange in BOTH modes; and the mode must not flip mid-life.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-31",
+      "track": "cursor",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 5,
+      "prompt": "The six questions that produce a component API.",
+      "answer": "What data, and who owns it (take data or a fetcher as a prop, not a URL)? What state does it own, and could a parent need it? What are the events and what do they carry? Where are the escape hatches? What are the defaults, and is zero-config sensible? What can it not do, by design?",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-32",
+      "track": "cursor",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 4,
+      "prompt": "Four weak-to-strong API swaps, with the line to say for each.",
+      "answer": "selectedIndex → value as an id (\"index breaks when the list reorders\"). isOpen/isLoading/isError → status union (\"booleans let me represent impossible states\"). Six flags → one renderItem (\"one escape hatch instead of anticipating every need\"). onSelect(id) → onSelect(id, item) (\"saves every consumer the lookup I already did\").",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-33",
+      "track": "cursor",
+      "type": "spoken",
+      "timeboxSec": 60,
+      "weight": 4,
+      "prompt": "What do you say in the first two minutes of the coding round, before writing any body?",
+      "answer": "\"Before I write the body, let me sketch the interface — that is where most of the design decisions are.\" Then type the prop signature, and ask two things: should this be controlled, uncontrolled, or both; and is this a leaf that takes data as a prop, or a container that fetches.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-34",
+      "track": "cursor",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 5,
+      "prompt": "The five tests that always earn, in the order you write them.",
+      "answer": "It renders what it is given; the core interaction fires the callback with the right payload (toHaveBeenCalledWith, not toHaveBeenCalled); controlled and uncontrolled both behave; the stress case (stale response, empty data, timer after unmount); and one keyboard path.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-35",
+      "track": "cursor",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 5,
+      "prompt": "getBy vs queryBy vs findBy — when is each correct?",
+      "answer": "getBy: must exist now, throws otherwise. queryBy: may not exist — the only one for asserting absence. findBy: will exist soon, returns a promise, always await it. And prefer getByRole with a name over getByTestId.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-36",
+      "track": "cursor",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 5,
+      "prompt": "Why user-event rather than fireEvent, and what is the fake-timer trap?",
+      "answer": "user-event fires the real sequence — pointerdown, mousedown, focus, click — and half the bugs live between those. The trap: user-event v14 only advances Jest fake timers, so vi.useFakeTimers() plus user.type() deadlocks. Use real timers with tiny durations and waitFor, or pass advanceTimers to setup.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-37",
+      "track": "cursor",
+      "type": "procedure",
+      "timeboxSec": 90,
+      "weight": 4,
+      "prompt": "Write the four-line helper that lets a test prove a race guard works.",
+      "answer": "const pending = []; const fetchOptions = vi.fn(() => new Promise(resolve => pending.push(resolve))). Trigger two requests, then resolve pending[0] after pending[1] — hand-resolving out of order is the only way to prove a generation counter does anything.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-38",
+      "track": "cursor",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 4,
+      "prompt": "Why is abort alone insufficient for a stale-response race?",
+      "answer": "AbortController stops the fetch, but a promise that has already resolved will still run its continuation and call setState. You need a generation counter checked immediately after the await, as a second, non-redundant guard.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-39",
+      "track": "cursor",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 5,
+      "prompt": "The coding-hour clock: name the minute marks and the one that is non-negotiable.",
+      "answer": "0 setup and scope; 2 API out loud; 7 skeleton rendering; 12 core behaviour; 35 checkpoint; 38 tests — non-negotiable, the last twelve minutes belong to tests whatever state the component is in; 55 closing summary.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-40",
+      "track": "cursor",
+      "type": "spoken",
+      "timeboxSec": 90,
+      "weight": 5,
+      "prompt": "Deliver the 35-minute checkpoint out loud.",
+      "answer": "\"Twenty minutes left. Core interaction works, keyboard does not yet. I am writing tests now and coming back to keyboard if there is time — I would rather hand you a tested partial component than an untested complete one.\"",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-41",
+      "track": "cursor",
+      "type": "spoken",
+      "timeboxSec": 120,
+      "weight": 5,
+      "prompt": "Deliver the closing summary when time runs out.",
+      "answer": "Where I got to; what I would do next in priority order with rough line costs (\"keyboard nav, about fifteen lines; then a live region announcing the count, about four, because otherwise screen reader users get nothing\"); and the one thing I would revisit. Naming a cut precisely scores the same as building it.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-42",
+      "track": "cursor",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 3,
+      "prompt": "Build order in the coding round, and the two things you must never start with.",
+      "answer": "Static render with hardcoded data; core interaction happy path; state correctness (derive everything derivable); async guards; keyboard and semantics; tests; edge cases. Never start with CSS, never start with folder structure — the invitation says neither is graded.",
+      "answerKey": "Cursor Screen v1"
     }
   ]
 }
