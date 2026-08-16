@@ -112,8 +112,10 @@ That question is itself a signal: it says you intend to write tests. Then:
 
 Other pad mechanics worth knowing cold, so you don't discover them live:
 
-- The interviewer sees your cursor and every keystroke. Long silent stretches read as being stuck.
-  Narrate.
+- The interviewer sees your cursor and every keystroke, and the pad records **paste events with
+  playback**. Type your code. A large paste is visible and reads badly in a no-AI round, even when
+  the content is entirely your own.
+- Long silent stretches read as being stuck. Narrate.
 - Preview auto-reloads on save. Get something rendering in the first five minutes so there is a
   feedback loop.
 - Multi-file means you *can* split — but the invitation says structure is not graded, so split only
@@ -122,7 +124,37 @@ Other pad mechanics worth knowing cold, so you don't discover them live:
   not fight it — express the API in a JSDoc block or a comment. The API is graded, the type syntax
   is not.
 
-### F. THE FIVE-MINUTE VERSION
+### F. RESOURCES, RANKED — AND WHAT TO ASK THE RECRUITER
+
+Twelve days is short enough that resource choice matters. In order:
+
+1. **The drills in `uie-practice`, and §04–08 here.** Built for the named axes. Nothing else is.
+2. **GreatFrontend**, which you own outright. Its Front End System Design Playbook and the RADIO
+   framework are calibrated for exactly the 10:00 round; its component practice for the 11:00 one.
+   §03 A's clock is RADIO with the phases timed and the client side expanded — use whichever
+   spine you find easier to hold, but hold one.
+3. **Your `Accessibility` and `Technology Choices` guides.** The first is load-bearing rather than
+   optional here, because for an interactive component the ARIA contract *is* part of the
+   interface being graded. The second directly serves "clear technology decisions, POV."
+4. **cursor.com/blog.** Two evenings. Their posts on the Tab model, fast-apply, and background
+   agents are what the design round will rhyme with, and §05 A–D are built from that shape.
+5. **Cursor itself, daily, between now and the 28th.** Candidate reports are consistent that
+   interviewers detect inauthentic product usage within minutes. You use Claude Code — make that an
+   honest comparison rather than a gap. Keep a running list: **three things you'd fix, one feature
+   you'd build.** Both are likely to be asked, and a specific answer is disproportionately strong.
+6. **Hello Interview** for server-side depth only. Don't lead with its templates — a pure
+   distributed-systems opening reads as pattern-matching against a prompt that explicitly asked for
+   both halves.
+
+**Questions worth emailing the recruiter now**, because the answers change how you prepare and
+none of them are awkward to ask:
+
+- Does the CoderPad pad come with a test runner already configured, and which one?
+- JavaScript or TypeScript for the component round?
+- Is the design round product-shaped ("design feature X") or infrastructure-shaped?
+- What's the next stage if these two go well, and is there a behavioural round?
+
+### G. THE FIVE-MINUTE VERSION
 
 If you read nothing else on the morning of the 28th:
 
@@ -147,7 +179,7 @@ The reps are what move the number; reading this guide is not a rep.
 | **Fri 8/21 · D-7** | **Full mock #1 — 10:00–12:00, real clock, both hours back to back, no breaks** | | §10 the night before |
 | Sat 8/22 · D-6 | Re-rep whatever the mock scored lowest. Only that. | | Re-read the relevant section |
 | Sun 8/23 · D-5 | Collaborative review comments — §05 E (non-Cursor on purpose) | `cursor-08-chip-multiselect` + `cursor-04-file-tree` | §06 |
-| Mon 8/24 · D-4 | Three requirements-gathering openings, 10 min each, no design | **Speed:** three 25-min mini-builds, AI off | §01 F |
+| Mon 8/24 · D-4 | Three requirements-gathering openings, 10 min each, no design | **Speed:** three 25-min mini-builds, AI off | §01 G |
 | **Tue 8/25 · D-3** | **Full mock #2 — different problems, same clock** | | — |
 | Wed 8/26 · D-2 | Weak-spot surgery | `cursor-09-inline-diff-review` | Whatever mock #2 exposed |
 | Thu 8/27 · D-1 | **Taper.** One light rep, nothing new. Set up Excalidraw, a clean browser profile, and your notes. | | §03, §06, §10 only |
