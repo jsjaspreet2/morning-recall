@@ -323,16 +323,52 @@ twice — the definition constrains what the method *means*, not what your code 
 
 The mechanism that actually works:
 
-1. The client generates an **idempotency key** and sends it with the unsafe request.
-2. The server binds that key to **caller + operation + a hash of the payload**, so the same key
+1. The **initiator** generates an idempotency key and sends it with the unsafe request.
+2. The receiver binds that key to **caller + operation + a hash of the payload**, so the same key
    with different content is an error rather than a silent replay of the wrong thing.
-3. The server stores the **terminal response** against the key, with a retention window longer than
-   the client's maximum retry horizon.
+3. The receiver stores the **terminal response** against the key, with a retention window longer
+   than the caller's maximum retry horizon.
 4. A replay within the window returns the stored response and performs no new side effect.
 
 The failure everyone hits: the request that timed out *ambiguously*. The server may have committed.
-The client must be able to retry safely, which is exactly what the key buys — and it is why
+The initiator must be able to retry safely, which is exactly what the key buys — and it is why
 "idempotency" and "retry policy" are one design decision, not two.
+
+**Who generates the key — the rule, and why it isn't always the client.** The key must be *stable
+across every retry of the same logical operation*. That single constraint decides ownership: it
+belongs to **whoever owns the retry loop**, because only they can guarantee the second attempt
+carries the same key as the first. A server that minted the key on arrival would mint a fresh one
+on the retry and defeat the entire mechanism.
+
+That plays out three different ways, and conflating them is a common muddle:
+
+| Situation | Who supplies the key | What it is |
+|---|---|---|
+| Browser or mobile client → your API | The client | A UUID generated once, before the first attempt, and reused on retry |
+| Your service → a downstream service | **Your service** — it is the client here | Usually *derived* rather than random: `hash(order_id + "capture")` |
+| Consuming a message off a log or queue | **Nobody generates one** — you derive it | The producer's event ID, or `(topic, partition, offset)`, or a natural business key |
+
+The third row is the one worth being precise about, because it is where the word "idempotency key"
+starts to mislead. A Kafka consumer is not handed a key by a caller and there is no request to
+replay — at-least-once delivery means the *same message* can be redelivered, so the dedupe
+identifier has to be something already inside it. In practice that is an event ID the producer
+assigned at publish time, which is exactly what the outbox pattern gives you for free: the outbox
+row's primary key **is** the event ID, minted inside the same transaction as the business write
+(§06 D). Falling back to `(topic, partition, offset)` works but is more brittle — it breaks under
+partition reassignment and can't survive a topic being rebuilt.
+
+**Derived beats random, wherever you can manage it.** A random UUID must be persisted by the
+initiator *before* the first attempt, or a crash between generating and sending loses it and the
+retry duplicates. A key derived deterministically from stable inputs — the entity ID plus the
+operation name — needs no such storage and reconstructs itself identically after any crash. Reach
+for a random key only when the operation has no natural identity, which is mostly "create a new
+thing" and mostly solvable by having the client name the thing it is creating.
+
+Two smaller consequences worth having ready. A server **can** legitimately generate keys — for the
+hop it is about to make, deterministically from the inbound request, which is how idempotency
+composes across a chain of services rather than stopping at the first hop. And the retention window
+is a real design parameter: it must outlive the longest retry horizon of anything upstream,
+including a message that has been sitting in a DLQ for three days before somebody replays it.
 
 ### D. QUERY-FIRST MODELING
 
@@ -533,6 +569,10 @@ read it later?* Two yeses means a log.
   which one your 200 response meant.
 
 ### C. THE IDEMPOTENT CONSUMER
+
+A consumer does not *receive* an idempotency key and cannot mint one — a redelivered message would
+get a different one each time. It **derives** the dedupe identifier from the message itself, which
+is why the producer's job is to put a stable event ID in there at publish time (§04 C).
 
 - Key dedupe on a **stable event ID plus a semantic operation ID**, scoped correctly, retained
   longer than your maximum replay window.

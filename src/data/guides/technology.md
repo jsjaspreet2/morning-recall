@@ -26,7 +26,8 @@
 12. ZooKeeper / etcd — consensus-backed coordination; leader election, locks, config
 13. Elasticsearch — inverted index; full-text + faceted search, not a primary store
 14. OLAP / Columnar — scan-and-aggregate read model for analytics at scale
-15. Decision matrix — workload → pick, at a glance
+15. Push Notifications — the only channel that reaches a closed app; best-effort by construction
+16. Decision matrix — workload → pick, at a glance
 
 ---
 
@@ -754,9 +755,79 @@ Don't add it before the data is big — Postgres with a materialized view or a r
 
 ---
 
-## 15 · Decision matrix
+## 15 · Push Notifications
 
-*Collapse the fourteen stores into one glance. Match the workload on the left to the default pick; the "because" is the one-line justification.*
+*The only way to reach a user whose app is closed. You never talk to the device — you hand a message to Apple or Google and they decide whether it arrives. Best-effort by construction, which is the fact the whole design has to absorb.*
+
+### Mechanism
+
+You do not own the connection. The OS holds one persistent socket to its vendor's push service, shared by every app on the device, which is why push costs no battery per app. Your server authenticates to that service and posts a message addressed by **device token**.
+
+- **APNs** (Apple) — HTTP/2, one POST per notification. Auth is a **JWT signed with a `.p8` key** (modern; one key works across all your apps and doesn't expire) or a per-app certificate (legacy; expires annually and has caused many outages).
+- **FCM** (Google) — the **HTTP v1 API**, authenticated with a Google service account OAuth token. On iOS, FCM is a *wrapper*: it forwards to APNs on your behalf, so an iOS message through FCM inherits every APNs constraint.
+- **Web Push** — an IETF standard rather than a vendor API. The browser gives you a subscription (endpoint URL + keys); you encrypt the payload to those keys (RFC 8291) and sign the request with **VAPID**. The endpoint host varies by browser — Mozilla's autopush, Google's, Apple's — and your code doesn't care, which is the point of the standard.
+
+**The token lifecycle is the part that bites.** Tokens are per app-install, not per user, and they rotate on reinstall, restore, and sometimes OS upgrade. So the mapping is `user → many devices → one token each`, and a device may belong to several users. When the vendor tells you a token is dead — APNs `410 Unregistered`, FCM `UNREGISTERED`/`NOT_FOUND` — you must **delete it immediately**. Continuing to send to dead tokens is the single most common cause of getting rate-limited or throttled by a provider.
+
+**Fan-out shape.** Notification service consumes an event → resolves recipients and their devices → applies preferences, quiet hours, and dedupe → renders per-locale content → enqueues one job per token → workers post to APNs/FCM with retry and backoff. The per-token send is the parallel part and the per-user preference lookup is the hot read, so cache it.
+
+### Reach for it when
+
+- The user is not in your app and the message is worth interrupting them for.
+- You need OS-level delivery: lock screen, badge, sound, or a background wake-up.
+- **Silent push** — `content-available` / a data-only message — to trigger a background sync or refresh without showing anything. Deliberately throttled by both vendors; it is a hint, not a command.
+- You want a cheap edge-triggered refresh instead of holding a socket open to a backgrounded app.
+
+### Avoid / careful when
+
+- **You need delivery confirmation.** You don't get one. APNs and FCM report *accepted for delivery*, not *shown to a user*. Never build a flow whose correctness depends on a push arriving.
+- **Anything sensitive in the payload.** It transits a third party and renders on a lock screen. Send an identifier and let the app fetch the content.
+- **Ordering matters.** There is none. Two notifications sent in order can arrive in either, or one may be collapsed away.
+- **You are fanning out to millions.** Bound it: per-token rate limits, per-tenant quotas, and a queue. A marketing blast and a security alert must not share a worker pool — the alert loses.
+- **The user has opted out**, which on iOS they must first opt *in* to at all. Permission state lives on the device; your server's copy is a cache and can be wrong.
+
+**Numbers to anchor**
+
+| | |
+|---|---|
+| APNs payload | 4 KB (5 KB for VoIP) |
+| FCM payload | 4 KB |
+| APNs default storage | ~30 days, `apns-expiration: 0` means discard if offline |
+| FCM TTL | 0 to 2,419,200 s (28 days) |
+| FCM collapse keys held per token | 4 |
+| FCM non-collapsible messages queued per offline device | 100, then dropped |
+| APNs collapse ID | ≤ 64 bytes |
+| Priority | APNs `apns-priority` 10 = immediate, 5 = power-efficient, 1 = lowest. FCM `high` wakes a dozing device, `normal` may be delayed |
+
+### CAP / consistency
+
+Not a store, so CAP doesn't apply — but the delivery contract is the equivalent question and it is **at-most-once, best-effort, unordered**. The vendor stores and forwards while the device is offline, then drops the message when TTL expires, when a newer message shares its collapse key, when the offline queue overflows, or when the app has been force-stopped.
+
+The design consequence is a rule worth stating out loud: **the notification is a hint, and your database is the truth.** The badge count comes from the server on next launch, not from arithmetic on received pushes. The inbox is a queryable resource, and push is one delivery channel over it — which is also what makes multi-device coherent, since two devices that received different subsets of pushes still render the same inbox.
+
+### Interview line
+
+Push is the one channel that reaches a closed app, and it's best-effort — APNs and FCM tell me a message was accepted, never that it was seen. So I model notifications as a durable server-side inbox and treat push, in-app, email, and SMS as delivery channels over it; the payload carries an ID rather than content, both because 4 KB is the ceiling and because it renders on a lock screen. I'd use collapse keys so a user who was offline for an hour gets one current notification instead of forty stale ones, TTL so nothing arrives after it stopped being true, and separate queues per class so a marketing blast can't delay a security alert. And I'd delete tokens the instant APNs returns a 410 — sending to dead tokens is how you get throttled.
+
+### Pushback / when it flips
+
+**Build the fan-out, buy the last mile.** Talking to APNs and FCM directly is genuinely easy — an HTTP/2 POST and a JWT — and the hard parts are yours regardless: recipients, preferences, quiet hours, dedupe, localization, token hygiene, and rate limiting. What you buy from an aggregator is the campaign and analytics layer, not the protocol.
+
+| Provider | Actually gives you |
+|---|---|
+| **Direct APNs + FCM + Web Push** | Full control, no per-message cost, all the token lifecycle work. The right default when notifications are transactional and product-owned |
+| **AWS SNS mobile push / Azure Notification Hubs** | Cross-platform fan-out and token registries as managed infrastructure, without a marketing product bolted on |
+| **OneSignal / Airship / Braze / Iterable** | Campaigns, segmentation, scheduling, A/B tests, delivery analytics — a marketing tool that also sends push |
+| **Expo / Firebase directly** | The fast path for a small mobile team; Expo's service is a thin wrapper over both vendors |
+| **Twilio / Courier / Knock** | Multi-channel orchestration: one API for push, SMS, email, and in-app, with preference management |
+
+The flip: once notification *content* is owned by marketing rather than engineering, an aggregator stops being an abstraction over an easy API and starts being the product surface a non-engineer needs — and that, rather than protocol difficulty, is the real buy decision. The other flip is Web Push, where the standard is good enough that a library plus a subscription table is usually the whole implementation.
+
+---
+
+## 16 · Decision matrix
+
+*Collapse the fifteen entries into one glance. Match the workload on the left to the default pick; the "because" is the one-line justification.*
 
 | Workload | Default pick | Because |
 |---|---|---|
@@ -775,6 +846,7 @@ Don't add it before the data is big — Postgres with a materialized view or a r
 | Leader election / lock / membership / consistent config | ZooKeeper / etcd | consensus-backed coordination (CP); not a data store |
 | Full-text / faceted search | Elasticsearch | inverted index + BM25; a derived read model, not truth |
 | Dashboards / ad-hoc aggregation over billions of rows | OLAP / columnar | column scans + vectorized execution; derived from OLTP via CDC |
+| Reach a user whose app is closed | APNs / FCM / Web Push | the only channel the OS will wake; best-effort, so keep a durable inbox as truth |
 
 ### The meta-rule
 
