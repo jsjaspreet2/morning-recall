@@ -75,16 +75,53 @@ button {
 .prose p {
   margin: 0.75rem 0;
 }
+/* Tailwind's preflight sets `list-style: none` on every ul/ol, so markers have
+   to be put back explicitly — without this, a list renders as indented prose and
+   a numbered sequence of steps loses its numbers. Position stays `outside` (the
+   default) so markers hang in the padding below and text keeps its alignment. */
 .prose ul,
 .prose ol {
   margin: 0.75rem 0;
   padding-left: 1.4rem;
 }
+.prose ul {
+  list-style: disc;
+}
+.prose ol {
+  list-style: decimal;
+}
+/* Distinct markers per level, so depth is readable at a glance in the pages
+   that nest three deep. */
+.prose ul ul {
+  list-style: circle;
+}
+.prose ul ul ul {
+  list-style: square;
+}
+.prose ol ol {
+  list-style: lower-alpha;
+}
+.prose ol ol ol {
+  list-style: lower-roman;
+}
 .prose li {
+  margin: 0.35rem 0;
+}
+/* A nested list belongs to the item above it, so it hugs rather than taking the
+   full paragraph gap. */
+.prose li > ul,
+.prose li > ol {
   margin: 0.35rem 0;
 }
 .prose li::marker {
   color: #71717a;
+}
+/* In an ordered list the number is content — which step this is, out of how many
+   — rather than decoration, so it reads at the body colour instead of the muted
+   grey a bullet gets. */
+.prose ol > li::marker {
+  color: #a1a1aa;
+  font-weight: 600;
 }
 .prose a {
   color: #93c5fd;
