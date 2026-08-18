@@ -208,6 +208,8 @@ POST /v1/workspaces/{id}/chunks            → upload only what's missing
 
 The RAG page's §8 was permissions. **Here it's privacy**, and it's the constraint that decides enterprise adoption.
 
+**Scope this before you draw it: none of what follows is on the Tab path.** Tab's context is assembled in the editor from prefix and suffix, recent edits, open tabs, and LSP symbols (§7), so it never queries a server index and never needs one to be fresh. The sync below exists for **chat and agent**, the surfaces that must reach code *outside* the user's working set — the one thing local signals structurally cannot provide. If an interviewer asks why Tab needs a Merkle tree, the answer is that it doesn't, and noticing that boundary is the point.
+
 ### Merkle sync
 
 Naive: upload the repo, re-upload on change. A 100k-file monorepo makes that untenable, and every upload is a privacy event.
