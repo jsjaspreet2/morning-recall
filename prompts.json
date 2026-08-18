@@ -2,10 +2,14 @@
   "meta": {
     "title": "Morning Recall",
     "subtitle": "Produce the answer before you look.",
-    "version": 8,
+    "version": 9,
     "rule": "Attempt each prompt from memory first, out loud or on paper. A short answer is revealed only after you mark the card, so a blank is recoverable; the guides hold the full detail.",
     "dailyDeckSize": 12,
     "tracks": {
+      "figma": {
+        "label": "Figma Screen",
+        "accent": "violet"
+      },
       "cursor": {
         "label": "Cursor Screen",
         "accent": "rose"
@@ -2395,6 +2399,406 @@
       "prompt": "Cursor Tab: what is the reward structure behind \"when to suggest\", and why is it the better answer than a debounce?",
       "answer": "+0.75 for an accepted suggestion, -0.25 for one shown and rejected, 0 for staying silent — so a reward-maximizing policy only suggests when it estimates at least a 25% chance of acceptance. It prices a bad suggestion as actively negative rather than free, which turns the trigger from a client heuristic into a decision the model learns. Result: 21% fewer suggestions at a 28% higher accept rate.",
       "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "figma-01",
+      "track": "figma",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 5,
+      "prompt": "The Figma invitation says the question has multiple parts and that you are not expected to complete them all. Name the two things that changes about how you play the hour.",
+      "answer": "It is a description of the instrument, not reassurance: a problem calibrated so finishing is not expected measures rate and quality per part, not completion. So (1) a part 1 that is correct, tested, and cleanly factored beats one that is fast and brittle, because part 2 is scored on top of part 1 rather than beside it; and (2) part 2 exists and will pull on part 1, so the highest-leverage work in minutes 13-32 is leaving the seam that makes part 2 cheap.",
+      "answerKey": "Figma Screen v1"
+    },
+    {
+      "id": "figma-02",
+      "track": "figma",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 5,
+      "prompt": "\"We avoid gotcha questions and those with only one path to an answer.\" What does that forbid, and what does it license?",
+      "answer": "Forbids hunting for the clever insight — there isn't one, you don't have the time, and the hunt reads as stalling. Licenses committing: if several paths work, then picking one and saying why IS the graded behaviour. \"I'm using inverse commands rather than snapshots because undo has to be O(1) in document size\" is a full answer; \"we could snapshot or we could do inverse ops\" is a stall wearing an answer's clothes.",
+      "answerKey": "Figma Screen v1"
+    },
+    {
+      "id": "figma-03",
+      "track": "figma",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 4,
+      "prompt": "The invitation calls the interviewer a partner. What is the calibration for what you ask versus what you decide?",
+      "answer": "Ask about the problem, decide about the solution. Ambiguity in the requirements is theirs to resolve; ambiguity in your approach is yours. \"Are property values always strings, or can they be objects?\" is a question. \"Should I use a Map or an object literal?\" is a decision you make out loud and move past. A partner does not want to be asked permission for every choice.",
+      "answerKey": "Figma Screen v1"
+    },
+    {
+      "id": "figma-04",
+      "track": "figma",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 5,
+      "prompt": "The sixty-minute clock: name the phases and the minute each starts, plus the hard rule.",
+      "answer": "0 intros — 4 understand (restate, run one example by hand, two or three questions) — 9 model and API typed into the pad before any logic — 13 part 1 — 32 part 2 — 46 part 3 or hardening — 54 close — 57 your questions. Hard rule: if you are still writing part 1's core logic at minute 32, stop adding to it and get it to a state you can demonstrate.",
+      "answerKey": "Figma Screen v1"
+    },
+    {
+      "id": "figma-05",
+      "track": "figma",
+      "type": "spoken",
+      "timeboxSec": 90,
+      "weight": 5,
+      "prompt": "Out loud: the opening restatement for the Document/layers/undo problem. Include the ambiguity you surface.",
+      "answer": "Restate the requirement in your own words, run one concrete example aloud — create layer A, set fill to red, set fill to blue, undo — and surface the one genuinely ambiguous semantic: after the undo fill is red, not unset, because undo reverses the last change rather than clearing the key. Get it confirmed. Then two or three questions, not eight.",
+      "answerKey": "Figma Screen v1"
+    },
+    {
+      "id": "figma-06",
+      "track": "figma",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 5,
+      "prompt": "Name the one technique that makes a multi-part question cheap, and the three rules that go with it.",
+      "answer": "Part-boundary discipline. (1) One mutation choke point per mutable structure — every write goes through it, including the convenient exception you are about to make in a helper. (2) Represent the change as data before you need to; the same object is later the history entry, the batch element, the coalescing unit, and the network message. (3) Compute derived answers, don't store them — stored derived state is a second place that has to learn about part 2.",
+      "answerKey": "Figma Screen v1"
+    },
+    {
+      "id": "figma-07",
+      "track": "figma",
+      "type": "spoken",
+      "timeboxSec": 45,
+      "weight": 5,
+      "prompt": "Say the sentence that banks the seam, word for word.",
+      "answer": "\"I'm routing every mutation through a single commit and representing each change as an object. Right now that's slightly more code than I need — I'm doing it because if you later want undo, batching, or a change log, they all hook in at that one point.\" It scores even if part 2 never comes, because it demonstrates the judgment the multi-part format exists to measure.",
+      "answerKey": "Figma Screen v1"
+    },
+    {
+      "id": "figma-08",
+      "track": "figma",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 4,
+      "prompt": "What is the counter-rule to leaving a seam?",
+      "answer": "A seam is a method and a type, not an implementation of part 2. No undo stack you weren't asked for, no generic event bus, no abstraction with one implementation. Speculative work on a clock reads exactly as badly as it sounds.",
+      "answerKey": "Figma Screen v1"
+    },
+    {
+      "id": "figma-09",
+      "track": "figma",
+      "type": "fact",
+      "timeboxSec": 50,
+      "weight": 5,
+      "prompt": "Name the four shapes every question in this family is made of, and the operation that is hard in each.",
+      "answer": "Keyed object store — deleting, because references dangle. Ordered sequence — moving, because the index you computed before the removal is wrong after it. Intervals over a sequence — applying to an arbitrary range, because it splits partially covered runs and may make neighbours mergeable. 2-D geometry — grouping into rows when nothing is aligned. Problems are one of these or two composed.",
+      "answerKey": "Figma Screen v1"
+    },
+    {
+      "id": "figma-10",
+      "track": "figma",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 5,
+      "prompt": "State the invariant for each of the four shapes, plus the one for history.",
+      "answer": "Store: every referenced id exists, or is a known tombstone. Sequence: no duplicates, total order, one stated direction. Interval runs: sorted, contiguous, non-empty, normalised. 2-D grouping: the comparator is transitive. History: undo then redo returns the document to the identical state, for any sequence.",
+      "answerKey": "Figma Screen v1"
+    },
+    {
+      "id": "figma-11",
+      "track": "figma",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 5,
+      "prompt": "Why half-open intervals, and when do you say so?",
+      "answer": "[start, end) makes an empty range representable as start === end, makes adjacency the clean test a.end === b.start, and makes length end — start with no +1 anywhere. Say you're using half-open in your first sentence about the type — it avoids roughly half the off-by-one errors available in the problem.",
+      "answerKey": "Figma Screen v1"
+    },
+    {
+      "id": "figma-12",
+      "track": "figma",
+      "type": "procedure",
+      "timeboxSec": 90,
+      "weight": 5,
+      "prompt": "From blank: the Change type and invert.",
+      "answer": "Every change is (target, before, after), so inverting is swapping two fields. type Change = { kind: 'layer'; layerId; before: Props | undefined; after: Props | undefined } | { kind: 'prop'; layerId; key; before: PropValue | undefined; after: PropValue | undefined }; function invert(c: Change): Change { return { ...c, before: c.after, after: c.before } as Change }. The assertion is load-bearing: spreading a union widens before and after to the union of both arms, which matches neither.",
+      "answerKey": "Figma Screen v1"
+    },
+    {
+      "id": "figma-13",
+      "track": "figma",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 5,
+      "prompt": "Three things about the command/inverse pattern that interviewers probe.",
+      "answer": "(1) before is captured at edit time, inside set, not at undo time — capturing late only surfaces on the second consecutive undo. (2) undefined means absent and is not the same as \"holds undefined\": the inverse of setting a key that did not exist is deleting it. (3) Delete must remember its position, or undoing a delete restores the object at the wrong place in the z-order.",
+      "answerKey": "Figma Screen v1"
+    },
+    {
+      "id": "figma-14",
+      "track": "figma",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 5,
+      "prompt": "Undoing a commit reverses what, exactly?",
+      "answer": "Twice — the order of the change list AND each change in it: [...commit].reverse().map(invert). Getting only one of the two reversals passes every single-change test and fails the first batch test.",
+      "answerKey": "Figma Screen v1"
+    },
+    {
+      "id": "figma-15",
+      "track": "figma",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 5,
+      "prompt": "The three undo models, their costs, and why you don't start with the cheap one.",
+      "answer": "Snapshots: O(n) edit, O(1) undo, O(n x depth) memory. Inverse commands: O(1) edit, O(change) undo, O(total change) memory — the default. Patches: O(depth) on both, O(changed x depth) memory. Don't start with snapshots planning to upgrade: the upgrade is not a refactor of the history code, it's a refactor of every mutation site, which is exactly the rewrite the seam exists to prevent.",
+      "answerKey": "Figma Screen v1"
+    },
+    {
+      "id": "figma-16",
+      "track": "figma",
+      "type": "spoken",
+      "timeboxSec": 60,
+      "weight": 5,
+      "prompt": "Out loud: the complexity sentence, when they ask what this costs on a large document.",
+      "answer": "\"Snapshots are O(n) per edit in both time and memory, so they stop being viable well before a real document. Inverse commands make the edit and the undo proportional to the size of the change rather than the document — the cost is that every operation needs an inverse, which is exactly why I made the change a data object up front.\"",
+      "answerKey": "Figma Screen v1"
+    },
+    {
+      "id": "figma-17",
+      "track": "figma",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 5,
+      "prompt": "The five history stack invariants.",
+      "answer": "(1) Undo pops undo and pushes redo; redo pops redo and pushes undo — the same commit object moves, don't rebuild it. (2) New committed work clears the redo stack, and the clear lives in the single commit choke point. (3) An operation that did nothing neither enters history nor clears redo. (4) Undoing a group reverses twice. (5) undo then redo is identity, for any sequence — state this as the property you'd test.",
+      "answerKey": "Figma Screen v1"
+    },
+    {
+      "id": "figma-18",
+      "track": "figma",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 5,
+      "prompt": "Does an invalid or no-op operation clear the redo stack?",
+      "answer": "No. Only committed work invalidates the redo branch. Setting a property to the value it already holds, an invalid index, a group of one — none are undo steps and none clear redo. It's one if in set, and it's a favourite probe.",
+      "answerKey": "Figma Screen v1"
+    },
+    {
+      "id": "figma-19",
+      "track": "figma",
+      "type": "fact",
+      "timeboxSec": 60,
+      "weight": 4,
+      "prompt": "Batching: name the five semantic choices and the defensible default for each.",
+      "answer": "beginBatch while batching -> ignore the nested one (real nesting is a depth counter, two lines). commitBatch with none open -> ignore; erroring punishes the caller for something harmless. Invalid op inside the batch -> roll the whole batch back and discard, because a batch exists so the group is atomic. Empty batch committed -> skip it; an empty commit is an undo step that appears to do nothing and users hit undo twice. undo while batching -> ignore, the history is intermediate until the batch closes.",
+      "answerKey": "Figma Screen v1"
+    },
+    {
+      "id": "figma-20",
+      "track": "figma",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 4,
+      "prompt": "Coalescing: the mechanism, and the two things to say unprompted.",
+      "answer": "A merge test against the top of the undo stack at commit time — same layer and key, within a window — and on a merge you keep the older before and the newer after. Say: (1) the run needs a forced boundary (pointer up, selection change, blur) or an undo after clicking elsewhere reverts something the user thought was finished; (2) time-based merging makes undo depend on typing speed, so real editors use a gesture boundary with time only as a fallback. Never coalesce into a batch.",
+      "answerKey": "Figma Screen v1"
+    },
+    {
+      "id": "figma-21",
+      "track": "figma",
+      "type": "procedure",
+      "timeboxSec": 180,
+      "weight": 5,
+      "prompt": "From blank, under three minutes: History<C>.",
+      "answer": "Fields undoStack: C[][], redoStack: C[][], batch: C[] | null. constructor(private readonly apply: (c: C) => void, private readonly invert: (c: C) => C). do: apply, then push to batch if batching else push [change] to undoStack and clear redo. undo/redo: guard on batch, pop, apply reversed-and-inverted or forward, push to the other stack, return boolean. begin: this.batch ??= []. commit: null the batch, skip if empty, push, clear redo. abort: null the batch and apply the inverses in reverse. canUndo/canRedo getters. undo and redo return boolean because a UI needs it and it makes the past-the-end case testable in one line.",
+      "answerKey": "Figma Screen v1"
+    },
+    {
+      "id": "figma-22",
+      "track": "figma",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 5,
+      "prompt": "Reading order part 2: what is the trap, and what replaces it?",
+      "answer": "\"Same row if Math.abs(a.y — b.y) < 5\" is not transitive — with tops at 0, 4, and 8, A and B are a row, B and C are a row, A and C are not. Array.prototype.sort requires a strict weak ordering and V8 does not error on a bad one; it returns plausible-looking wrong output that depends on input order. Replace the comparator with a sweep, which is allowed to be non-transitive because it never asks whether two objects are in the same row — only whether this one still overlaps the row being built.",
+      "answerKey": "Figma Screen v1"
+    },
+    {
+      "id": "figma-23",
+      "track": "figma",
+      "type": "procedure",
+      "timeboxSec": 90,
+      "weight": 4,
+      "prompt": "From blank: the row sweep for reading order.",
+      "answer": "const byTop = [...boxes].sort((a, b) => a.y — b.y || a.x — b.x); const rows: Box[][] = []; let rowBottom = -Infinity; for (const box of byTop) { if (box.y >= rowBottom) rows.push([]); rows[rows.length — 1].push(box); rowBottom = Math.max(rowBottom, box.y + box.h) } return rows.flatMap(row => row.sort((a, b) => a.x — b.x)). Copy before sorting — sort mutates, and silently mutating the caller's array is a free negative signal.",
+      "answerKey": "Figma Screen v1"
+    },
+    {
+      "id": "figma-24",
+      "track": "figma",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 4,
+      "prompt": "The known limitation of the row sweep, and how to say it.",
+      "answer": "One tall object spanning the page chains every row into a single row, because the band extends as you go. Defensible — a full-height sidebar arguably is beside everything — but state it as a choice: the alternative compares against the first element's band, which caps the damage but makes the result depend on which element opens the row. Say you'd want to know what the objects actually are before picking.",
+      "answerKey": "Figma Screen v1"
+    },
+    {
+      "id": "figma-25",
+      "track": "figma",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 5,
+      "prompt": "Styled text: the four-clause invariant, and where in the code it lives.",
+      "answer": "Runs are sorted, contiguous (they tile the whole string with no gaps), non-empty, and normalised — no two adjacent runs carry an equal style. It lives in exactly one function, normalize, which every other function calls at the end. Inlining merge logic into applyStyle is how you end up with two subtly different notions of \"adjacent\".",
+      "answerKey": "Figma Screen v1"
+    },
+    {
+      "id": "figma-26",
+      "track": "figma",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 4,
+      "prompt": "applyStyle: the three pieces per overlapped run, and merge versus replace.",
+      "answer": "Left-keep, middle-patch, right-keep — and a single run needs all three at once when the range sits strictly inside it, which is the case to test first because it's the one that fails. { ...r.style, ...patch } merges; patch alone replaces. They are different products — Figma's \"make this bold\" does not clear the colour — so ask, then say which you implemented.",
+      "answerKey": "Figma Screen v1"
+    },
+    {
+      "id": "figma-27",
+      "track": "figma",
+      "type": "fact",
+      "timeboxSec": 30,
+      "weight": 4,
+      "prompt": "After slicing styled text, what is the step people forget?",
+      "answer": "Rebasing. The returned runs are indexed into the new string, not the old one: start — from and end — from. Say it while you write it.",
+      "answerKey": "Figma Screen v1"
+    },
+    {
+      "id": "figma-28",
+      "track": "figma",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 5,
+      "prompt": "Grouping layers: where does the group land, and why is that not a preference?",
+      "answer": "In the slot of its topmost member, with members keeping their relative order read off the parent's children rather than off the caller's ids, which may be in selection order rather than z-order. Anything else changes what the canvas looks like — a correctness bug in a design tool, not a style choice. Appending the group to the end of the parent's children is the classic weak answer.",
+      "answerKey": "Figma Screen v1"
+    },
+    {
+      "id": "figma-29",
+      "track": "figma",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 5,
+      "prompt": "Reparenting: the check you write before being asked, and the ordering rule.",
+      "answer": "The cycle check — walk up the parent pointers from the new parent, and if you reach the node being moved, reject. O(depth) and three lines; without it the tree stops being a tree and every later traversal hangs. Figma's own servers reject parent updates that would create a cycle. Ordering rule: remove before you insert, and never reuse an index computed before the removal.",
+      "answerKey": "Figma Screen v1"
+    },
+    {
+      "id": "figma-30",
+      "track": "figma",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 4,
+      "prompt": "The checkpoint trade in the command-stream problem.",
+      "answer": "With a checkpoint every k ops, a query replays at most k ops and memory is O(n/k x state size). k = 1 is a snapshot per op — instant queries, unusable memory. k = n is no checkpoints — no memory, O(n) queries. k about sqrt(n) balances them, and the right value depends on how big the state is relative to an op. That paragraph is the graded content; the code is the setup for it.",
+      "answerKey": "Figma Screen v1"
+    },
+    {
+      "id": "figma-31",
+      "track": "figma",
+      "type": "procedure",
+      "timeboxSec": 60,
+      "weight": 5,
+      "prompt": "From blank: the six-line check harness. Then name the trap in it.",
+      "answer": "let failures = 0; function check(name, actual, expected) { const a = JSON.stringify(actual), e = JSON.stringify(expected); if (a === e) { console.log(`ok ${name}`); return } failures++; console.log(`FAIL ${name}\\n got ${a}\\n want ${e}`) }. The trap: JSON.stringify does not serialise a Map — it produces {} for every one, so two different maps compare equal and every test passes. Spread first: check('x', [...m], [['a', 1]]). Also print on success, so a pass and a test that never ran don't look identical.",
+      "answerKey": "Figma Screen v1"
+    },
+    {
+      "id": "figma-32",
+      "track": "figma",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 4,
+      "prompt": "Name three invariant-style assertions worth writing instead of examples.",
+      "answer": "Undo k times then redo k times returns the identical document. After any operation the runs still tile the string — sorted, contiguous, non-empty, normalised. The reading-order output is a permutation of the input: same length, same ids sorted. That last one is one line and catches the whole class of sweep bugs that drop or duplicate an element.",
+      "answerKey": "Figma Screen v1"
+    },
+    {
+      "id": "figma-33",
+      "track": "figma",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 5,
+      "prompt": "The top five edge cases in the undo problem.",
+      "answer": "(1) Undo past the beginning and redo past the end — no-op, no throw, one if each. (2) Setting a key that did not exist, then undoing — the key must be absent, not undefined. (3) Undo, then a new edit, then redo — redo does nothing, the branch was discarded. (4) A batch containing an operation that reverses an earlier one in the same batch — still one undo step, and the double reversal must produce the original. (5) Delete an object then undo — restores its properties AND its z-order position.",
+      "answerKey": "Figma Screen v1"
+    },
+    {
+      "id": "figma-34",
+      "track": "figma",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 3,
+      "prompt": "What did the CoderPad turn out to contain in at least one reported Figma screen, and what do you do about it?",
+      "answer": "A skeleton with failing tests for the undo part, followed by a request to add redo. Read all of it before typing anything, and read the tests first — they are the spec, and they usually reveal the shape of parts 2 and 3. Three minutes of reading is the requirements phase, not lost time. Then say out loud what you learned from them.",
+      "answerKey": "Figma Screen v1"
+    },
+    {
+      "id": "figma-35",
+      "track": "figma",
+      "type": "spoken",
+      "timeboxSec": 60,
+      "weight": 4,
+      "prompt": "Out loud: the question you ask in the first minute, and why both halves earn something.",
+      "answer": "\"Before I start — can this pad run tests, or should I just call functions and print? And is there a part 2 you'd like me to keep in mind while I structure part 1?\" The first half says you intend to verify rather than assert. The second is the best question available in this specific interview: an interviewer who tells you what's coming has handed you the seam to leave, and one who declines has still heard you thinking about extension.",
+      "answerKey": "Figma Screen v1"
+    },
+    {
+      "id": "figma-36",
+      "track": "figma",
+      "type": "fact",
+      "timeboxSec": 50,
+      "weight": 3,
+      "prompt": "Figma's real document model and sync, in three facts.",
+      "answer": "The shared state is literally Map<ObjectID, Map<Property, Value>> — the interview question is their actual type signature, not a flavouring. They do not use OT; the system is CRDT-inspired but not a true CRDT, because the server is the central authority — conflicts resolve last-writer-wins per property, and clients discard incoming server changes that conflict with their own unacknowledged edits so their edit doesn't flicker back. Sibling order is fractional indexing: a fraction strictly between 0 and 1, stored as an arbitrary-precision base-95 string; parent and position are stored atomically as one property; the server rejects parent updates that would create a cycle.",
+      "answerKey": "Figma Screen v1"
+    },
+    {
+      "id": "figma-37",
+      "track": "figma",
+      "type": "spoken",
+      "timeboxSec": 90,
+      "weight": 5,
+      "prompt": "Out loud: the close, delivered at minute 54.",
+      "answer": "What works and what you actually exercised; what you'd do next in priority order with the rough cost of each; and the one thing you'd revisit. E.g. \"set and undo both work and I've exercised them on the four cases in the comment including undo-past-the-beginning. Redo is structurally there but I haven't written the pop. Next: finish redo, about eight lines because it's the mirror of undo; then batching, which goes in commit as a branch; then coalescing, where I'd want to ask you the intended granularity. I'd revisit storing the whole previous value — for large properties I'd want a patch.\" Naming a cut precisely demonstrates most of the knowledge building it would.",
+      "answerKey": "Figma Screen v1"
+    },
+    {
+      "id": "figma-38",
+      "track": "figma",
+      "type": "fact",
+      "timeboxSec": 30,
+      "weight": 4,
+      "prompt": "Three questions to have ready for the interviewer, and two not to ask.",
+      "answer": "Ask: how much of the team's work is the core document model versus product surfaces on top, and where would this role sit; what's the hardest thing to test about an editor like this; where does design enter the loop — do engineers pick up a spec or build alongside. Don't ask about compensation, levelling, or the rest of the process — those are the coordinator's, and asking the interviewer reads as misdirected. Don't ask anything answerable from the careers page.",
+      "answerKey": "Figma Screen v1"
+    },
+    {
+      "id": "figma-39",
+      "track": "figma",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 4,
+      "prompt": "The night-before checklist.",
+      "answer": "Sign the NDA, off the VPN. Decide on Brighthire — opting out is explicitly consequence-free and deciding at 3:01 is not. Open the CoderPad, set TypeScript, run one line, clear it. Zoom filters, virtual background, and blur all off; camera and mic tested. Clean desktop and a clean browser profile, because a full-screen share may be requested — close anything with an AI assistant in it. Retype kit once, untimed, nothing new.",
+      "answerKey": "Figma Screen v1"
+    },
+    {
+      "id": "figma-40",
+      "track": "figma",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 4,
+      "prompt": "What do you write down within an hour of the interview finishing, and why?",
+      "answer": "The problem, every part they added and in what order, every question they asked, and the two moments you'd play differently. It is the only record that exists, it decays fast, and if there is an onsite it is the most valuable single page you'll have.",
+      "answerKey": "Figma Screen v1"
     }
   ]
 }
