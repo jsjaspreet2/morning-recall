@@ -366,6 +366,31 @@ return l;
 
 - JS bit-shift mid coerces to signed 32-bit; use `Math.floor` for large numeric ranges.
 
+### G. TIME-BASED KEY-VALUE STORE
+
+The classic applied binary search: `Map<key, Array<[timestamp, value]>>`, where `get` returns the latest value with `ts <= target`. Timestamps arrive in increasing order, so each array is already sorted and needs no sort.
+
+```javascript
+class MapWithHistory {
+  constructor() { this.map = new Map(); }
+  set(key, value, timestamp) {
+    if (this.map.has(key)) this.map.get(key).push([timestamp, value]);
+    else this.map.set(key, [[timestamp, value]]);   // array of pairs, not a flat pair
+  }
+  get(key, timestamp) {
+    const v = this.map.get(key);
+    if (v == null || v[0][0] > timestamp) return '';
+    let j = v.length - 1;
+    while (v[j][0] > timestamp) j--;                // linear; upper-bound search is O(log n)
+    return v[j][1];
+  }
+}
+```
+
+- Three bugs that cost real time: a new key must store `[[ts, val]]` and not `[ts, val]`; compare `v[0][0]`, the timestamp, not `v[0]`, the pair; keep the not-found convention (`''`) consistent across every early return.
+
+- Write the linear scan first, then offer the upper-bound replacement out loud. "Now make it faster" is the expected follow-up, and having named it before they ask is the point.
+
 INVARIANT Binary search is not "sorted array magic." It is repeated elimination under a monotonic predicate with a precisely defined search interval.
 
 ## 06 — Linked lists and pointer choreography

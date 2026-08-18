@@ -7783,3 +7783,24 @@ handlers.
 **Bonus for the round:** a reducer is a pure function, so it's testable without rendering
 anything — `expect(reducer({status:'idle'}, {type:'RESOLVE'})).toEqual(...)`. Naming that is a
 cheap point on the test-quality axis.
+
+---
+
+## Company signals
+
+What each company emphasises at staff level, based on reported patterns. Use it to order practice,
+not to predict the prompt.
+
+| Company | What they test | Signature flavor |
+|---|---|---|
+| **Anthropic** | Streaming chat, async cancellation, refactor under changing requirements | `useStreamingChat` plus mid-stream abort; they change the spec partway through on purpose |
+| **Cursor** | Editor-adjacent surfaces: diffs, trees, palettes, inline review | Real product surface, and test quality graded as its own axis |
+| **Ramp** | Bug-fix inside an existing React+TS codebase, data table with pagination, a DOM puzzle round | Navigating someone else's component; `runConcurrently` for batch fetches |
+| **Airbnb** | Booking-flow components — date picker, tabs, star rating — and deep JS fundamentals | `curry`, `LRUCache`, `deepEqual` all appear; heavy keyboard a11y emphasis |
+| **Meta** | Recursive UI (file explorer, comment tree), `EventEmitter`, `Promise.all` from scratch | DOM renderer from a JSON descriptor; `role="tree"` / `role="group"` hierarchy |
+| **OpenAI** | Team-dependent; take-home or CoderPad on real product problems | Autocomplete with proper cancellation; chat UI patterns |
+| **Google** | Performance-heavy: virtualization, throttle, `memoize`; utility re-implementation | May ask for `Promise.all` / `Promise.race` from scratch |
+
+**The staff-level delta is the same everywhere.** Not "does it work" — correct roles and keyboard
+contract, stale-closure safety, cancellation of async work, component API design, and an
+articulated tradeoff on every decision you make.

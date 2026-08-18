@@ -111,6 +111,12 @@ const change = e => setForm(f => ({
 
 - Model validation states deliberately: pristine, invalid, submitting, server error, success. Validate on blur or submit first, then on change once a field has erred. Prevent double submit.
 
+- `FormData` is a native multimap, not a plain object — read with `.get(name)` / `.getAll(name)`. It captures every control that has a `name`, including files and repeated names like checkbox groups, which a hand-rolled object misses. `Object.fromEntries(formData)` keeps only one value per key, so it silently drops repeated names.
+
+- Passing a `FormData` body to `fetch` makes the browser set `Content-Type: multipart/form-data` with the boundary. Never set that header yourself — you would omit the boundary and the server cannot parse the body. A string or JSON body is the opposite case: it defaults to `text/plain`, so JSON does need `Content-Type: application/json` set explicitly.
+
+- The uncontrolled default is the right first answer when there is no live validation: *"no per-keystroke errors, so I'll keep it uncontrolled and read `FormData` on submit; if we needed live validation I'd lift to controlled state."* Reaching for controlled everywhere is the most common over-engineering tell in a forms round.
+
 ### E. COMPONENT BOUNDARIES
 
 - Extract when a part has its own responsibility/state, is reusable/testable, or isolates expensive rendering.

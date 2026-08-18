@@ -1482,6 +1482,16 @@ Non-negotiable, or the reps measure the wrong thing:
 5. **Grade with §06 F before looking at anything.**
 6. **Only then** open the reference and diff.
 
+For the smaller kit pieces — a CSS primitive, a utility function, a component skeleton — the mode is
+different: don't re-solve them, **retype them cold on a stopwatch**. Type from memory, diff, note
+only what you got wrong, redo tomorrow. Two clean reps in a row and it's kitted; stop drilling it.
+
+**Rep targets:** CSS primitive ≤ 60s · utility function ≤ 90s · component skeleton ≤ 5 min.
+
+The point of the timed retype is that layout and boilerplate stop consuming working memory. That is
+the specific capacity AI autocomplete has been renting from you, and it's the capacity the round
+needs for reasoning out loud.
+
 ### B. THE ELEVEN
 
 | Slug | Min | What it drills | Why it's on the list |
