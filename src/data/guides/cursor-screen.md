@@ -445,6 +445,18 @@ function onChunk(chunk) {
 Say why: *"Arrival is network-paced, paint is display-paced. Coalescing on `requestAnimationFrame`
 means a 500-token-per-second stream still costs 60 renders a second, not 500."*
 
+Be precise about what it saves, because an interviewer may push: it saves **renders**, not paints.
+The browser already coalesces DOM mutations to one paint per vsync, so the visual output was
+frame-synchronized before you touched anything. The win is main-thread time, and it only matters
+when `render cost × cross-task arrival rate` is large — true for streamed markdown or a syntax-
+highlighted diff, not for appending to a text node. Volunteering that distinction reads better than
+reaching for the buffer reflexively.
+
+Two footguns in the pattern above. `requestAnimationFrame` **does not fire in a background tab**, so
+a buffered stream freezes mid-answer until the user returns — pair it with a `visibilitychange`
+fallback or a timer if the tab can lose focus. And `cancelAnimationFrame` on unmount, or flush the
+tail when the stream ends, or the last partial buffer is dropped on the floor.
+
 **3. Cancellation.** Every stream needs a stop that is instant *in the UI* and eventually
 propagates to the server. Abort the request, stop consuming, and — importantly — **keep the text
 already received**. Users read a cancelled response.
