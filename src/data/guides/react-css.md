@@ -82,6 +82,8 @@ setUser(u => ({...u, name}));
 
 - Keys are not props and need only be locally unique. Generate IDs when data is created, not during render.
 
+- Two different elements of the same type in the same conditional slot are matched by position, so React mutates the existing DOM node instead of replacing it. `{busy ? <button type="button" onClick={stop}>Stop</button> : <button type="submit">Send</button>}` is one node whose `type` gets rewritten — and because a click handler flushes synchronously and activation behavior is evaluated after dispatch, the browser sees `type="submit"` and submits the form mid-click. Distinct `key`s force a fresh node. jsdom does not reproduce this class of bug.
+
 - Defining a component function inside another component creates a new type each render and can reset state.
 
 ### D. CONTROLLED FORMS

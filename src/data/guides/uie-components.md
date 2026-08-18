@@ -5776,6 +5776,12 @@ reads the finished answer at their own pace.
    network died". Same rejected promise, completely different UI.
 4. **Retry re-sends the stored prompt.** Keep the sent value separately from the input, or retry
    sends whatever the user has since typed.
+5. **Key the Stop/Send swap.** Both branches render a `<button>` in the same slot, so React reuses
+   the DOM node and rewrites `type="button"` into `type="submit"` in place. Click is a discrete
+   event, so that re-render flushes *during* the click, and activation behavior — evaluated after
+   dispatch — reads the new type and submits the form. Stop aborts and instantly re-sends.
+   Distinct `key`s force a fresh node. `type="button"` alone does not save you, and jsdom does not
+   reproduce it, so the test suite stays green while the page is broken.
 
 ### E. IMPLEMENTATION
 
@@ -5946,12 +5952,17 @@ export function StreamingMessage({ stream, placeholder }: StreamingMessageProps)
           placeholder={placeholder}
           onChange={(e) => setPrompt(e.target.value)}
         />
+        {/* The keys are load-bearing. Without them React sees <button> in the same
+            slot both times and REUSES the DOM node, rewriting type="button" into
+            type="submit" while the browser is still mid-click. Activation behavior
+            runs after dispatch, so the browser reads the new type and submits the
+            form — Stop aborts and instantly re-sends. */}
         {busy ? (
-          <button type="button" className="stream-stop" onClick={stop}>
+          <button key="stop" type="button" className="stream-stop" onClick={stop}>
             Stop
           </button>
         ) : (
-          <button type="submit" className="stream-send" disabled={!prompt.trim()}>
+          <button key="send" type="submit" className="stream-send" disabled={!prompt.trim()}>
             Send
           </button>
         )}
@@ -6008,6 +6019,7 @@ export function StreamingMessage({ stream, placeholder }: StreamingMessageProps)
 | `setText(text + token)` | Dropped tokens — renders lag the stream |
 | Retry reads the live input | Retries whatever the user typed since, not what failed |
 | No stale guard in `onToken` | Two answers spliced together after a fast retry |
+| Unkeyed Stop/Send swap in a form | Stop aborts, then the form submits and it re-sends immediately |
 | Blinking caret with no reduced-motion guard | Persistent motion for users who asked for none |
 
 ### G. SPEC
@@ -6166,12 +6178,17 @@ export function StreamingMessage({ stream, placeholder }: StreamingMessageProps)
           placeholder={placeholder}
           onChange={(e) => setPrompt(e.target.value)}
         />
+        {/* The keys are load-bearing. Without them React sees <button> in the same
+            slot both times and REUSES the DOM node, rewriting type="button" into
+            type="submit" while the browser is still mid-click. Activation behavior
+            runs after dispatch, so the browser reads the new type and submits the
+            form — Stop aborts and instantly re-sends. */}
         {busy ? (
-          <button type="button" className="stream-stop" onClick={stop}>
+          <button key="stop" type="button" className="stream-stop" onClick={stop}>
             Stop
           </button>
         ) : (
-          <button type="submit" className="stream-send" disabled={!prompt.trim()}>
+          <button key="send" type="submit" className="stream-send" disabled={!prompt.trim()}>
             Send
           </button>
         )}
