@@ -146,6 +146,7 @@ label from this table — the index groups by it.
 | **Geospatial marketplace** | Huge write throughput, near-zero contention | Uber |
 | **High-contention inventory** | Trivial throughput, catastrophic contention | Ticketmaster |
 | **Real-time messaging & delivery** | Ordering and delivery semantics vs fanout cost | WhatsApp |
+| **Real-time collaborative editing** | Convergence on a shared mutable document; the data model picks the algorithm | Figma |
 | **Read-heavy content & fanout** | Fanout-on-write vs fanout-on-read | Twitter feed |
 | **LLM application** | Non-determinism, latency, cost, and eval | LLM knowledge assistant |
 | **Low-latency inference in a loop** | Latency budget forbids the standard pipeline | Cursor Tab |

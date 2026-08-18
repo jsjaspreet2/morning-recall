@@ -77,6 +77,12 @@ const META: Record<string, Meta> = {
     tension: 'Ordering and delivery semantics against fanout cost.',
     accent: 'teal',
   },
+  figma: {
+    label: 'Figma',
+    archetype: 'Real-time collaborative editing',
+    tension: 'Convergence on one shared mutable document. The inverse of WhatsApp: delivery is easy, agreement is the problem.',
+    accent: 'violet',
+  },
   feed: {
     label: 'Twitter feed',
     archetype: 'Read-heavy content & fanout',
