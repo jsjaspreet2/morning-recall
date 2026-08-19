@@ -5,7 +5,7 @@
 > implementations with the reasoning spelled out line by line.
 
 Fourteen components you will actually be asked to build, each with the API, the ARIA and
-keyboard contract, the full implementation, the traps, and the test plan. Then the twelve
+keyboard contract, the full implementation, the traps, and the test plan. Then the thirteen
 underlying techniques, derived from scratch.
 
 Every implementation here is real, runnable, and test-covered. They live in the practice app
@@ -1805,7 +1805,7 @@ function ModalContent({
 | `offsetParent` used to filter focusables | Fixed-position elements silently drop out of the trap |
 | Backdrop close on `click` alone | Select text inside, release outside → dialog closes, work lost |
 | Scroll lock cleared instead of restored | Closing a nested dialog unlocks the page underneath |
-| Escape on a document listener | Two open dialogs both close |
+| Escape on a document listener | Two open dialogs both close — unless a layer stack picks the innermost (§17 M) |
 
 ### G. SPEC
 
@@ -6244,6 +6244,7 @@ function Palette({
 | Recents left in the rest of the list | The same command renders twice |
 | `querySelector('#' + id)` from `useId` | React 18 emits `:r3:` — a colon is not a valid CSS identifier, so it throws |
 | `aria-live` on the option list | Every keystroke re-announces every row |
+| `onKeyDown` on the panel `<div>` | Dies the moment focus leaves the input — the panel can't hold focus, so `<body>` gets the keydown (§17 M) |
 | `type="search"` on the input | WebKit and Chromium add a mouse-only clear button and clear the field on Escape — UA behaviour you then have to suppress. `type="text"` has none of it |
 | Reset done by keying the component from the parent | Works, and pushes a bug the caller shouldn't know about onto every caller |
 
@@ -9371,6 +9372,122 @@ handlers.
 **Bonus for the round:** a reducer is a pure function, so it's testable without rendering
 anything — `expect(reducer({status:'idle'}, {type:'RESOLVE'})).toEqual(...)`. Naming that is a
 cheap point on the test-quality axis.
+
+### M. KEY HANDLERS: WHERE TO ATTACH THEM
+
+**The rule.** Attach a key handler to whatever *owns* the behaviour, and there are exactly three
+scopes:
+
+| Scope | Attach to | Example |
+|---|---|---|
+| The widget's own keys | the focused element itself | Arrows and Enter on a combobox input (§06, §12) |
+| The layer's keys | `document` | Escape to dismiss a modal or palette |
+| The app's keys | `window` | ⌘K to open the palette |
+
+Getting this wrong doesn't usually produce a bug you can see. It produces keys that work until they
+don't.
+
+**The pitfall: a handler on a non-focusable container only fires while a descendant has focus.**
+
+```tsx
+<div className="panel" onKeyDown={handleKeyDown}>   {/* ← the bug */}
+  <input />                                          {/* the only focusable node */}
+</div>
+```
+
+Keydown is delivered to `document.activeElement` and bubbles from there. A `<div>` can't hold
+focus, so this handler is alive exactly as long as the input is focused. Click any dead space
+inside the panel — the gap between rows, a `<span>`, the panel itself — and focus falls to
+`<body>`, which is **not** a descendant of the panel. Every key silently stops working. No error,
+no warning; the shortcuts just cease to exist.
+
+This is not a theoretical failure. Headless UI moved its Dialog's Escape handler from a global
+listener onto the Dialog element to fix nested dialogs, shipped it, and reverted:
+
+> *"escape would not close if you click on a non-focusable element like a span in the Dialog … this
+> PR reverts to the 'global' window event listener so that we can still catch all of the escape
+> keydown events."*
+
+Radix reaches the same place from the other direction: `useEscapeKeydown` attaches to the
+document, and `DismissableLayer` is a separate concern from the widget inside it. `cmdk` handles
+list navigation on its own root but explicitly does **not** own escape-to-close — you wrap it in a
+dialog primitive for that.
+
+**Two ways out, and the choice is a real trade — §05 and §12 make it differently on purpose:**
+
+1. **Guarantee focus can't leave, and keep the handler on the container.** `tabIndex={-1}` makes
+   the container focusable *by click and script* while keeping it out of the Tab order, so a click
+   on dead space focuses the container — still inside the handler's subtree. Pair it with
+   `onMouseDown` + `preventDefault()` on the rows so clicking one doesn't drop the caret either.
+   **Nesting then works for free:** the innermost dialog's handler runs first and
+   `stopPropagation()` keeps the outer one out of it. This is §05's Modal, and it is only safe
+   because that component also has a real focus trap.
+2. **Move dismissal to the document.** Focus-independent, and correct even when the surface has no
+   reliable focus story. The cost is that **every open layer hears the same Escape** — §05 F lists
+   exactly this as a trap — so past one dialog you need a layer stack to decide which acts. That's
+   what Radix built `DismissableLayer` for.
+
+**The rule that reconciles them:** a container handler is correct *if and only if* you guarantee
+focus stays inside it. §05 does, with `tabIndex={-1}` plus a trap. A palette built without either
+does not, which is why §12's Escape belongs on the document until it grows a trap of its own.
+
+Native `<dialog>` sidesteps the whole question: the browser fires `cancel` **at the element**, so
+nothing depends on the propagation path (§12 I).
+
+**`window` vs `document`.** Keydown bubbles `target → … → document → window`, so a `window`
+listener sees everything a `document` listener does. Three things separate them:
+
+- **A synthetic event dispatched *directly* on `window` never passes through `document`.** Its
+  propagation path is just `window`. This bites in tests: `fireEvent.keyDown(window, …)` will not
+  reach a `document` listener. Dispatch on `document.body` if you want the test to be agnostic.
+- **Use `ownerDocument`, not the global `document`,** when the element may be portalled into
+  another window. Radix changed `DismissableLayer` for exactly this.
+- **Capture phase wins over `stopPropagation`.** Radix listens with `{ capture: true }` so a
+  dismissal still fires even when something inside swallowed the event on the way up. It also
+  means every open layer hears the same Escape, which is why they keep a layer stack so only the
+  innermost acts — and it has caused real compatibility complaints. At one dialog you don't care;
+  know the failure mode exists before you add a second.
+
+**Modifier keys, and the cross-platform shape.**
+
+```tsx
+useEffect(() => {
+  function onKeyDown(e: globalThis.KeyboardEvent) {
+    if (e.key.toLowerCase() !== 'k') return
+    if (!e.metaKey && !e.ctrlKey) return       // ⌘ on macOS, Ctrl everywhere else
+    e.preventDefault()                          // Chrome's Ctrl-K focuses the omnibox
+    onTrigger()
+  }
+  window.addEventListener('keydown', onKeyDown)
+  return () => window.removeEventListener('keydown', onKeyDown)
+}, [onTrigger])
+```
+
+Five things in nine lines, and each is a question you can be asked:
+
+| | |
+|---|---|
+| `metaKey \|\| ctrlKey` | Accept both rather than sniffing the platform. `metaKey` is ⌘ on macOS and the Windows key elsewhere; `ctrlKey` is Ctrl everywhere. Checking both is one condition instead of a `navigator` branch that goes stale. |
+| `.toLowerCase()` | `e.key` is the **character produced**, so Shift changes it — ⇧⌘K arrives as `'K'`. Without this, the shortcut silently misses whenever Shift is held. |
+| `preventDefault()` | Browsers already own a lot of combos. Skip it and the palette opens *and* focus jumps to the address bar. |
+| The cleanup | Without it every unmount leaves a listener holding a stale closure, and they accumulate. |
+| `globalThis.KeyboardEvent` | If the file also does `import type { KeyboardEvent } from 'react'`, that shadows the DOM type for the whole module — and React's synthetic event is a different type. Reach past the shadow, or alias the React import. |
+
+**`e.key` or `e.code`?** `key` is the character produced — layout- and modifier-dependent, and what
+you want for shortcuts and for text. `code` is the physical key position, unaffected by layout,
+which is what you want for WASD-style controls and what you must *not* use for a combobox, since
+the numpad arrows arrive as `Numpad4` / `Numpad8` (§17 A).
+
+**One more, for any key handler on a text input: don't act while an IME is composing.** Typing
+Japanese, Chinese or Korean routes Enter to the candidate picker, not to you. Handle it anyway and
+you run a command when the user was only confirming a character:
+
+```tsx
+if (event.nativeEvent.isComposing) return
+```
+
+Nothing in this guide's specs covers it and jsdom won't reproduce it. Naming it unprompted while
+building a combobox is worth more than most of the code around it.
 
 ---
 
