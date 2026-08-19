@@ -77,6 +77,13 @@ const META: Record<string, Meta> = {
     tension: 'Ordering and delivery semantics against fanout cost.',
     accent: 'teal',
   },
+  discord: {
+    label: 'Discord',
+    archetype: 'Real-time messaging & delivery',
+    tension:
+      'The same archetype as WhatsApp with the constraint inverted: the recipients are already connected, so one write becomes fifty thousand socket writes.',
+    accent: 'indigo',
+  },
   figma: {
     label: 'Figma',
     archetype: 'Real-time collaborative editing',

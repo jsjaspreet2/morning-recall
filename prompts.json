@@ -2,10 +2,14 @@
   "meta": {
     "title": "Morning Recall",
     "subtitle": "Produce the answer before you look.",
-    "version": 9,
+    "version": 10,
     "rule": "Attempt each prompt from memory first, out loud or on paper. A short answer is revealed only after you mark the card, so a blank is recoverable; the guides hold the full detail.",
     "dailyDeckSize": 12,
     "tracks": {
+      "discord": {
+        "label": "Discord Screen",
+        "accent": "indigo"
+      },
       "figma": {
         "label": "Figma Screen",
         "accent": "violet"
@@ -2799,6 +2803,406 @@
       "prompt": "What do you write down within an hour of the interview finishing, and why?",
       "answer": "The problem, every part they added and in what order, every question they asked, and the two moments you'd play differently. It is the only record that exists, it decays fast, and if there is an onsite it is the most valuable single page you'll have.",
       "answerKey": "Figma Screen v1"
+    },
+    {
+      "id": "discord-01",
+      "track": "discord",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 5,
+      "prompt": "The Discord invitation names the client you should install. What does that single detail tell you about what you are building, and what does it rule out?",
+      "answer": "It tells you the thing listens on a TCP port and speaks newline-delimited text: nc is a raw TCP client with no framing, handshake, or protocol. It rules out HTTP, any framework, and WebSockets — and it tells you how you will demonstrate it, by typing into a terminal live while someone watches.",
+      "answerKey": "Discord Screen v1"
+    },
+    {
+      "id": "discord-02",
+      "track": "discord",
+      "type": "procedure",
+      "timeboxSec": 90,
+      "weight": 5,
+      "prompt": "Name all six axes on Discord's published rubric for this round.",
+      "answer": "Functionality (does it compile and run, and meet the requirements) · understanding (constant, linear, or worse) · trade-offs you are aware of · how effectively you used your environment and resources · how you approached refactoring for the new requirements · code quality, meaning well abstracted such that it could be tested.",
+      "answerKey": "Discord Screen v1"
+    },
+    {
+      "id": "discord-03",
+      "track": "discord",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 5,
+      "prompt": "The invitation warns of \"elements that you may be unfamiliar with\". Name the three things that are actually hard, and the two that people wrongly assume are.",
+      "answer": "Actually hard: turning a byte stream into lines, the socket lifecycle (end/close/error/half-open all reaching one cleanup), and backpressure. Wrongly assumed hard: opening a listener (six lines) and concurrency (in Node there is none — one thread, one event loop, no lock to take).",
+      "answerKey": "Discord Screen v1"
+    },
+    {
+      "id": "discord-04",
+      "track": "discord",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 4,
+      "prompt": "Discord says in print what they do not ask. What is the sentence, and what does it change about how you prepare?",
+      "answer": "\"We don't ask you to build self-balancing red-black trees… Trivia has no place in our interviews,\" and problems are based on real work they have done. It means algorithm practice is the wrong prep for this round entirely — the artifact is a running application, not a function that returns a value.",
+      "answerKey": "Discord Screen v1"
+    },
+    {
+      "id": "discord-05",
+      "track": "discord",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 4,
+      "prompt": "Setting up your environment in advance is explicitly requested. Where exactly is the line?",
+      "answer": "Stage the environment, never the program. A folder with a package.json, a verified run command, and three terminals arranged is what \"have your development environment set up\" means. Pre-typed solution code is not — and §08 B buys the same speed honestly, by making the skeleton something your hands know.",
+      "answerKey": "Discord Screen v1"
+    },
+    {
+      "id": "discord-06",
+      "track": "discord",
+      "type": "procedure",
+      "timeboxSec": 120,
+      "weight": 5,
+      "prompt": "The seventy-five-minute clock: name the phases and the minute each starts, plus the hard rule.",
+      "answer": "0 intros · 3 understand (restate, run one exchange by hand, two or three questions) · 6 plumbing — empty server listening with nc attached · 10 framing and registry, before any feature · 16 part 1 to correct-and-demonstrated · 34 part 2 · 54 part 3 or hardening · 66 close · 71 your questions. Hard rule: if part 1 is not demonstrable at minute 34, stop adding and get it showable.",
+      "answerKey": "Discord Screen v1"
+    },
+    {
+      "id": "discord-07",
+      "track": "discord",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 5,
+      "prompt": "What is the counter-rule to \"get part 1 demonstrable\", and why does it exist?",
+      "answer": "Do not spend minutes 16–34 polishing part 1. Correct and demonstrated is the target, not elegant — elegance is graded through the seam, and the seam is a structural decision made at minute 10, not a cleanup done at minute 30.",
+      "answerKey": "Discord Screen v1"
+    },
+    {
+      "id": "discord-08",
+      "track": "discord",
+      "type": "spoken",
+      "timeboxSec": 180,
+      "weight": 5,
+      "prompt": "Give the opening, out loud: the restatement and the three questions.",
+      "answer": "Play back the flow with a concrete example — A types hello, B sees it attributed, A does not. Then: does the first line mean something different from the rest? When someone disconnects, does anyone need to be told? Is this one room, or should I be thinking about more than one? Then hand them a lever: would you rather I grow something small end to end, or design up front?",
+      "answerKey": "Discord Screen v1"
+    },
+    {
+      "id": "discord-09",
+      "track": "discord",
+      "type": "fact",
+      "timeboxSec": 50,
+      "weight": 5,
+      "prompt": "Why is the third opening question — \"one room or more?\" — worth more than the other two?",
+      "answer": "Because the later parts are hidden and the requirements are the score. If the answer is \"one room for now\", the words \"for now\" have told you rooms are coming and bought you fifteen minutes of foresight. If they decline to answer, you have lost nothing.",
+      "answerKey": "Discord Screen v1"
+    },
+    {
+      "id": "discord-10",
+      "track": "discord",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 4,
+      "prompt": "An interviewer says \"interesting — what happens if two people pick the same name?\" What is that, and what do you do?",
+      "answer": "It is not curiosity, it is a requirement stated politely. Treat every hypothetical as a nudge: answer it honestly about the current code, then fix it. \"Right now, nothing — it stays in the map. Let me wire that up.\"",
+      "answerKey": "Discord Screen v1"
+    },
+    {
+      "id": "discord-11",
+      "track": "discord",
+      "type": "procedure",
+      "timeboxSec": 120,
+      "weight": 5,
+      "prompt": "Write the five-step data flow that every variant of this question is made of, and say which steps never change.",
+      "answer": "Accept → frame bytes into lines → parse a line into a command → mutate one registry → write lines to some subset of sockets. Rooms, private messages, history, rate limits and even a key–value store only ever change which subset and what a line means. Accept and frame never change — which is why you type them first, from memory.",
+      "answerKey": "Discord Screen v1"
+    },
+    {
+      "id": "discord-12",
+      "track": "discord",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 5,
+      "prompt": "Why is `while`, not `if`, the load-bearing word in the framing helper?",
+      "answer": "Because one 'data' chunk may carry many lines. Handling exactly one line per chunk works perfectly until someone types fast or the client coalesces writes, and then two messages arrive glued together with a newline inside them — which looks fine in nc and breaks every parse downstream.",
+      "answerKey": "Discord Screen v1"
+    },
+    {
+      "id": "discord-13",
+      "track": "discord",
+      "type": "procedure",
+      "timeboxSec": 150,
+      "weight": 5,
+      "prompt": "Type the framing helper from blank. Name the five things being graded in it.",
+      "answer": "while not if · the buffer is per socket, closed over per connection · a trailing \\r is stripped, because PuTTY raw sends \\r\\n where nc sends \\n · an overflow cap, because a client that never sends a newline grows the buffer without bound · nothing above it knows about \\n and nothing in it knows about chat.",
+      "answerKey": "Discord Screen v1"
+    },
+    {
+      "id": "discord-14",
+      "track": "discord",
+      "type": "fact",
+      "timeboxSec": 50,
+      "weight": 5,
+      "prompt": "What does `socket.setEncoding('utf8')` actually buy, and what is the one-sentence version to say out loud?",
+      "answer": "It runs a StringDecoder underneath, holding partial bytes back until a multi-byte character is complete. Without it you get Buffers and calling .toString() on each independently corrupts any character straddling a chunk boundary — an emoji arrives as replacement characters. Say: \"I'm setting the encoding so the decoder handles multi-byte characters split across chunks.\"",
+      "answerKey": "Discord Screen v1"
+    },
+    {
+      "id": "discord-15",
+      "track": "discord",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 5,
+      "prompt": "Which socket event carries the cleanup, and what specifically goes wrong if you pick a different one?",
+      "answer": "'close', because it is the only event that fires on every path — clean FIN, reset, error, and your own destroy(). Cleanup on 'end' means a client killed with Ctrl-C leaves a ghost in the registry: /who lists someone who left, and broadcasting to them throws later, somewhere else entirely.",
+      "answerKey": "Discord Screen v1"
+    },
+    {
+      "id": "discord-16",
+      "track": "discord",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 5,
+      "prompt": "What is the single most important line in the program, and what happens without it?",
+      "answer": "`socket.on('error', () => {})`. An 'error' event with no listener is thrown, and a thrown EventEmitter error takes down the whole Node process — so a client hitting Ctrl-C produces an ECONNRESET that kills your server live on the shared screen, looking like a crash caused by nothing.",
+      "answerKey": "Discord Screen v1"
+    },
+    {
+      "id": "discord-17",
+      "track": "discord",
+      "type": "fact",
+      "timeboxSec": 50,
+      "weight": 5,
+      "prompt": "Why index by room in part 1, when there is only one room? Give the line you say while typing it.",
+      "answer": "Filtering the client set per message is O(connected); an index is O(members). With one room they are the same number, which is exactly why it has to be decided on principle rather than under pressure later. \"I'm indexing by room so broadcast is linear in the room and not in the server — and it means rooms become a data-structure change, not a control-flow change.\"",
+      "answerKey": "Discord Screen v1"
+    },
+    {
+      "id": "discord-18",
+      "track": "discord",
+      "type": "spoken",
+      "timeboxSec": 150,
+      "weight": 5,
+      "prompt": "They ask \"what happens if one client is really slow to read?\" Answer it out loud.",
+      "answer": "Right now nothing good — I ignore write's return value, so a slow reader's backlog grows in my heap without bound and there is no error. Fix is per client: a bounded queue, stop on write returning false, resume on 'drain', and at the cap drop the oldest rather than disconnect — for chat a laggy client missing history beats a laggy client getting kicked. Cost is that delivery is no longer guaranteed, which is right for chat and wrong for payments.",
+      "answerKey": "Discord Screen v1"
+    },
+    {
+      "id": "discord-19",
+      "track": "discord",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 5,
+      "prompt": "The reported part 1: name every requirement, including the one that is explicitly stated in the sources.",
+      "answer": "First line is the name, later lines are messages, other connected clients see them attributed, the server survives a disconnect and cleans up. The explicitly stated one: a client must not receive its own message echoed back — and it is the first thing that gets demonstrated.",
+      "answerKey": "Discord Screen v1"
+    },
+    {
+      "id": "discord-20",
+      "track": "discord",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 5,
+      "prompt": "Why does `broadcast` take an `except` parameter rather than callers filtering?",
+      "answer": "Because it makes the no-self-echo rule structurally true instead of remembered. Filtering at each call site means three places that can each forget it; the signature means it cannot be forgotten. Same reasoning as `send` on the Client: one choke point is what makes rate limiting and backpressure a one-line change later.",
+      "answerKey": "Discord Screen v1"
+    },
+    {
+      "id": "discord-21",
+      "track": "discord",
+      "type": "spoken",
+      "timeboxSec": 120,
+      "weight": 5,
+      "prompt": "Part 2 lands and it is rooms. Say the ten seconds before you type.",
+      "answer": "\"Rooms are two changes. The registry gains a room index so a broadcast stays linear in the room rather than the server, and dispatch gains three commands. Framing and lifecycle don't move — the one thing to be careful about is that leaving on disconnect now goes through the same path as leaving by command, so I'll write leave once and call it from both.\"",
+      "answerKey": "Discord Screen v1"
+    },
+    {
+      "id": "discord-22",
+      "track": "discord",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 5,
+      "prompt": "Why does `join` call `leave` rather than just setting `c.room`?",
+      "answer": "So \"a client is in at most one room\" is an invariant enforced in one place rather than a rule every caller has to remember. Setting c.room directly leaves a stale entry in the old room's member set, and that bug does not surface until someone disconnects.",
+      "answerKey": "Discord Screen v1"
+    },
+    {
+      "id": "discord-23",
+      "track": "discord",
+      "type": "fact",
+      "timeboxSec": 50,
+      "weight": 4,
+      "prompt": "In the history/replay part, what is the design question underneath the ring buffer, and what is the sentence that earns the point?",
+      "answer": "Two things with different lifetimes: membership dies with the last socket, history must outlive it or \"what you missed\" is empty exactly when it matters. So they are two maps. The earning sentence is naming your own leak: the history map grows with every room name ever used and nothing removes it — accepted because room cardinality is low, and the fix is an LRU on last activity.",
+      "answerKey": "Discord Screen v1"
+    },
+    {
+      "id": "discord-24",
+      "track": "discord",
+      "type": "fact",
+      "timeboxSec": 50,
+      "weight": 4,
+      "prompt": "Rate limiting: what single ordering decision makes the window sliding rather than fixed, and why does it matter?",
+      "answer": "Evict expired timestamps before checking the count. A fixed window resets on a boundary, so a client sends the whole budget at 0:59 and the whole budget again at 1:01. Keeping the stamps costs O(limit) memory per client and removes that. Also: inject the clock, so the window is testable in milliseconds instead of minutes.",
+      "answerKey": "Discord Screen v1"
+    },
+    {
+      "id": "discord-25",
+      "track": "discord",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 4,
+      "prompt": "The off-theme problem is a key–value store over TCP. What is the point of it, and what is the sentence to say if you get a non-chat prompt?",
+      "answer": "That the listener, framing, connection handler and lifecycle are character-for-character identical — only handleLine and the state change. If the method only works on the problem you rehearsed it is a memorised answer, not a method. Say: \"This is the same server shape as before, with a different command table.\"",
+      "answerKey": "Discord Screen v1"
+    },
+    {
+      "id": "discord-26",
+      "track": "discord",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 5,
+      "prompt": "Why parse with `indexOf(' ')` rather than `split(' ')`?",
+      "answer": "Because split throws away the structure you need: a message, a room name, or a value may contain spaces and parts[1] silently truncates it. The bug never shows in your own testing because you type single words, and it shows the instant the interviewer types \"hello there\". Take the whole remainder, and split it again only where a command genuinely has two arguments.",
+      "answerKey": "Discord Screen v1"
+    },
+    {
+      "id": "discord-27",
+      "track": "discord",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 4,
+      "prompt": "Why write the dispatch `switch` in part 1 when there is only one case, and how do you defend it if challenged?",
+      "answer": "\"I know there's one case. The reason it's a table is that I expect to add rows, and a table absorbs rows without being restructured.\" It is the difference between part 2 costing ninety seconds and costing eight minutes.",
+      "answerKey": "Discord Screen v1"
+    },
+    {
+      "id": "discord-28",
+      "track": "discord",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 4,
+      "prompt": "Where must the command check sit relative to the rate-limit and room gates, and why?",
+      "answer": "Above both. A throttled user must still be able to ask why and to leave; a user with no room must still be able to /join. It is a two-line ordering decision, and making it deliberately is a product judgement rather than an oversight.",
+      "answerKey": "Discord Screen v1"
+    },
+    {
+      "id": "discord-29",
+      "track": "discord",
+      "type": "procedure",
+      "timeboxSec": 90,
+      "weight": 4,
+      "prompt": "Name the three connection states and the three transition bugs.",
+      "answer": "connected → named → in a room. Bugs: an empty first line names the client \"\" (guard with `if (text === '') return` before the naming branch) · a refused name must leave c.name null so the next line is another attempt · a greeting that asks for a name promises the next line is a name, so do not send one if the variant has no handshake.",
+      "answerKey": "Discord Screen v1"
+    },
+    {
+      "id": "discord-30",
+      "track": "discord",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 5,
+      "prompt": "Rank the edge cases they probe, and say which one is categorically different from the rest.",
+      "answer": "Hard disconnect (Ctrl-C) · duplicate names · empty lines at every stage · a message before joining · an over-long or never-terminated line · a client that connects and says nothing · odd characters in a name · the last member leaving a room. The first is categorically different: everything else is a missing feature, and that one is a crash.",
+      "answerKey": "Discord Screen v1"
+    },
+    {
+      "id": "discord-31",
+      "track": "discord",
+      "type": "procedure",
+      "timeboxSec": 120,
+      "weight": 4,
+      "prompt": "The three-terminal ritual, in order. Which step do people skip?",
+      "answer": "Restart the server · nc in both client panes · name them · send from A and confirm B got it AND that A did not · Ctrl-C A and confirm B is told and the server survives · reconnect A and confirm the name is free. People skip the second half of step 4 — and watching your own message not appear is the demonstration of the one explicitly stated requirement.",
+      "answerKey": "Discord Screen v1"
+    },
+    {
+      "id": "discord-32",
+      "track": "discord",
+      "type": "fact",
+      "timeboxSec": 50,
+      "weight": 5,
+      "prompt": "Ctrl-C versus Ctrl-D in nc: what does each produce server-side, and why does the answer matter?",
+      "answer": "Ctrl-D sends EOF, so a FIN: you get 'end' then 'close'. Ctrl-C kills nc, so a reset: you get 'error' then 'close'. That is precisely why cleanup lives on 'close' and the 'error' handler does nothing but exist — and saying it out loud is a cheap, specific signal.",
+      "answerKey": "Discord Screen v1"
+    },
+    {
+      "id": "discord-33",
+      "track": "discord",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 4,
+      "prompt": "You are sixty seconds into a bug you cannot see. What is the move?",
+      "answer": "Print what you are actually receiving rather than what you think you are — log the raw chunk with JSON.stringify so \\r and \\n become visible. It finds the whole class of framing bugs in one step.",
+      "answerKey": "Discord Screen v1"
+    },
+    {
+      "id": "discord-34",
+      "track": "discord",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 4,
+      "prompt": "What does the scripted client buy beyond typing speed, and what do you say while writing it?",
+      "answer": "It sends thirty messages in three seconds, which is how you demonstrate a rate limiter without waiting a minute, and it prefixes received lines with the client name so one pane shows the whole conversation from every side — making ordering bugs visible instead of inferable. Say: \"I'd rather see the ordering than reason about it.\" Building a tool to test your own work is the resource-use axis.",
+      "answerKey": "Discord Screen v1"
+    },
+    {
+      "id": "discord-35",
+      "track": "discord",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 4,
+      "prompt": "The server will not start and says the address is in use. What happened, and what is the fix you should already have in your shell history?",
+      "answer": "The previous server process is still running — which also means the code you are testing may not be the code you just wrote. `lsof -ti:8080 | xargs kill`. Restarting the server before every demonstration is the habit that prevents the whole class of \"my fix did nothing\" confusion.",
+      "answerKey": "Discord Screen v1"
+    },
+    {
+      "id": "discord-36",
+      "track": "discord",
+      "type": "fact",
+      "timeboxSec": 50,
+      "weight": 4,
+      "prompt": "They ask how this scales to a million people. What breaks first, and what is the trap in the question?",
+      "answer": "What breaks first is that the registry lives in this process's memory, so two clients in the same room on different nodes cannot see each other. The trap is treating it as a system design round: it gets about three minutes at the end, so give the compressed answer, name what breaks first, and offer to go deeper.",
+      "answerKey": "Discord Screen v1"
+    },
+    {
+      "id": "discord-37",
+      "track": "discord",
+      "type": "spoken",
+      "timeboxSec": 240,
+      "weight": 4,
+      "prompt": "Give the three-minute \"now scale it\" answer.",
+      "answer": "Registry comes out of process → pub/sub backbone (Redis or NATS), a node publishes a room's messages and subscribes to the rooms its own clients are in, so in-node fanout stays the loop you wrote and cross-node fanout is one publish · presence moves to a shared store with heartbeat TTL so a dead node expires its clients · long-lived connections mean balancing by connection not request, so a deploy drops a node's clients at once — reconnect with backoff and jitter, drain rather than kill · what breaks next is a very large room, because fanout is linear in members however you slice it.",
+      "answerKey": "Discord Screen v1"
+    },
+    {
+      "id": "discord-38",
+      "track": "discord",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 4,
+      "prompt": "What is the Elixir-and-Rust story at Discord, in two sentences?",
+      "answer": "A guild is its own lightweight BEAM process, so one busy or crashing community cannot take down millions of others — the same isolation argument as one handler per socket, at a different scale. Rust came in through NIFs where CPU-bound work hit a ceiling, and the Go-to-Rust move was about GC pause latency at p99, not throughput.",
+      "answerKey": "Discord Screen v1"
+    },
+    {
+      "id": "discord-39",
+      "track": "discord",
+      "type": "fact",
+      "timeboxSec": 50,
+      "weight": 4,
+      "prompt": "What is the detail from Discord's message-storage story that maps directly onto the exercise you just built?",
+      "answer": "The Rust data-services layer in front of ScyllaDB does request coalescing: when a hot partition is requested by an enormous number of clients at once, it recognises them as the same request, issues one query, and fans the single result back out to every waiter. That is exactly the shape of a broadcast — many waiters, one source, one fanout loop.",
+      "answerKey": "Discord Screen v1"
+    },
+    {
+      "id": "discord-40",
+      "track": "discord",
+      "type": "spoken",
+      "timeboxSec": 210,
+      "weight": 5,
+      "prompt": "It is minute 66. Give the close.",
+      "answer": "Demonstrate first — restart, two clients, join, message, no self-echo, disconnect, survive. Then: where I got to and what I just ran · what I would do next in priority order, leading with the real bug (the unbounded buffer if a client never sends a newline) rather than a missing feature · then backpressure · then the assumption I made, which is everything in memory with no persistence because nothing in the requirements survived a restart.",
+      "answerKey": "Discord Screen v1"
     }
   ]
 }
