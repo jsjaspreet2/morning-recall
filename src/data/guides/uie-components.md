@@ -4,15 +4,15 @@
 > terse bullets you scan before a mock. This one is for *understanding*: complete, working
 > implementations with the reasoning spelled out line by line.
 
-Thirteen components you will actually be asked to build, each with the API, the ARIA and
+Fourteen components you will actually be asked to build, each with the API, the ARIA and
 keyboard contract, the full implementation, the traps, and the test plan. Then the twelve
 underlying techniques, derived from scratch.
 
 Every implementation here is real, runnable, and test-covered. They live in the practice app
 at `uie-practice/src/exercises/<name>-reference/`, and each ships a spec suite you can point
-at your own from-scratch build. One exception: the command palette (§12) came out of a drill
+at your own from-scratch build. Two exceptions: the command palette (§12) came out of a drill
 rather than a reference pair, so its runnable — `cursor-06-command-palette` — matches the §H
-cut rather than the §E reference.
+cut rather than the §E reference; and the virtualized list (§13) has no exercise on disk yet.
 
 ## 01 — How to use this guide
 
@@ -5058,7 +5058,7 @@ export default function TreeInterview() {
 
 - "Build a sortable table" / "a users table with search and pagination"
 - "Add row selection with a select-all"
-- "Render 100,000 rows" — that's §13, not this
+- "Render 100,000 rows" — that's §13 (Virtualized list), not this
 
 ### B. API
 
@@ -6494,6 +6494,403 @@ function Palette({
 ```
 
 </details>
+
+## 13 — Virtualized list
+
+> Runnable: none yet — the only section without an exercise on disk. The §E implementation is
+> self-contained and typechecked; build against §G and point your own spec at it.
+
+### A. ASKED AS
+
+- "How would you render a hundred thousand rows?"
+- "This list janks at five thousand items — fix it"
+- "Build a log viewer" / "a message list that scrolls back a million lines"
+- As the scale follow-up to §11 Data table, far more often than as its own prompt
+
+**Read that list again: three of the four are questions, not builds.** This is the component you
+are most likely to be asked to *describe* and least likely to be asked to write. §17 H gives the
+sentence; this section is so that the sentence is backed by something.
+
+### B. API
+
+```tsx
+export interface VirtualListProps<T> {
+  items: T[]
+  rowHeight: number
+  height: number
+  label: string
+  renderRow: (item: T, index: number) => ReactNode
+  getRowKey: (item: T, index: number) => string
+  overscan?: number
+  onVisibleRangeChange?: (start: number, end: number) => void
+}
+```
+
+**Four calls worth stating out loud:**
+
+- **`rowHeight` is required, fixed, and the whole component rests on it.** Every number here is
+  `index × rowHeight`. Say the constraint when you write the prop rather than when you're caught:
+  *"this assumes a fixed row height; variable heights need measured offsets and a prefix-sum
+  index, which is where I'd reach for a library."*
+- **`height` is a number, not "fill the parent".** The math needs the viewport height during
+  render, and getting it from the DOM means a layout read plus a `ResizeObserver` plus a first
+  paint with nothing in it. Taking it as a prop is the honest version; name the ResizeObserver as
+  what you'd add for a responsive container.
+- **`getRowKey`, not the array index.** This is not the usual React-key advice — see §F. In a
+  windowed list an index key is actively wrong, because rows are recycled.
+- **`onVisibleRangeChange` is the prefetch hook**, and it is the only thing separating this from a
+  toy. It's what a real list uses to fetch the pages it's about to scroll into. Like `fetchOptions`
+  in §06 it must be referentially stable — it's an effect dependency.
+
+Deliberately absent: a `scrollToIndex` imperative handle. It's the first thing a production list
+adds, it needs `useImperativeHandle` plus a ref to the viewport, and naming it is cheaper than
+building it.
+
+### C. SEMANTICS
+
+Windowing is the one technique in this guide that **removes information from the page**, so its
+accessibility story is not a wiring checklist — it's a set of things that genuinely stop working,
+and the grade is in whether you say so.
+
+| Element | Required |
+|---|---|
+| Viewport | `role="list"`, accessible name, **`tabIndex={0}`** |
+| Spacer and window wrappers | `role="presentation"` |
+| Row | `role="listitem"`, `aria-setsize` = the **real** count, `aria-posinset` = the **absolute** index |
+
+**`aria-setsize` / `aria-posinset` is the whole point.** Assistive tech counts what is in the DOM,
+so it will announce "row 3 of 20" about a hundred thousand rows — confidently, and wrongly. These
+two attributes are ARIA's mechanism for exactly this: *the DOM holds a window onto a larger set.*
+
+§17 H names the grid form of the same idea — `aria-rowcount` on the container and `aria-rowindex`
+per row. Both are correct; pick by what the thing is. A flat list gets set-size and position-in-set;
+a windowed **table** (§11 at scale) gets row-count and row-index.
+
+**`tabIndex={0}` on the viewport is not optional.** Firefox makes scrollable containers focusable
+on its own; Chrome does not. Without it there is no way for a keyboard user to scroll the list at
+all — and it's a scroll container, so once it can take focus the browser gives you Arrow keys,
+PageUp/PageDown, Home and End for free. That is the entire keyboard contract, which is why there
+is no key table in this section.
+
+**`role="presentation"` on the two wrappers.** `role="list"` requires its `listitem`s to be owned
+by it, and an intervening element with an implicit generic role breaks that ownership. The spacer
+and the translated window are pure geometry, so say so.
+
+**What windowing costs, in the order an interviewer cares:** Ctrl+F finds nothing outside the
+window; screen-reader browse mode can only walk what's rendered; the browser's scroll anchoring
+and `:target` navigation stop working; and printing produces one screen of rows. None of these
+have fixes — they are the price. Naming them is what separates *"I'd virtualize"* from *"I'd
+virtualize, and here's what it costs."*
+
+### D. DECISIONS THAT MATTER
+
+1. **The first decision is not to.** DOM nodes get expensive in the low thousands; below that,
+   windowing takes away find-in-page and buys nothing. And before reaching for it, `content-visibility:
+   auto` with `contain-intrinsic-size` skips rendering off-screen subtrees with no JavaScript at
+   all — and unlike windowing, the nodes are still there, so Ctrl+F still works. → *"First I'd check
+   whether it's the node count or a re-render problem, then try `content-visibility`, and only
+   window if the node count is genuinely the bottleneck."*
+2. **The scroll position is not state; the first visible index is.** Storing `scrollTop` re-renders
+   at scroll frequency to produce identical output — it reintroduces the exact cost windowing was
+   meant to remove. Store the row index, and only write it when it changes. That one `if` is the
+   optimization.
+3. **Spacer plus transform, not layout.** A full-height spacer makes the scrollbar honest; an
+   absolutely-positioned, translated window puts the rows in place without touching layout. A
+   `margin-top` or a `top` value would reflow on every row boundary.
+4. **Focus dies when a row scrolls out, and this component does not fix it.** Window a list of
+   buttons, Tab into row 4, scroll — the focused node unmounts, focus falls to `<body>`, and the
+   keyboard user is back at the top of the page. Real fixes are keeping the focused row rendered
+   outside the window, or restoring focus by key on the way back. → *"Interactive rows plus
+   windowing is a focus problem, not a rendering one. I'd pin the focused row into the render
+   window."* Saying this unprompted is the single strongest thing available in this section.
+5. **Keys come from the data.** Covered in §F because it's a trap, but it is decided here.
+
+### E. IMPLEMENTATION
+
+**1 — The window is four lines of arithmetic, and none of it is stored.**
+
+```tsx
+const visibleCount = Math.ceil(height / rowHeight) + 1
+const maxStart = Math.max(0, items.length - visibleCount)
+const start = Math.min(firstVisible, maxStart)
+const from = Math.max(0, start - overscan)
+const to = Math.min(items.length, start + visibleCount + overscan)
+```
+
+The `+ 1` is for the row the viewport is showing half of; without it, `overscan={0}` leaves a blank
+strip at the bottom edge. The `maxStart` clamp is there because `items` is a prop and can shrink
+under a scroll position already past the new end — the browser clamps `scrollTop` itself and fires
+a scroll event, but the render in between would slice past the array. Same instinct as the cursor
+clamp in §12 E: if it can be computed, compute it.
+
+**2 — The guard is the optimization.**
+
+```tsx
+function handleScroll(event: UIEvent<HTMLDivElement>) {
+  const next = Math.floor(event.currentTarget.scrollTop / rowHeight)
+  if (next !== firstVisible) setFirstVisible(next)
+}
+```
+
+Scroll fires at frame rate. The rendered window only changes when you cross a row boundary, so
+that's the only time to write state. Drop the `if` and you re-render sixty times a second to
+produce byte-identical output — and you will have written a virtualized list that is slower than
+the naive one it replaced.
+
+Note also what's *not* here: no `scrollHeight` or `getBoundingClientRect` read. Both force layout,
+and a forced layout inside a scroll handler is the classic way to make scrolling jank.
+
+**3 — Spacer, then a translated window.**
+
+```tsx
+<div role="presentation" style={{ position: 'relative', height: items.length * rowHeight }}>
+  <div
+    role="presentation"
+    style={{ position: 'absolute', top: 0, left: 0, right: 0,
+             transform: `translateY(${from * rowHeight}px)` }}
+  >
+    {/* rows */}
+  </div>
+</div>
+```
+
+The spacer's height is the *whole* list, which is what makes the scrollbar the right size and the
+scroll distance real. The window is out of flow and translated into place, so moving it composites
+instead of reflowing.
+
+One thing worth checking rather than assuming: a transform can extend an element's scrollable
+overflow area. It doesn't here, because the translated block's bottom edge is `to * rowHeight`, and
+`to` is clamped to `items.length` — so it is never below the spacer's own bottom.
+
+**4 — THE WHOLE THING.**
+
+<details>
+<summary>Complete implementation — Virtualized list</summary>
+
+```tsx
+import { useEffect, useState } from 'react'
+import type { ReactNode, UIEvent } from 'react'
+
+/**
+ * Three things carry this component, and the first is the one that gets graded:
+ *
+ * 1. KNOW WHEN NOT TO REACH FOR IT. Windowing costs find-in-page, Ctrl+F,
+ *    scroll anchoring, and screen-reader browse mode. Below a few thousand rows
+ *    it buys nothing and takes all of that away.
+ *
+ * 2. THE WINDOW IS DERIVED, THE SCROLL POSITION IS NOT STATE. What lives in
+ *    state is one integer — the first visible index — and it is only written
+ *    when it actually changes. Storing scrollTop re-renders at scroll frequency,
+ *    which is the exact cost windowing was supposed to remove.
+ *
+ * 3. THE DOM NO LONGER HOLDS THE LIST. Assistive tech is counting what it can
+ *    see, so it will say "3 of 12" about a hundred thousand rows unless you tell
+ *    it otherwise. That is what aria-setsize and aria-posinset are for.
+ */
+
+export interface VirtualListProps<T> {
+  items: T[]
+  /** Fixed, and required. Variable heights need measurement — see the note in §D. */
+  rowHeight: number
+  /** Viewport height. A number, not "fill the parent" — see §B. */
+  height: number
+  /** Accessible name for the list. */
+  label: string
+  renderRow: (item: T, index: number) => ReactNode
+  /** Never the array index — see §F. */
+  getRowKey: (item: T, index: number) => string
+  /** Rows rendered beyond each edge, so a fast scroll doesn't show blank. */
+  overscan?: number
+  /** Fires when the window moves. The hook a real list prefetches from. */
+  onVisibleRangeChange?: (start: number, end: number) => void
+}
+
+export function VirtualList<T>({
+  items,
+  rowHeight,
+  height,
+  label,
+  renderRow,
+  getRowKey,
+  overscan = 3,
+  onVisibleRangeChange,
+}: VirtualListProps<T>) {
+  // The only state in the component: the first visible row's index. Not scrollTop —
+  // that would re-render on every scroll event rather than every row boundary.
+  const [firstVisible, setFirstVisible] = useState(0)
+
+  // +1 because a viewport scrolled to a fraction of a row shows part of one more.
+  // Without it, overscan={0} leaves a blank strip at the bottom edge.
+  const visibleCount = Math.ceil(height / rowHeight) + 1
+
+  // Derived, not corrected in an effect. `items` is a prop and can shrink under a
+  // scroll position that is already past the new end — the browser clamps scrollTop
+  // itself and fires a scroll event, but the render in between would slice past the
+  // array and render nothing. Same instinct as the cursor clamp in §12 E.
+  const maxStart = Math.max(0, items.length - visibleCount)
+  const start = Math.min(firstVisible, maxStart)
+
+  const from = Math.max(0, start - overscan)
+  const to = Math.min(items.length, start + visibleCount + overscan)
+
+  function handleScroll(event: UIEvent<HTMLDivElement>) {
+    const next = Math.floor(event.currentTarget.scrollTop / rowHeight)
+    // The guard IS the optimization. Scroll fires at frame rate; the rendered window
+    // only changes when you cross a row boundary, so that is the only time to write
+    // state. Drop this line and you re-render 60 times a second to produce identical
+    // output.
+    if (next !== firstVisible) setFirstVisible(next)
+  }
+
+  useEffect(() => {
+    onVisibleRangeChange?.(from, to)
+  }, [from, to, onVisibleRangeChange])
+
+  return (
+    <div
+      className="vlist-viewport"
+      style={{ height, overflowY: 'auto' }}
+      onScroll={handleScroll}
+      // A scrollable div is NOT keyboard-scrollable in Chrome unless it can take
+      // focus. Firefox does it for you; Chrome does not, and the result is a list
+      // a keyboard user cannot move at all. One attribute, and it is a real bug.
+      tabIndex={0}
+      role="list"
+      aria-label={label}
+    >
+      {/* The spacer. Its height is the WHOLE list, which is what makes the scrollbar
+          the right size and the scroll distance real. */}
+      <div
+        role="presentation"
+        className="vlist-spacer"
+        style={{ position: 'relative', height: items.length * rowHeight }}
+      >
+        {/* Out of flow and translated into place. Absolute + transform rather than a
+            margin or a `top` value: both of those are layout, and this runs on every
+            row boundary. The translated block's bottom edge is `to * rowHeight`,
+            which is <= the spacer height by construction, so it never extends the
+            scrollable area.
+
+            role="presentation" on both wrappers is not decoration. role="list"
+            requires its listitems to be owned by it, and an intervening element with
+            an implicit generic role breaks that ownership. */}
+        <div
+          role="presentation"
+          className="vlist-window"
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            transform: `translateY(${from * rowHeight}px)`,
+          }}
+        >
+          {items.slice(from, to).map((item, i) => {
+            const index = from + i
+            return (
+              <div
+                // Never the array index. Rows are recycled as you scroll, so an index
+                // key makes React reuse row 0's DOM node for whatever is now at the
+                // top — carrying its focus, its scroll position, and any uncontrolled
+                // input state to a different item.
+                key={getRowKey(item, index)}
+                role="listitem"
+                className="vlist-row"
+                // The DOM holds a window; these two say how big the real set is and
+                // where this row sits in it. Without them AT announces "1 of 20" for
+                // a hundred thousand rows, which is worse than saying nothing.
+                aria-setsize={items.length}
+                aria-posinset={index + 1}
+                style={{ height: rowHeight }}
+              >
+                {renderRow(item, index)}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+```
+
+</details>
+
+### F. TRAPS
+
+| Trap | Symptom |
+|---|---|
+| `key={index}` | Rows are recycled, so row 0's DOM node is reused for a different item — its focus, its caret, and any uncontrolled input state go with it |
+| `scrollTop` in state | A re-render per scroll event; slower than the unvirtualized list |
+| No spacer | The scrollbar reflects one screen; you can't scroll to the end |
+| Offsetting with `margin-top` or `top` | Reflow on every row boundary instead of a composited transform |
+| Reading `scrollHeight` in the scroll handler | Forced layout per event — the jank you were removing |
+| Viewport without `tabIndex={0}` | Chrome gives keyboard users no way to scroll it |
+| Generic `div`s between list and listitems | The list/listitem ownership breaks; AT stops reporting it as a list |
+| `aria-setsize` from the rendered slice | "Row 3 of 20" for a hundred thousand rows — confident and wrong |
+| `overscan={0}` | A blank strip at the leading edge on fast scroll |
+| Fixed `rowHeight` against variable content | Rows overlap or leave gaps, and the gaps grow with scroll distance |
+| Interactive rows | Focus falls to `<body>` the moment the focused row scrolls out (§D 4) |
+| Windowing a list of 300 rows | You paid the whole accessibility cost for nothing measurable |
+
+### G. SPEC
+
+**Windowing** — renders the window plus overscan, never all of `items` · scrolling swaps which
+items are rendered · the spacer's height is `items.length × rowHeight` · the rendered block's
+offset matches the first rendered index · `overscan` renders beyond both edges
+
+**Edges** — an empty list renders nothing and does not throw · a list shorter than the viewport
+renders every row · shrinking `items` under a scrolled window clamps instead of rendering blank ·
+scrolling to the very end shows the last row flush with the bottom
+
+**Semantics** — `aria-setsize` is the full count, not the rendered count · `aria-posinset` is the
+absolute index · the viewport is focusable · rows keep their identity across a scroll (assert on a
+row's DOM node, not its text)
+
+**Cheap and worth writing:** render 10,000 items and assert the DOM node count is under 50. That
+single test is the whole component's reason to exist, and it reads as someone who tests outcomes
+rather than internals.
+
+### H. INTERVIEW SCOPE
+
+**Reference: 78 lines of code — second only to the Tooltip's 62, and comfortably a round's worth
+of typing.** There is no separate cut, and that is not because it's easy.
+
+This section's §H is different from every other one, because the highest-scoring answer here is
+usually not to build it at all:
+
+> *"Past a few thousand rows I'd virtualize — render only the visible window plus a small overscan,
+> with a spacer preserving the scroll height. It costs find-in-page and screen-reader browse mode,
+> so I'd check first whether the bottleneck is really the node count. In production I'd use
+> TanStack Virtual rather than hand-rolling it."*
+
+That is thirty seconds, it demonstrates everything §D 1 is about, and it is very often the whole
+expected answer. Reaching for the keyboard when that sentence was what was wanted is a way to lose
+ten minutes and look like you can't judge scope.
+
+**Build it when:** you're asked to explicitly, the prompt *is* the log viewer, or you've named the
+sentence above and the interviewer says "go on".
+
+**Then the core is:**
+
+- The five lines of arithmetic, including the clamp
+- The `if (next !== firstVisible)` guard — mention that this is the optimization
+- Spacer at full height, window absolutely positioned and translated
+- `getRowKey` from the data
+- `aria-setsize` / `aria-posinset`, and `tabIndex={0}` on the viewport
+
+**Cut, and say so:**
+
+| Drop | Say |
+|---|---|
+| `overscan` | "Render one extra row past each edge, or you get a blank strip on a fast scroll. One line, and I'd hardcode it to 3." |
+| `onVisibleRangeChange` | "This is where a real list hangs prefetching for the pages it's about to reach." |
+| `role="presentation"` on the wrappers | "Needed, or the list/listitem ownership breaks. Two attributes." |
+| Generic `<T>` | "Concrete row type here; I'd make it generic in a library." |
+| A `scrollToIndex` handle | "useImperativeHandle plus a viewport ref — first thing a production list adds." |
+
+**Do not cut** the clamp or the scroll guard. Without the guard the component is slower than doing
+nothing, which is the one outcome worse than not attempting it.
 
 ## 14 — Streaming message
 
@@ -8366,8 +8763,9 @@ a hard accessibility failure — there's no way to reach the footer.
 
 ### H. WINDOWING MATH
 
-**What this is for.** One component (§13 Virtualized list) and one interview question:
-*"how would you render a hundred thousand rows?"* Nothing else in this guide uses it.
+**What this is for.** One component (§13 Virtualized list, which assembles all of this) and one
+interview question: *"how would you render a hundred thousand rows?"* Nothing else in this guide
+uses it.
 
 **When you actually need it.** When the number of DOM nodes is itself the bottleneck — roughly
 low thousands of rows and up. Below that, don't: windowing costs you find-in-page, Ctrl+F,
