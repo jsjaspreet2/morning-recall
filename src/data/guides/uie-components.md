@@ -10,9 +10,9 @@ underlying techniques, derived from scratch.
 
 Every implementation here is real, runnable, and test-covered. They live in the practice app
 at `uie-practice/src/exercises/<name>-reference/`, and each ships a spec suite you can point
-at your own from-scratch build. Two exceptions: the command palette (§12) came out of a drill
-rather than a reference pair, so its runnable — `cursor-06-command-palette` — matches the §H
-cut rather than the §E reference; and the virtualized list (§13) has no exercise on disk yet.
+at your own from-scratch build. Two exceptions: the command palette (§12) has no
+`-reference` exercise — its three runnables are the §H cut, the native `<dialog>` variant, and the
+drill it came from — and the virtualized list (§13) has no exercise on disk at all yet.
 
 ## 01 — How to use this guide
 
@@ -51,7 +51,7 @@ overrun a round:
 | Component | Reference | Interview cut | Runnable |
 |---|---:|---:|---|
 | Combobox | 208 | **117** | `combobox-interview` |
-| Command palette | 200 | **131** | `cursor-06-command-palette` (the cut) |
+| Command palette | 201 | **132** | `command-palette-interview` |
 | Data table | 193 | **111** | `data-table-interview` |
 | Menu | 178 | **125** | `menu-interview` |
 | Tree | 154 | **131** | `tree-interview` |
@@ -5722,11 +5722,12 @@ export default function DataTableInterview() {
 
 ## 12 — Command palette
 
-> Runnable: `uie-practice/src/exercises/cursor-06-command-palette/` · Spec: 15 tests  
+> Interview cut (§H): `uie-practice/src/exercises/command-palette-interview/` · Spec: 20 tests  
 > Native variant (§I): `uie-practice/src/exercises/command-palette-dialog/` · Spec: 15 tests  
-> The one component here whose runnable is a drill rather than a `-reference` pair, because it was
-> built to be derived cold. Its `solution.jsx` is the §H cut, not the §E reference. §I builds the
-> same component on native `<dialog>` so the two can be diffed side by side.
+> Derive-it-cold drill: `uie-practice/src/exercises/cursor-06-command-palette/` · Spec: 15 tests  
+> The §E reference is guide-only — there is no `command-palette-reference` on disk. The three
+> runnables above are the cut, the same component on native `<dialog>`, and the blank-page drill
+> this section came out of.
 
 ### A. ASKED AS
 
@@ -6264,11 +6265,14 @@ closes and runs nothing · with no matches there is a message and Enter is a no-
 
 ### H. INTERVIEW SCOPE
 
-**Reference: 200 lines of code — second only to the Combobox, and too big for a timed round.**
-The cut below is 131 and keeps everything that gets graded. Unlike the other four cuts, this one is
-the version already sitting on your disk: `cursor-06-command-palette/solution.jsx` is the same
-component, with the query reset written as an effect on `open` instead of falling out of unmounting
-— six lines longer, and worth diffing against this once.
+**Reference: 201 lines of code — second only to the Combobox, and too big for a timed round.**
+The cut below is 132 and keeps everything that gets graded.
+
+Worth diffing against `cursor-06-command-palette/solution.jsx`, which solves the same prompt at 120
+lines and makes three different calls: one component with an `[open]` effect and an explicit reset
+rather than a split and a portal; Home/End kept; a group tag per row kept; no Tab trap. Neither is
+the right answer — the point of reading both is that a cut is a set of choices, not a fixed
+subset.
 
 Fifty minutes sounds generous for a palette, and it is not. The reference is three components'
 worth of contract, and there is a real risk of spending the hour on group headings and the backdrop
@@ -6308,7 +6312,7 @@ import { createPortal } from 'react-dom'
 import type { KeyboardEvent } from 'react'
 
 /**
- * THE INTERVIEW CUT: 200 lines of code down to 131.
+ * THE INTERVIEW CUT: 201 lines of code down to 132.
  *
  * Everything load-bearing is still here — the dialog, the combobox markup with a
  * virtual cursor, recents-when-empty, keyword matching, arrows/Enter/Escape,
@@ -6600,7 +6604,7 @@ either one.
 | **Hand-rolled** | The interview, when focus management is the thing being examined. Anywhere the behaviour must be assertable in jsdom. |
 | **`<dialog>`** | Production. Anywhere real inertness matters, which is every modal that isn't a toy. |
 
-And note the line counts: 154 for the native variant against 200 for the reference, with the native
+And note the line counts: 155 for the native variant against 201 for the reference, with the native
 one also carrying Home/End and the live region. **The win is not brevity — it's correctness.** You
 delete the portal, the focus effect, the Tab trap and the Escape case, and you get inertness that
 the hand-rolled version cannot have at all. Say that rather than "it's shorter", which is the
