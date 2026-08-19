@@ -2667,6 +2667,7 @@ export function Combobox({ label, fetchOptions, onSelect }: ComboboxProps) {
       <input
         id={`${baseId}-input`}
         className="cbi-input"
+        type="text"
         role="combobox"
         autoComplete="off"
         aria-expanded={showList}
@@ -6147,6 +6148,7 @@ function Palette({
         <input
           ref={inputRef}
           className="cp-input"
+          type="text"
           role="combobox"
           autoComplete="off"
           // Always expanded: the list is part of the surface, not a popup on it.
@@ -6241,6 +6243,7 @@ function Palette({
 | Recents left in the rest of the list | The same command renders twice |
 | `querySelector('#' + id)` from `useId` | React 18 emits `:r3:` — a colon is not a valid CSS identifier, so it throws |
 | `aria-live` on the option list | Every keystroke re-announces every row |
+| `type="search"` on the input | WebKit and Chromium add a mouse-only clear button and clear the field on Escape — UA behaviour you then have to suppress. `type="text"` has none of it |
 | Reset done by keying the component from the parent | Works, and pushes a bug the caller shouldn't know about onto every caller |
 
 ### G. SPEC
@@ -6424,6 +6427,7 @@ function Palette({
         <input
           ref={inputRef}
           className="cp-input"
+          type="text"
           role="combobox"
           autoComplete="off"
           aria-expanded
@@ -6768,6 +6772,7 @@ function Palette({
       <div className="cpd-panel">
         <input
           className="cpd-input"
+          type="text"
           role="combobox"
           autoComplete="off"
           aria-expanded
