@@ -145,7 +145,7 @@ Twelve days is short enough that resource choice matters. In order:
    | `/blog/tab-rl` — Improving Tab with online RL | The single most usable idea on the blog: *when to suggest* is part of the learned policy, not a heuristic | §05 A |
    | `/blog/tab-update` — the Fusion Tab model | Real production numbers to anchor a latency budget against | §05 A, §04 J |
    | `/blog/instant-apply` — Editing at 1000 tokens/second | Their best pure systems post; the plan-with-the-big-model, apply-with-the-fast-one split | §05 B |
-   | `/blog/how-cursor-router-works` | A documented production model cascade, with real cost deltas | §05 A, §12 C |
+   | `/blog/how-cursor-router-works` | A documented production model cascade, with real cost deltas | §05 A, §03 C |
 
    Read `tab-rl` and `tab-update` together — they're one story. If you have a third evening,
    `/blog/cloud-agent-environment` and `/blog/builds` cover §05 D, though the first is more about
@@ -164,7 +164,7 @@ Twelve days is short enough that resource choice matters. In order:
    Two consequences for you. Your "why Cursor" needs a version that survives it — answering as
    though this is still an independent startup will land badly two weeks after the announcement.
    And cost-per-request, already their obsession, is now the acquisition thesis, which raises the
-   value of every cost-and-latency argument in §04 J and §12 C.
+   value of every cost-and-latency argument in §04 J and §03 C.
 6. **Hello Interview** for server-side depth only. Don't lead with its templates — a pure
    distributed-systems opening reads as pattern-matching against a prompt that explicitly asked for
    both halves.
@@ -1515,7 +1515,7 @@ needs for reasoning out loud.
 | `cursor-05-write-the-tests` | 30 | **Test quality**, against a finished `Toast` | The graded axis, isolated |
 | `cursor-06-command-palette` | 50 | ⌘K: filter, keyboard, portal, recents, focus restore | **Unseen.** Forces derivation, not recall |
 | `cursor-07-undo-redo` | 45 | A `useHistory` hook — past/present/future, coalescing | **Pure API design**, and trivially testable |
-| `cursor-08-chip-multiselect` | 50 | Two focus models in one widget; Backspace-removes-last | The §02 B worked example, now runnable |
+| `cursor-08-chip-multiselect` | 50 | Two focus models in one widget; Backspace-removes-last | The `UIE Components` §02 B worked example, now runnable |
 | `cursor-09-inline-diff-review` | 45 | Accept/reject hunks, staged vs committed, keyboard | Closest thing to real Cursor surface |
 | `cursor-10-write-the-tests-ii` | 30 | **Test quality** against an async hook — races, cleanup | Second rep on the thinnest axis |
 | `combobox-practice-8-13` | 45 | The full combobox, cold, from the given API | Already in progress; finish it AI-off |

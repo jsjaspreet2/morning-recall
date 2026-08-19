@@ -8516,6 +8516,76 @@ function move(next: number) {
 }
 ```
 
+**The handler.** This is the reusable half — the same twelve lines serve a tablist, a toolbar, a
+radio group and a carousel, and they are what the four components in this guide differ *around*
+rather than differ *in*.
+
+```tsx
+// Derive the key names from orientation, and feed aria-orientation from the same
+// variable — then the announced orientation cannot disagree with the actual keys.
+const nextKey = orientation === 'horizontal' ? 'ArrowRight' : 'ArrowDown'
+const prevKey = orientation === 'horizontal' ? 'ArrowLeft' : 'ArrowUp'
+
+function handleKeyDown(event: KeyboardEvent<HTMLElement>) {
+  const current = items.findIndex((item) => item.value === active)
+  let next: number
+
+  switch (event.key) {
+    case nextKey: next = (current + 1) % items.length; break
+    case prevKey: next = (current - 1 + items.length) % items.length; break
+    case 'Home':  next = 0; break
+    case 'End':   next = items.length - 1; break
+    default: return                     // everything else must reach the browser
+  }
+
+  event.preventDefault()
+  move(next)                            // moves the 0 and calls .focus() together
+}
+```
+
+**`default: return` before any `preventDefault()`.** This is the line that decides whether the
+widget is usable. Calling `preventDefault()` once at the top of the handler — which is what
+happens when you write the arrow cases first and tidy up later — swallows Tab, first-letter
+typeahead, and every browser and screen-reader shortcut that reaches this element. The handler
+must be transparent to every key it does not implement.
+
+**`preventDefault()` on the keys you did handle, though.** Arrows scroll the page, and Home/End
+jump to the top and bottom of the document. Without it the widget works *and* the page moves
+underneath it.
+
+**`+ items.length` before the modulo,** because `-1 % 3` is `-1` in JavaScript, not `2`. The
+version without it silently fails only at the first item, which is exactly the case nobody
+demos.
+
+**`event.key`, not `event.code`.** `code` is the physical key position, so the numpad arrows
+arrive as `Numpad4` / `Numpad8` and fall through to `default`.
+
+**Compute `current` from your own state, not from `document.activeElement`.** The state is what
+renders `tabIndex={0}`, so reading anything else lets the two drift — and `activeElement` may be
+a child of the item rather than the item itself.
+
+**The four axes it varies on.** Everything above is fixed; this is the part you re-derive per
+widget, and it is worth having the table in your head because interviewers probe exactly here:
+
+| Axis | Tabs (§03), toolbar, radio group | Menu (§07) | Tree (§10) |
+|---|---|---|---|
+| Wrap at the ends? | Yes | Yes | **No** — clamp with `Math.min`/`Math.max` |
+| What do Left/Right do? | The navigation axis itself | Close / open a submenu | Collapse / expand, then step out / in |
+| Does selection follow focus? | Yes | No — Enter commits | No — Enter activates |
+| Extra keys | — | First-letter typeahead (§07 E), Escape | Enter/Space toggles a folder, selects a leaf |
+
+**"Selection follows focus" is a spec question, not a taste one.** For tabs and radio groups APG
+says arrowing should select as it moves — that's *automatic activation*, and it's what makes a
+radio group behave the way users expect. The exception is when showing the new panel is expensive
+(a fetch, a heavy render): then switch to *manual activation*, where arrows move focus only and
+Enter or Space selects. Name which one you picked and why — *"automatic activation, since these
+panels are already rendered; I'd switch to manual if selecting one triggered a fetch."*
+
+**Packaging.** This generalizes cleanly into a `useRovingTabIndex({ count, orientation, wrap })`
+returning `{ activeIndex, getItemProps, onKeyDown }`. Worth *naming* in a round — it shows you see
+the pattern rather than the instance — but not worth building unless you're asked for a library,
+because the per-widget axes above end up as options anyway and the indirection stops paying.
+
 **Where it applies:** Tabs (§03), Menu (§07), Tree (§10), Carousel (§15), toolbars, radio groups.
 
 **Where it does NOT:** Accordion (§04) — those headers are independent buttons and a keyboard
