@@ -106,6 +106,7 @@ Everything in §03–16 follows the same shape. Learn the shape once.
 | **E. Implementation** | Annotated chunks, then the complete file in a collapsed block |
 | **F. Traps** | What breaks, and the symptom you'd see |
 | **G. Spec** | The test list, mirroring the runnable suite |
+| **H. Interview scope** | The line budget, what's core, and what to cut with the sentence for each |
 
 §E always ends with **THE WHOLE THING** — the entire component assembled, collapsed by default.
 The chunks teach; the full file shows how the pieces fit and is what you diff your own build
@@ -5721,8 +5722,10 @@ export default function DataTableInterview() {
 ## 12 — Command palette
 
 > Runnable: `uie-practice/src/exercises/cursor-06-command-palette/` · Spec: 15 tests  
+> Native variant (§I): `uie-practice/src/exercises/command-palette-dialog/` · Spec: 15 tests  
 > The one component here whose runnable is a drill rather than a `-reference` pair, because it was
-> built to be derived cold. Its `solution.jsx` is the §H cut, not the §E reference.
+> built to be derived cold. Its `solution.jsx` is the §H cut, not the §E reference. §I builds the
+> same component on native `<dialog>` so the two can be diffed side by side.
 
 ### A. ASKED AS
 
@@ -6491,6 +6494,333 @@ function Palette({
  * Of those, the live region is the one I'd actually spend time on if the
  * interviewer signals accessibility matters.
  * -------------------------------------------------------------------------- */
+```
+
+</details>
+
+### I. THE NATIVE `<dialog>` VARIANT
+
+> Runnable: `uie-practice/src/exercises/command-palette-dialog/` · Spec: 15 tests
+
+Everything above builds the dialog by hand, because that is what the round is testing. This is the
+same component on `showModal()`, so you can diff them — and so the sentence *"in production I'd use
+native `<dialog>`"* is backed by something you've actually written.
+
+**What they share:** the role. `<dialog>` has an implicit `role="dialog"`, so to assistive tech the
+two are identical. That is the *only* thing `role="dialog"` was buying. Everything below comes from
+the `showModal()` call, not from the element.
+
+| | `<div role="dialog">` | `<dialog>` + `showModal()` |
+|---|---|---|
+| Top layer | No — portal to `<body>` to escape ancestor `transform` / `overflow` / `z-index` | **Yes.** Renders above the document from wherever it sits |
+| Backdrop | An element you render | `::backdrop`, also in the top layer |
+| Outside content inert | **No.** `aria-modal="true"` is a declaration to AT; pointer and Tab ignore it | **Yes, enforced.** Unclickable, unfocusable, out of the a11y tree |
+| Focus trap | Yours to write (§17 B) | Free — a consequence of the inertness |
+| Focus in / restore | Your effect, plus the `isConnected` check | `showModal()` in, `close()` back |
+| Escape | Your keydown case | Fires `cancel`, then closes |
+
+Note the third row especially. §05 C says `aria-modal` is a declaration rather than enforcement,
+and this is the row where that stops being a footnote: a hand-rolled modal leaks to mouse users
+and to Tab unless you also put `inert` on every sibling yourself. `showModal()` is the only way to
+get real inertness without doing that.
+
+**But the API is imperative, and three things follow.** They are the whole substance of the diff:
+
+**1 — `<dialog open>` is not a modal.** The attribute gives you a *non-modal* dialog: no top layer,
+no inertness, no backdrop, no Escape. Same trap with `.show()` versus `.showModal()`. So the
+element renders closed and gets opened from an effect:
+
+```tsx
+useEffect(() => {
+  const el = dialogRef.current
+  el?.showModal()
+  return () => el?.close()
+}, [])
+```
+
+The cleanup is not tidiness. **`close()` is what restores focus**, and React runs effect cleanups
+before removing the host node — so that one line is the difference between focus returning to the
+trigger and falling to `<body>`. Note also what survived: mount/unmount is still the state machine,
+so the query reset is still free, and there is still no reset effect.
+
+**2 — Escape closes the DOM node behind React's back.** The browser fires `cancel` and then closes,
+which leaves your state saying open while the page shows nothing — and a second Escape does
+nothing at all, because the node is already closed. The fix is to refuse the browser's close and
+let React drive it:
+
+```tsx
+onCancel={(event) => {
+  event.preventDefault()
+  onClose()
+}}
+```
+
+One source of truth, and the unmount cleanup above does the actual closing.
+
+**3 — There is no backdrop element to put a handler on.** `::backdrop` is a pseudo-element. A click
+that lands on it is reported with *the dialog itself* as the target, so:
+
+```tsx
+onClick={(event) => {
+  if (event.target === dialogRef.current) onClose()
+}}
+```
+
+This is only reliable if the dialog has no padding or border of its own and the panel is a real
+child covering it — otherwise a click on the dialog's own padding reads as a backdrop click. The
+stylesheet does that work, which is a rare case of CSS being load-bearing for behaviour.
+
+**What you also drop:** `role="dialog"` and `aria-modal` are both redundant on a modal `<dialog>`
+and should not be re-added. You still supply `aria-label` yourself. And `onMouseDown` instead of
+`onClick` on the options stays exactly as it was — blur still fires before click, and none of the
+browser's focus handling touches that.
+
+**The cost, and it is a real one: `<dialog>` is not testable in jsdom.** jsdom 30 ships
+`HTMLDialogElement` with exactly one member on it — `open`. No `showModal`, no `close`, no `cancel`
+event, no top layer. The runnable spec for this variant carries a ~25-line shim, and the shim can
+only fake the bookkeeping:
+
+> **Everything `<dialog>` gave you for free is the part you cannot assert on.** Inertness, the
+> focus trap and the top layer are browser behaviours. They do not exist in jsdom, and no shim
+> invents them.
+
+So in a round where **test quality is a graded axis** — which is exactly the Cursor round — the
+hand-rolled version has an argument the native one doesn't: you can test the focus management,
+because you wrote it. That tension is worth saying out loud; it lands better than advocating for
+either one.
+
+**Which to reach for.**
+
+| | |
+|---|---|
+| **Hand-rolled** | The interview, when focus management is the thing being examined. Anywhere the behaviour must be assertable in jsdom. |
+| **`<dialog>`** | Production. Anywhere real inertness matters, which is every modal that isn't a toy. |
+
+And note the line counts: 154 for the native variant against 200 for the reference, with the native
+one also carrying Home/End and the live region. **The win is not brevity — it's correctness.** You
+delete the portal, the focus effect, the Tab trap and the Escape case, and you get inertness that
+the hand-rolled version cannot have at all. Say that rather than "it's shorter", which is the
+version that doesn't survive a follow-up.
+
+<details>
+<summary>Complete implementation — Command palette on `<dialog>`</summary>
+
+```tsx
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import type { KeyboardEvent, MouseEvent } from 'react'
+
+/**
+ * THE NATIVE VARIANT of the command palette. Same API, same behaviour, same
+ * markup below the dialog — and four whole concerns deleted, because the
+ * browser owns them once you call showModal():
+ *
+ *   TOP LAYER      No portal. The dialog renders above the document regardless
+ *                  of any ancestor's transform, overflow, or z-index.
+ *   INERTNESS      Everything outside is genuinely unreachable — by pointer, by
+ *                  Tab, and to assistive tech. `aria-modal` only *claimed* that.
+ *   FOCUS TRAP     Free, as a consequence of inertness. No focusable-node
+ *                  selector, no edge-wrapping Tab handler.
+ *   FOCUS RESTORE  close() puts focus back where it was.
+ *
+ * What you pay for it is that the API is imperative, and three things follow
+ * from that. They are marked (1) (2) (3) below, and they are the whole reason
+ * this file is worth reading next to the hand-rolled one.
+ */
+
+export interface Command {
+  id: string
+  label: string
+  group?: string
+  keywords?: string[]
+  run: () => void
+}
+
+export interface CommandPaletteProps {
+  open: boolean
+  onClose: () => void
+  commands: Command[]
+  recentIds?: string[]
+  placeholder?: string
+  emptyMessage?: string
+}
+
+const NO_RECENTS: string[] = []
+
+export function CommandPalette({ open, ...rest }: CommandPaletteProps) {
+  // Still mount/unmount as the state machine, exactly like the hand-rolled
+  // version — the query reset stays free. Note what ISN'T here: createPortal.
+  // showModal() promotes the element into the top layer from wherever it sits,
+  // so there is nothing left for a portal to solve.
+  if (!open) return null
+  return <Palette {...rest} />
+}
+
+function Palette({
+  onClose,
+  commands,
+  recentIds = NO_RECENTS,
+  placeholder = 'Type a command…',
+  emptyMessage = 'No matching commands',
+}: Omit<CommandPaletteProps, 'open'>) {
+  const [query, setQuery] = useState('')
+  const [cursor, setCursor] = useState(0)
+
+  const dialogRef = useRef<HTMLDialogElement>(null)
+  const baseId = useId()
+  const listboxId = `${baseId}-listbox`
+  const optionId = (index: number) => `${baseId}-option-${index}`
+
+  // (1) The declarative-to-imperative bridge. A <dialog> rendered with the
+  // `open` attribute is a NON-MODAL dialog: no top layer, no inertness, no
+  // backdrop, no Escape. Only the showModal() call gets you any of it, so the
+  // element is rendered closed and opened from an effect.
+  //
+  // The cleanup is not tidiness. close() is what restores focus, and React runs
+  // effect cleanups before it removes the host node — so calling it here is the
+  // difference between focus going back to the trigger and falling to <body>.
+  useEffect(() => {
+    const el = dialogRef.current
+    el?.showModal()
+    return () => el?.close()
+  }, [])
+
+  const results = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) {
+      const recents = recentIds
+        .map((id) => commands.find((c) => c.id === id))
+        .filter((c): c is Command => c !== undefined)
+      const promoted = new Set(recents.map((c) => c.id))
+      return [...recents, ...commands.filter((c) => !promoted.has(c.id))]
+    }
+    return commands.filter(
+      (c) =>
+        c.label.toLowerCase().includes(q) ||
+        (c.keywords ?? []).some((k) => k.toLowerCase().includes(q)),
+    )
+  }, [commands, query, recentIds])
+
+  const activeIndex = results.length === 0 ? -1 : Math.min(cursor, results.length - 1)
+
+  const run = useCallback(
+    (command?: Command) => {
+      if (!command) return
+      onClose()
+      command.run()
+    },
+    [onClose],
+  )
+
+  function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    const move = (delta: number) =>
+      setCursor((i) => (Math.min(i, results.length - 1) + delta + results.length) % results.length)
+
+    switch (event.key) {
+      case 'ArrowDown':
+        event.preventDefault()
+        if (results.length > 0) move(1)
+        break
+      case 'ArrowUp':
+        event.preventDefault()
+        if (results.length > 0) move(-1)
+        break
+      case 'Home':
+        event.preventDefault()
+        setCursor(0)
+        break
+      case 'End':
+        event.preventDefault()
+        setCursor(Math.max(0, results.length - 1))
+        break
+      case 'Enter':
+        event.preventDefault()
+        run(results[activeIndex])
+        break
+      // No Escape case, and no Tab case. The browser fires `cancel` for the
+      // first and traps the second. See (2).
+      default:
+        break
+    }
+  }
+
+  return (
+    <dialog
+      ref={dialogRef}
+      className="cpd-dialog"
+      aria-label="Command palette"
+      // (2) Escape is the browser's, so it closes the DOM node without telling
+      // React — and then state says open while the page shows nothing.
+      // preventDefault stops that close and lets React drive it instead, which
+      // keeps one source of truth. Drop this line and the palette "sticks" after
+      // the first Escape.
+      onCancel={(event) => {
+        event.preventDefault()
+        onClose()
+      }}
+      // (3) There is no backdrop element to hang a handler on — ::backdrop is a
+      // pseudo-element. A click that lands on the backdrop is reported with the
+      // dialog itself as the target, which only works because the dialog has no
+      // padding of its own and the panel below is a real child.
+      onClick={(event: MouseEvent<HTMLDialogElement>) => {
+        if (event.target === dialogRef.current) onClose()
+      }}
+    >
+      <div className="cpd-panel">
+        <input
+          className="cpd-input"
+          role="combobox"
+          autoComplete="off"
+          aria-expanded
+          aria-controls={listboxId}
+          aria-autocomplete="list"
+          aria-activedescendant={activeIndex >= 0 ? optionId(activeIndex) : undefined}
+          aria-label="Search commands"
+          placeholder={placeholder}
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value)
+            setCursor(0)
+          }}
+          onKeyDown={handleKeyDown}
+        />
+
+        <div className="visually-hidden" role="status" aria-live="polite">
+          {results.length === 0
+            ? emptyMessage
+            : `${results.length} command${results.length === 1 ? '' : 's'}`}
+        </div>
+
+        <ul id={listboxId} role="listbox" aria-label="Commands" className="cpd-list">
+          {results.map((command, index) => (
+            <li
+              key={command.id}
+              id={optionId(index)}
+              role="option"
+              aria-selected={index === activeIndex}
+              className="cpd-option"
+              // Unchanged from the hand-rolled version: blur still fires before
+              // click, and the browser's focus handling does nothing about that.
+              onMouseDown={(e) => {
+                e.preventDefault()
+                run(command)
+              }}
+              onMouseEnter={() => setCursor(index)}
+            >
+              <span>{command.label}</span>
+              {command.group && <span className="cpd-group">{command.group}</span>}
+            </li>
+          ))}
+        </ul>
+
+        {results.length === 0 && (
+          <p className="cpd-empty" aria-hidden="true">
+            {emptyMessage}
+          </p>
+        )}
+      </div>
+    </dialog>
+  )
+}
 ```
 
 </details>

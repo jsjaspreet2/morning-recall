@@ -10,6 +10,7 @@ import technologyMd from './guides/technology.md?raw'
 import uieComponentsMd from './guides/uie-components.md?raw'
 import cursorScreenMd from './guides/cursor-screen.md?raw'
 import figmaScreenMd from './guides/figma-screen.md?raw'
+import discordScreenMd from './guides/discord-screen.md?raw'
 
 export interface Guide {
   id: string
@@ -23,6 +24,15 @@ export interface Guide {
 }
 
 export const guides: Guide[] = [
+  // Pinned to the top through 8/26 — the nearest date. Drop it back down afterwards.
+  {
+    id: 'discord-screen',
+    title: 'Discord Skill Challenge — 8/26',
+    subtitle:
+      'Seventy-five minutes on your own machine, a TCP server driven over nc: the round script, the line server every part is made of, five worked problems, and framing done properly.',
+    accent: 'indigo',
+    md: discordScreenMd,
+  },
   // Pinned to the top through 9/9. Drop it back down the list afterwards.
   {
     id: 'figma-screen',
@@ -125,6 +135,7 @@ export function pdfUrl(guide: Guide): string | undefined {
  */
 export function guideForAnswerKey(answerKey: string): Guide | undefined {
   const key = answerKey.toLowerCase()
+  if (key.startsWith('discord screen')) return guideById('discord-screen')
   if (key.startsWith('figma screen')) return guideById('figma-screen')
   if (key.startsWith('cursor screen')) return guideById('cursor-screen')
   if (key.startsWith('javascript')) return guideById('javascript')
