@@ -122,7 +122,8 @@ export const guides: Guide[] = [
   {
     id: 'technology',
     title: 'Technology Choices',
-    subtitle: 'Which technology and why — 14 stores, mechanism, CAP, when to reach for it, and when it flips.',
+    subtitle:
+      'Which technology and why — 26 technologies across server and browser: mechanism, CAP, when to reach for it, and when it flips.',
     accent: 'teal',
     md: technologyMd,
     // No PDF: the shipped PDF still carries the per-fact change markers the
