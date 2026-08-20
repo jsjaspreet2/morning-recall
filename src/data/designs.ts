@@ -71,6 +71,13 @@ const META: Record<string, Meta> = {
     tension: 'Trivial throughput, catastrophic contention. The inverse of Uber.',
     accent: 'rose',
   },
+  airbnb: {
+    label: 'Airbnb',
+    archetype: 'Interval inventory & search',
+    tension:
+      'Contention drops to ~1 and conflict becomes range overlap, so correctness is one line of DDL — which moves the whole design into search. The inverse of Ticketmaster.',
+    accent: 'amber',
+  },
   messaging: {
     label: 'WhatsApp',
     archetype: 'Real-time messaging & delivery',

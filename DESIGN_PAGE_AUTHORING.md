@@ -76,10 +76,15 @@ The site parses this, so it is not optional. Every problem page opens with exact
 | 13 | **Traps** | Design traps and performance traps, ranked. Interview-performance traps live in the mechanics page — link, don't repeat |
 | 14 | **Five-minute skeleton** | 8–10 numbered lines. This is the artifact that gets drawn cold |
 | 15 | **Variants** | Table, organized around **one named governing axis**. Deltas only |
-| 16 | **Active recall** | 12–15 prompts, no answers. Section pointer per prompt for self-check after attempting |
 
 Use `## N · Title` for sections and `### Title` for subsections — those are the two levels the
-sidebar TOC surfaces.
+sidebar TOC surfaces. **§15 is the last section.**
+
+**§16 · Active recall is retired — don't write one.** Earlier pages carry a table of 12–25 cold
+prompts with section pointers; those stay where they are and don't need removing. But it turned out
+to be the part of a page nobody uses, and it's the most expensive part to generate, so **new pages
+end at §15 and edits to existing pages leave the section alone rather than extending it.** Spaced
+recall lives in the site's own prompt deck, not at the bottom of a problem page.
 
 ---
 
@@ -145,6 +150,7 @@ label from this table — the index groups by it.
 |---|---|---|
 | **Geospatial marketplace** | Huge write throughput, near-zero contention | Uber |
 | **High-contention inventory** | Trivial throughput, catastrophic contention | Ticketmaster |
+| **Interval inventory & search** | Conflict is range overlap rather than row identity; contention ~1, so search dominates | Airbnb |
 | **Real-time messaging & delivery** | Ordering and delivery semantics vs fanout cost | WhatsApp |
 | **Real-time collaborative editing** | Convergence on a shared mutable document; the data model picks the algorithm | Figma |
 | **Read-heavy content & fanout** | Fanout-on-write vs fanout-on-read | Twitter feed |
@@ -207,7 +213,6 @@ Run this against the finished page. Each line maps to a standing rule above.
 - [ ] Every stateful component appears in the storage table or a dive with a named product
 - [ ] Products named, not categories — with the config detail where one exists
 - [ ] §15 is organized around one named governing axis
-- [ ] §16 has 12–15 prompts and no answers
 - [ ] Nothing from the mechanics page is restated
 - [ ] Tag names in prose are backticked; `npm run build` is clean
 
@@ -220,5 +225,6 @@ Run this against the finished page. Each line maps to a standing rule above.
 > last, referencing the deep dives by section number. Every deep dive opens with why the obvious
 > answer fails and closes with what the replacement costs. Every flow ends in a failure path. Do not
 > restate anything from `00-interview-mechanics.md` — link to it. §15 must be organized around one
-> named governing axis. Then add the `META` entry in `src/data/designs.ts` and run the self-check
+> named governing axis, and **the page ends there — no §16 active-recall section, even though the
+> existing pages have one.** Then add the `META` entry in `src/data/designs.ts` and run the self-check
 > list.

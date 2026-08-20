@@ -473,7 +473,7 @@ Most of these are 15-second items. **That doesn't mean skipping them** — it me
 |---|---|---|
 | **Flash sale (10k of one SKU)** | Queue, admission control, saga | **Fungible inventory** → it's a counter, not a seat map. `DECR` in Redis is atomic and the entire §8 problem evaporates. If you get this one, the hard part is the queue, not the inventory |
 | **Airline seats** | Seat map, holds, saga | Hold windows are hours-to-days, not minutes. And airlines **deliberately oversell** — the invariant inverts from "never double-sell" to "double-sell within a modeled no-show rate." Genuinely fun to discuss |
-| **Hotel rooms** | Booking flow, payment | Rooms of a type are fungible; you're decrementing a count per date-range. The hard part moves to **interval overlap** across a calendar, not row contention |
+| **Hotel rooms** | Booking flow, payment | Rooms of a type are fungible; you're decrementing a count per date-range. The hard part moves to **interval overlap** across a calendar, not row contention. **That whole family is its own page — see Airbnb**, which is this problem with the contention removed |
 | **OpenTable** | Slot inventory, holds | Low contention, so most of §8 is unnecessary. Complexity moves to table-combination logic and turn-time prediction |
 | **StubHub / resale** | Inventory, payment | Two-sided: sellers create inventory continuously. Listings go stale across venues; the hard problem is cross-listing sync, not onsale burst |
 | **IPO allocation / lottery** | Queue, fairness | No real-time element at all. Batch allocation, and fairness becomes the *entire* problem rather than a section |
