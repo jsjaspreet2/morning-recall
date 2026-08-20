@@ -18,7 +18,7 @@
          public directories: block Apple from listing it, and refuse imports. -->
     <itunes:block>Yes</itunes:block>
     <podcast:locked>yes</podcast:locked>
-    <lastBuildDate>Sun, 11 Jan 2026 09:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Fri, 16 Jan 2026 09:00:00 +0000</lastBuildDate>
     <item>
       <title>Ticketmaster, part one — the inverse of a scale problem</title>
       <link>https://jsjaspreet2.github.io/morning-recall/</link>
@@ -100,6 +100,66 @@
       <enclosure url="https://github.com/jsjaspreet2/morning-recall/releases/download/audio-v1/design-figma-03-dives-a.mp3" length="9201415" type="audio/mpeg"/>
       <itunes:duration>575</itunes:duration>
       <itunes:episode>7</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:explicit>false</itunes:explicit>
+    </item>
+    <item>
+      <title>Discord, part one — ingest is trivial, fanout is not</title>
+      <link>https://jsjaspreet2.github.io/morning-recall/</link>
+      <guid isPermaLink="false">jsjaspreet2/morning-recall/design-discord-01-frame</guid>
+      <pubDate>Mon, 12 Jan 2026 09:00:00 +0000</pubDate>
+      <description><![CDATA[Why the message write rate is the number that misleads people, and why durable per-recipient queues are actively wrong when the recipients are already connected.]]></description>
+      <enclosure url="https://github.com/jsjaspreet2/morning-recall/releases/download/audio-v1/design-discord-01-frame.mp3" length="10110894" type="audio/mpeg"/>
+      <itunes:duration>632</itunes:duration>
+      <itunes:episode>8</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:explicit>false</itunes:explicit>
+    </item>
+    <item>
+      <title>Discord, part two — two surfaces, and three flows that each end in failure</title>
+      <link>https://jsjaspreet2.github.io/morning-recall/</link>
+      <guid isPermaLink="false">jsjaspreet2/morning-recall/design-discord-02-flows</guid>
+      <pubDate>Tue, 13 Jan 2026 09:00:00 +0000</pubDate>
+      <description><![CDATA[Why sends stay on HTTP, why permission checks live on the write path, and why nothing happens promptly when a session dies.]]></description>
+      <enclosure url="https://github.com/jsjaspreet2/morning-recall/releases/download/audio-v1/design-discord-02-flows.mp3" length="9101105" type="audio/mpeg"/>
+      <itunes:duration>569</itunes:duration>
+      <itunes:episode>9</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:explicit>false</itunes:explicit>
+    </item>
+    <item>
+      <title>Discord, part three — reconnect is the real load, and why the feed answer is wrong</title>
+      <link>https://jsjaspreet2.github.io/morning-recall/</link>
+      <guid isPermaLink="false">jsjaspreet2/morning-recall/design-discord-03-gateway-fanout</guid>
+      <pubDate>Wed, 14 Jan 2026 09:00:00 +0000</pubDate>
+      <description><![CDATA[Connections are cheap and reconnects are not, plus the node-batching that turns fifty thousand deliveries into five hundred messages.]]></description>
+      <enclosure url="https://github.com/jsjaspreet2/morning-recall/releases/download/audio-v1/design-discord-03-gateway-fanout.mp3" length="9759391" type="audio/mpeg"/>
+      <itunes:duration>610</itunes:duration>
+      <itunes:episode>10</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:explicit>false</itunes:explicit>
+    </item>
+    <item>
+      <title>Discord, part four — presence nobody scopes, and the biggest table in the product</title>
+      <link>https://jsjaspreet2.github.io/morning-recall/</link>
+      <guid isPermaLink="false">jsjaspreet2/morning-recall/design-discord-04-presence-readstate</guid>
+      <pubDate>Thu, 15 Jan 2026 09:00:00 +0000</pubDate>
+      <description><![CDATA[One bit flipping becomes forty thousand delivery events, and why a stale presence is invisible while a presence storm is not.]]></description>
+      <enclosure url="https://github.com/jsjaspreet2/morning-recall/releases/download/audio-v1/design-discord-04-presence-readstate.mp3" length="8574894" type="audio/mpeg"/>
+      <itunes:duration>536</itunes:duration>
+      <itunes:episode>11</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:explicit>false</itunes:explicit>
+    </item>
+    <item>
+      <title>Discord, part five — a migration about pauses, and no broker in the delivery path</title>
+      <link>https://jsjaspreet2.github.io/morning-recall/</link>
+      <guid isPermaLink="false">jsjaspreet2/morning-recall/design-discord-05-storage</guid>
+      <pubDate>Fri, 16 Jan 2026 09:00:00 +0000</pubDate>
+      <description><![CDATA[Why the access pattern picks the store, why the time bucket must be coarse, and why the right component here is no component.]]></description>
+      <enclosure url="https://github.com/jsjaspreet2/morning-recall/releases/download/audio-v1/design-discord-05-storage.mp3" length="9232762" type="audio/mpeg"/>
+      <itunes:duration>577</itunes:duration>
+      <itunes:episode>12</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
       <itunes:explicit>false</itunes:explicit>
     </item>

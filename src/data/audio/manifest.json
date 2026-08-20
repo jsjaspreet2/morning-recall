@@ -105,6 +105,46 @@
       "title": "Estimation \u2014 the four-line model, and the conclusion the numbers force",
       "source": "src/data/guides/system-design.md \u2014 Estimate and set SLOs",
       "status": "draft"
+    },
+    {
+      "id": "design-discord-01-frame",
+      "order": 30,
+      "title": "Discord, part one \u2014 ingest is trivial, fanout is not",
+      "summary": "Why the message write rate is the number that misleads people, and why durable per-recipient queues are actively wrong when the recipients are already connected.",
+      "source": "src/data/designs/design-discord.md",
+      "status": "ready"
+    },
+    {
+      "id": "design-discord-02-flows",
+      "order": 31,
+      "title": "Discord, part two \u2014 two surfaces, and three flows that each end in failure",
+      "summary": "Why sends stay on HTTP, why permission checks live on the write path, and why nothing happens promptly when a session dies.",
+      "source": "src/data/designs/design-discord.md",
+      "status": "ready"
+    },
+    {
+      "id": "design-discord-03-gateway-fanout",
+      "order": 32,
+      "title": "Discord, part three \u2014 reconnect is the real load, and why the feed answer is wrong",
+      "summary": "Connections are cheap and reconnects are not, plus the node-batching that turns fifty thousand deliveries into five hundred messages.",
+      "source": "src/data/designs/design-discord.md",
+      "status": "ready"
+    },
+    {
+      "id": "design-discord-04-presence-readstate",
+      "order": 33,
+      "title": "Discord, part four \u2014 presence nobody scopes, and the biggest table in the product",
+      "summary": "One bit flipping becomes forty thousand delivery events, and why a stale presence is invisible while a presence storm is not.",
+      "source": "src/data/designs/design-discord.md",
+      "status": "ready"
+    },
+    {
+      "id": "design-discord-05-storage",
+      "order": 34,
+      "title": "Discord, part five \u2014 a migration about pauses, and no broker in the delivery path",
+      "summary": "Why the access pattern picks the store, why the time bucket must be coarse, and why the right component here is no component.",
+      "source": "src/data/designs/design-discord.md",
+      "status": "ready"
     }
   ]
 }
