@@ -22,7 +22,7 @@ not instead of one:
 | Alex Xu, *System Design Interview* Vol 1–2 | End-to-end walkthroughs of canonical systems | Building intuition; seeing a whole design assembled |
 | Hello Interview | Walkthroughs plus a delivery framework and live-round coaching | Rehearsing the room; problem-specific depth |
 | **This guide** | Decision tables, estimation anchors, failure and operational depth, AI-native systems | Look-up during practice; the closing drill; the parts courses skip |
-| `Technology Choices` (companion guide) | One page per technology: mechanism, when it flips, the line to say | Any question of the form "why Postgres and not X" |
+| `Technology Choices` (companion guide) | One page per technology, server and browser: mechanism, when it flips, the line to say | Any question of the form "why Postgres and not X" — and, from §17, "why IndexedDB and not localStorage" |
 
 The division with `Technology Choices` is worth stating plainly, because they used to overlap:
 **that guide picks the technology, this one shapes the system.** When a section here needs a store,
@@ -762,6 +762,9 @@ Start with the simplest mechanism that meets the freshness and interaction requi
 one distinction clean: **realtime delivery does not imply realtime durable storage.** They are
 separate systems with separate guarantees, and conflating them is how presence data ends up in a
 transactional database.
+
+For what each rung is from the browser's side — and what the client owes you in return, since
+reconnect and resumption are where these designs actually fail — see `Technology Choices` §22–25.
 
 ### B. THE CONNECTION PLANE
 

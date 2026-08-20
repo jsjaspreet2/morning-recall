@@ -610,6 +610,10 @@ special-casing."*
   or a product where the user interrupts mid-generation with new content rather than merely
   stopping. Naming the flip condition is better than defending SSE absolutely.
 
+This section is the decision and its production pathologies. If the interviewer goes one level
+below it — what the `101` upgrade actually does, how `Last-Event-ID` resumption works on the
+server, what a ping/pong heartbeat is detecting — that is `Technology Choices` §23–24.
+
 ### C. THE WIRE FORMAT, SPECIFIED
 
 Interviewers on both days will accept "the server streams tokens." What earns is specifying it.

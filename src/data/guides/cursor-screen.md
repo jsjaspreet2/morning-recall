@@ -135,7 +135,8 @@ Twelve days is short enough that resource choice matters. In order:
    spine you find easier to hold, but hold one.
 3. **Your `Accessibility` and `Technology Choices` guides.** The first is load-bearing rather than
    optional here, because for an interactive component the ARIA contract *is* part of the
-   interface being graded. The second directly serves "clear technology decisions, POV."
+   interface being graded. The second directly serves "clear technology decisions, POV" — and
+   since v6 its second half is the browser, so §17–28 there back most of §04 here.
 4. **Four posts from cursor.com/blog** — two evenings, and only these four. The blog is mostly
    product and company announcements; the engineering posts are the minority and they are the ones
    the design round rhymes with.
@@ -413,6 +414,10 @@ Worth knowing so you don't get caught: `EventSource` cannot set headers, so auth
 query param — mention it, or use `fetch` with a `ReadableStream` and parse the event framing
 yourself, which is what most production LLM clients actually do.
 
+The ladder above is the decision. What each rung actually is at the socket level — the `101`
+upgrade, ping/pong, `Last-Event-ID`, the missed-event window a long poll leaves — is
+`Technology Choices` §22–25.
+
 ### D. STREAMING, BACKPRESSURE, AND RESUMABILITY
 
 Streaming is where a client design gets interesting and where the deep dive usually lands.
@@ -521,6 +526,10 @@ offline because ___"* and move on — that also scores.
 | **IndexedDB** | Large, quota-based | async | The real answer: documents, outbox, cached queries |
 | Cache API | Large | async | HTTP responses, via a service worker |
 | OPFS | Large, fast | async (+ sync in a worker) | Genuinely file-like workloads; SQLite-in-WASM |
+
+This table is the pick; the mechanism behind each row — IndexedDB's transactions and its
+auto-close, the single origin quota all three async stores share, and the fact that eviction is
+all-or-nothing per origin rather than per record — is `Technology Choices` §17–21.
 
 **Conflict resolution ladder**, cheapest first — pick the lowest rung that satisfies the
 requirement, and say why the next rung up is unnecessary:
