@@ -2,10 +2,14 @@
   "meta": {
     "title": "Morning Recall",
     "subtitle": "Produce the answer before you look.",
-    "version": 10,
+    "version": 11,
     "rule": "Attempt each prompt from memory first, out loud or on paper. A short answer is revealed only after you mark the card, so a blank is recoverable; the guides hold the full detail.",
     "dailyDeckSize": 12,
     "tracks": {
+      "openai": {
+        "label": "OpenAI Screen",
+        "accent": "emerald"
+      },
       "discord": {
         "label": "Discord Screen",
         "accent": "indigo"
@@ -74,6 +78,536 @@
     }
   },
   "prompts": [
+    {
+      "id": "openai-01",
+      "track": "openai",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 5,
+      "prompt": "The OpenAI screen is two 60-minute rounds on 9/16 and 9/17. Name each round's tool, and the one sentence that reframes both.",
+      "answer": "9/16 architecture on a whiteboard (Excalidraw); 9/17 coding in CoderPad. The reframe: OpenAI's product-engineering loop is fullstack, and the title on the req does not change that. Go deepest on the client, but reach API contract, storage schema, and the queue/GPU reality, or the design round stalls at minute thirty.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-02",
+      "track": "openai",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 5,
+      "prompt": "OpenAI states its engineering bar as six things. Name them, and say which one most candidates simply skip.",
+      "answer": "Well-designed solutions, high-quality code, performance, test coverage, communication, collaboration. Test coverage is the skipped one — it is a named axis, and most candidates write zero tests in a sixty-minute pad. Two written plus three named is one of the cheapest differentiators available.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-03",
+      "track": "openai",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 4,
+      "prompt": "Which two techniques does the reported OpenAI coding bank collapse into, beyond the state machine and cancellation?",
+      "answer": "Consuming an async source incrementally and rendering it without melting; and text-surface mechanics — caret, selection, ranges, insert/delete. Titles rotate every few months, techniques do not. Prepare the four techniques (incremental consumption, explicit state machine, cancellation/staleness, text-surface mechanics) and you cover the reported prompts plus the one nobody has reported yet.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-04",
+      "track": "openai",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 4,
+      "prompt": "The Discord report said the failure was 'text streaming and text editor concepts'. Why is that one problem rather than two, and what failure does it predict?",
+      "answer": "Every ChatGPT-shaped product has an editing surface attached to a token stream — the composer, edit-and-resubmit, mentions, Canvas. So the likely shape is a streaming chat where one part makes the text surface itself non-trivial. The predicted failure is not 'couldn't build a chat UI' — it is that streaming ate forty minutes and the caret/selection extension arrived cold. The fix is making the streaming skeleton automatic so the extension gets the time.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-05",
+      "track": "openai",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 3,
+      "prompt": "Name three things OpenAI appears NOT to ask a frontend candidate, so you know where not to spend September.",
+      "answer": "Hard algorithms and string-manipulation puzzles (interviewing.io says so plainly); CSS/layout trivia (reports say only 'sometimes a bit of HTML or CSS'); and framework-internals quizzes. Note the exception: 'why does this component render twice' does appear — that is a debugging skill, not trivia. Library knowledge is also out: CoderPad, from scratch.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-06",
+      "track": "openai",
+      "type": "procedure",
+      "timeboxSec": 60,
+      "weight": 5,
+      "prompt": "The 9/16 clock: name the phases, their minute, and the two hard gates.",
+      "answer": "0-3 intros and restatement · 3-10 requirements, functional then non-functional then two numbers · 10-15 wireframe and entities · 15-22 API contract · 22-35 high-level design, two flows · 35-50 two or three deep dives · 50-57 the scale ladder · 57-60 wrap. Hard gates: a box diagram exists by minute 15, and you reach scale by minute 50 even if a dive is unfinished.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-07",
+      "track": "openai",
+      "type": "spoken",
+      "timeboxSec": 90,
+      "weight": 5,
+      "prompt": "Out loud: the 9/16 opening. Restatement through the order-of-attack sentence.",
+      "answer": "Restate the problem. Three functional requirements, plus what you are putting out of scope. Non-functional with TTFT first — latency to first token, availability during a generation, cost per request. Derive one number aloud and say you will keep numbers in the margin. Then: 'I'll go deepest on the client, but I want to get all the way to storage and the inference layer so the picture is complete. Does that order work?'",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-08",
+      "track": "openai",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 5,
+      "prompt": "Naming TTFT first in the non-functional requirements — why is it the correct first NFR for a generative product, and what is the second number?",
+      "answer": "Because users perceive time-to-first-token, not total completion time: a response that starts in 300ms and takes 12 seconds feels faster than one that starts in 3 seconds and takes 6. The second number is inter-token latency, and the key point is that it only has to beat reading speed — roughly 30-50 tokens/sec is indistinguishable from faster, so optimising it past that spends money for nothing.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-09",
+      "track": "openai",
+      "type": "fact",
+      "timeboxSec": 50,
+      "weight": 5,
+      "prompt": "TTFT and inter-token latency have completely different fixes. Give two for each.",
+      "answer": "TTFT is dominated by queue wait plus prefill over the whole prompt: fix with prompt-cache the stable prefix, shorten context, admission control, route small requests to a fast tier. Inter-token latency is dominated by decode — one forward pass per token: fix with a smaller or quantized model, speculative decoding, better batching. Confusing the two is the most common depth failure in this round.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-10",
+      "track": "openai",
+      "type": "procedure",
+      "timeboxSec": 90,
+      "weight": 5,
+      "prompt": "The scale ladder for a conversational product: what breaks FIRST at 10x, 100x, and 1000x?",
+      "answer": "10x: long-lived connections pin app-server memory and a deploy kills every in-flight generation — split the streaming tier from the API tier. 100x: the model tier saturates and TTFT degrades before throughput does — admission control plus per-tier queues, shedding at the door not mid-generation; also conversation reads hot-spot on recent messages. 1000x: connection count exceeds one region's LB tier, and cost rather than capacity becomes the binding constraint — regional streaming tiers plus a durable token log so a client can reconnect to a different region.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-11",
+      "track": "openai",
+      "type": "spoken",
+      "timeboxSec": 60,
+      "weight": 4,
+      "prompt": "Out loud: the calibrated fullstack move — how you cross into the backend without overreaching.",
+      "answer": "'I'll go deep on the client because that's my strongest surface. On the inference layer I know the shape — a queue, continuous batching, KV-cache reuse, and that TTFT and inter-token latency are separate problems with separate fixes — and I'll tell you where my knowledge gets thin rather than guessing.' Then deliver real depth on transport, conversation storage, resumability, idempotency, rate limiting, context truncation, admission control. Nine rows of genuine depth plus two honest edges reads as fullstack; bluffing row ten reads as neither.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-12",
+      "track": "openai",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 4,
+      "prompt": "For 'Design a ChatGPT-style assistant': derive the one number that makes the connection tier a first-class component.",
+      "answer": "200M DAU x 4 conversations x 6 turns is roughly 5B generations/day, about 57k/sec average and several times that at peak. If a generation streams for 10 seconds, concurrent open streams are about 57k x 10 = 570k, sustained. That number is why the streaming tier is separate, stateless, and a reader of a log — and it is what you point back at when they say 1000x.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-13",
+      "track": "openai",
+      "type": "fact",
+      "timeboxSec": 50,
+      "weight": 5,
+      "prompt": "In the ChatGPT design, why split POST /messages from GET /generations/{id}/stream instead of one streaming request?",
+      "answer": "One request that both creates and streams conflates two lifetimes: the message exists forever, the stream is one client's view of it. Splitting them is what makes resume, multi-device follow, and 'the generation outlives the tab' possible at all rather than as a redesign. It costs one extra round trip, which you hide behind the optimistic echo of the user's message.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-14",
+      "track": "openai",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 4,
+      "prompt": "The Playground is not ChatGPT. Name the three decisions that make the Playground answer.",
+      "answer": "(1) Config is the document: the interesting object is the request, not the response. (2) A share link points at an immutable PresetVersion, not a mutable preset — otherwise the recipient sees something the author never saw. 'A share link must be a snapshot, or it's a bug-report generator.' (3) Reproducibility is a stated non-goal at the token level: seed plus temperature plus a pinned model version gets close, and you pin the version not the alias.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-15",
+      "track": "openai",
+      "type": "fact",
+      "timeboxSec": 50,
+      "weight": 4,
+      "prompt": "Design Canvas: what is the distinguishing constraint, and what does it forbid?",
+      "answer": "Two writers on one buffer — the model produces edits while the user may be typing in the same document. It forbids streaming a whole-document replacement, because that destroys the caret, the selection, and in-flight typing. So model edits must be ranged ops against a base version, applied at a semantic boundary, batched into one undo entry, with a stated conflict policy: the human wins.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-16",
+      "track": "openai",
+      "type": "procedure",
+      "timeboxSec": 60,
+      "weight": 5,
+      "prompt": "The seven hops of the streaming spine, GPU to DOM.",
+      "answer": "GPU decode loop → inference server token callback → gateway/API service → optional durable token log → HTTP response body, chunked → browser fetch() → response.body ReadableStream → reader.read() → TextDecoder({stream:true}) → event framing → React state → DOM. 9/16 is hops 1-5 with the client as one box; 9/17 is hops 5-8 with the server as a mock. Same vocabulary, which is why the rounds a day apart help each other.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-17",
+      "track": "openai",
+      "type": "spoken",
+      "timeboxSec": 60,
+      "weight": 5,
+      "prompt": "Out loud: SSE vs WebSocket vs chunked fetch. Give the answer and the reason in one breath.",
+      "answer": "'SSE, or plain chunked fetch. Token delivery is one-directional — the only client-to-server messages are start and stop, and both are fine as ordinary requests. I don't need a persistent bidirectional socket to send two messages, and I'd rather keep the HTTP semantics: auth, proxies, retries, and load balancing all work without special-casing.' Then name the flip condition: voice, live multi-user collaboration, or interrupting mid-generation with new content.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-18",
+      "track": "openai",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 5,
+      "prompt": "Why does 'we'll use SSE' usually mean fetch rather than EventSource in a chat product?",
+      "answer": "EventSource cannot POST, and a prompt is a request body. So either you POST with fetch and parse SSE framing by hand off response.body, or you POST first to create a generation and then EventSource its id. Saying which one you are doing is the detail that separates people who have built streaming from people who have read about it.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-19",
+      "track": "openai",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 4,
+      "prompt": "Name the production bug that silently destroys streaming while everything stays technically correct, and the headers that prevent it.",
+      "answer": "A buffering intermediary — a proxy or CDN that holds the response until it is complete. Content-Type: text/event-stream, Cache-Control: no-cache, X-Accel-Buffering: no, and compression disabled on the stream route (gzip can hold bytes waiting for a flush boundary). Also worth naming: HTTP/1.1's six-connections-per-origin cap starves an origin when several streams are open; HTTP/2 multiplexes.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-20",
+      "track": "openai",
+      "type": "procedure",
+      "timeboxSec": 75,
+      "weight": 5,
+      "prompt": "Specify the SSE wire format for a chat turn, and name the four decisions inside it.",
+      "answer": "POST with Accept: text/event-stream and an Idempotency-Key; response with id:, event: delta, data: {messageId, text} per chunk, then event: done with a finishReason. The four decisions: (1) an idempotency key so a retried submit doesn't create a second message or a second generation; (2) an id: on every event so Last-Event-ID resumption is possible later, which costs nothing now; (3) an explicit terminal event, because a closed socket makes completion and failure indistinguishable; (4) deltas carry text, not the accumulated string, which would be O(n^2) bytes.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-21",
+      "track": "openai",
+      "type": "fact",
+      "timeboxSec": 50,
+      "weight": 5,
+      "prompt": "Three postures for a client that disconnects mid-generation. Name them, and say which is the right default for a chat product.",
+      "answer": "Restart (re-issue, full regeneration — fine for short cheap responses); Resume (the server buffers emitted tokens keyed by generation id, the client reconnects with Last-Event-ID and the server replays the gap then continues live — the right default for chat); Persist-then-stream (the generation writes to durable storage as a first-class job and clients are readers of a log — for background agents and Codex tasks, where the answer must survive the client closing entirely).",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-22",
+      "track": "openai",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 4,
+      "prompt": "Why a replayable log rather than pub/sub for the token buffer, and what does that buy you?",
+      "answer": "Pub/sub is fire-and-forget: a reconnecting client has missed everything sent while it was gone. A log with offsets lets you serve the gap — Redis Streams with a TTL, or a partitioned log if it must be durable. It buys three things: the streaming tier becomes a stateless reader so any instance or region can serve any generation; backpressure from a slow client becomes a non-problem because the generation runs ahead into the log; and multi-device follow is nearly free.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-23",
+      "track": "openai",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 5,
+      "prompt": "Stop is pressed. What actually stops, and what doesn't?",
+      "answer": "Aborting the fetch stops the network; cancelling the reader stops you consuming; neither stops the GPU. Cancellation must reach the worker — POST /generations/{id}/cancel setting a flag the worker checks between tokens. Otherwise Stop saves the user's eyes and none of your money. On the client, abort alone also leaves tokens already decoded and queued in microtasks to trickle in, which is why you also bump a generation counter.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-24",
+      "track": "openai",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 5,
+      "prompt": "Backpressure in the streaming spine goes in two directions. Name both and their fixes.",
+      "answer": "Server-to-client: a slow client on 3G can't drain as fast as the GPU fills, so an unbounded write buffers in the server process and eventually OOMs — bound the per-connection buffer and drop the connection (the client resumes), or let the generation run ahead into the durable log. Network-to-React: arrival rate is network-paced, paint is display-paced, so setState per chunk is a render per chunk — buffer in a ref and flush on requestAnimationFrame or a ~50ms timer.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-25",
+      "track": "openai",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 4,
+      "prompt": "Prompt-cache ordering: state the rule and the mistake that invalidates it.",
+      "answer": "System prompt first, then conversation history, then the new turn — stable prefix first, so the cache hits and you skip prefill on everything before the new content. The mistake is interleaving anything volatile early, like a timestamp or a request id in the system block: it invalidates the whole prefix and you pay full prefill every turn. It is free TTFT and almost nobody mentions it.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-26",
+      "track": "openai",
+      "type": "procedure",
+      "timeboxSec": 60,
+      "weight": 5,
+      "prompt": "The 9/17 clock and the single gate that matters.",
+      "answer": "0-4 clarify (mock or real endpoint? tests runnable? scope?) · 4-8 types and state model, before any JSX · 8-22 the core: submit → stream → render with loading and error · 22-30 stop, abort, generation guard · 30-45 extensions, interviewer-led · 45-55 tests · 55-60 what you'd do next. The gate: something streams by minute 22. At 22 you have 38 minutes of extension room where the differentiation lives; at 40 your score is capped regardless of elegance.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-27",
+      "track": "openai",
+      "type": "spoken",
+      "timeboxSec": 90,
+      "weight": 5,
+      "prompt": "Out loud: the first four minutes on 9/17, including the highest-leverage sentence.",
+      "answer": "Four questions: real endpoint or mock (default to mock)? can I run tests here or should I write them as a spec? scope — single turn extended, or multi-turn from the start? and a statement that you'll write types and the status model before any JSX. Then the sentence: 'I'll be treating cancellation and stale responses as first-class rather than bolting them on, because that's where this class of UI actually breaks.' It makes the abort work later look planned rather than reactive.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-28",
+      "track": "openai",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 5,
+      "prompt": "Name the six statuses for a streaming chat and justify the two that people collapse.",
+      "answer": "idle, submitting, streaming, done, stopped, error. submitting is separate from streaming because between the request leaving and the first token there is a real interval — TTFT — during which the correct UI is a thinking indicator, not an empty bubble. stopped is separate from done because the transcript can offer 'continue' after a stop and shouldn't after a natural finish. And stopped is separate from error because pressing Stop and the network dying produce the same rejected promise and must produce different UI.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-29",
+      "track": "openai",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 5,
+      "prompt": "Why does the reader loop use TextDecoder with { stream: true }, and what is the final bare decode() for?",
+      "answer": "response.body yields Uint8Arrays at whatever boundary the network produced, so a multi-byte character — an emoji, any CJK text — can land with its bytes split across two reads. Decoding each chunk independently turns that into a replacement character. { stream: true } holds the partial sequence until the next chunk completes it; the final bare decode() flushes any trailing partial code point. Demonstrate it by making a mock chunk boundary land mid-emoji on purpose.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-30",
+      "track": "openai",
+      "type": "procedure",
+      "timeboxSec": 120,
+      "weight": 5,
+      "prompt": "Write the cancellation block from blank: abort ref, generation ref, and the three lines you narrate.",
+      "answer": "abortRef.current?.abort(); const gen = ++genRef.current; new AbortController stored in abortRef. In the token callback: if (gen !== genRef.current) return. In catch: if (gen !== genRef.current) return; then if (ctrl.signal.aborted) dispatch stop, else dispatch error. stop() aborts AND increments genRef. useEffect returning () => abortRef.current?.abort() for unmount. The three narrated lines: the generation compare makes Stop feel instant because late tokens are dropped not merely un-requested; signal.aborted is what distinguishes Stop from a network failure; and the unmount abort stops setState on a dead component.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-31",
+      "track": "openai",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 4,
+      "prompt": "The rAF batching buffer: say precisely what it saves, and name its two footguns.",
+      "answer": "It saves renders, not paints — the browser already coalesces DOM mutation to one paint per vsync, so the win is main-thread time, and it only matters when render cost x cross-task arrival rate is large (streamed markdown, a highlighted diff, a long transcript). Footguns: requestAnimationFrame does not fire in a background tab, so a buffered stream freezes when the user switches away — pair with visibilitychange or a timer; and you must flush the tail on done, error, and unmount or the last partial batch is dropped.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-32",
+      "track": "openai",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 4,
+      "prompt": "Why must the Stop/Send button swap be keyed in React?",
+      "answer": "Both branches render a <button> in the same slot, so without a key React reuses the DOM node and rewrites type=\"button\" into type=\"submit\" in place. Click is a discrete event, so that re-render flushes during the click, and activation behavior — evaluated after dispatch — reads the new type and submits the form. Stop aborts and instantly re-sends. key=\"stop\" / key=\"send\" forces a remount.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-33",
+      "track": "openai",
+      "type": "procedure",
+      "timeboxSec": 90,
+      "weight": 5,
+      "prompt": "The transcript model for multi-turn: three decisions, plus the keying trap.",
+      "answer": "(1) The assistant message is created empty at submit time, not on the first token — stable identity, stable React key, and the thinking state has somewhere to live. (2) Client ids from crypto.randomUUID(), reconciled with server ids on completion, keeping a clientId→serverId map so an edit or retry doesn't dangle. (3) At most one in-flight generation, enforced in state rather than by disabling the button, because the button is bypassed by Enter, a race, or a second tab. Trap: array-index React keys break the moment you support edit-and-truncate.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-34",
+      "track": "openai",
+      "type": "procedure",
+      "timeboxSec": 90,
+      "weight": 4,
+      "prompt": "Scroll pinning against a live stream: the four points.",
+      "answer": "A threshold not equality — scrollHeight - scrollTop - clientHeight < 40, because zoom and fractional pixels mean exact equality is unreliable. Intent lives in a ref, not state, or you re-render per scroll event. Content can grow with no scroll event fired (a code block closing, an image loading), so a ResizeObserver on the content is the robust version. And behavior:'smooth' fights a live stream — each token retargets the animation and it never settles; use instant while streaming, smooth only for an explicit 'jump to latest'.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-35",
+      "track": "openai",
+      "type": "fact",
+      "timeboxSec": 50,
+      "weight": 4,
+      "prompt": "Streaming markdown: name the three problems in order of how much they matter, with a fix each.",
+      "answer": "(1) Unclosed constructs flicker — a fence with no closing fence parses as a paragraph then snaps into a code block; fix by speculatively closing: if the text ends inside an open fence, append a virtual closing fence before parsing. (2) Reparse cost is O(n^2) over the response; fix with a ~50-100ms debounce and by parsing block-by-block, memoising everything before the last blank line. (3) Sanitisation is not optional — model output is untrusted input, so never dangerouslySetInnerHTML raw parser output.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-36",
+      "track": "openai",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 5,
+      "prompt": "Enter in the composer during IME composition — what happens if you don't guard, and name both mechanisms.",
+      "answer": "Enter during composition commits the IME candidate; it does not mean send. Intercepting it sends a half-typed word and looks broken to a large fraction of users on Japanese, Korean, Chinese, and some Android predictive keyboards. Guard with compositionstart/compositionend and a ref flag, or with e.nativeEvent.isComposing on the keydown (the modern one-liner). Legacy code checks keyCode 229. Say it out loud even if you only write one.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-37",
+      "track": "openai",
+      "type": "procedure",
+      "timeboxSec": 60,
+      "weight": 5,
+      "prompt": "Auto-resizing a textarea: write the two lines and say why the first exists.",
+      "answer": "el.style.height = 'auto'; then el.style.height = Math.min(el.scrollHeight, MAX) + 'px'. The collapse to auto has to come first because scrollHeight of an already-tall element includes the height you gave it, so without it the box grows monotonically and never shrinks. Use useLayoutEffect, not useEffect, so it happens before paint and there is no one-frame jump. Cap the height and let it scroll past the cap.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-38",
+      "track": "openai",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 5,
+      "prompt": "value = before + insert + after — name the three things that breaks, and the API that doesn't.",
+      "answer": "It moves the caret to the end of the field, it loses the selection, and — the one people miss — it wipes the browser's native undo stack, so Cmd+Z stops working in the composer. el.setRangeText(text, start, end, mode) replaces a range and preserves native undo. The fourth argument controls the resulting selection: 'select' | 'start' | 'end' | 'preserve'. This is the single best value-per-word fact in the editor chapter.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-39",
+      "track": "openai",
+      "type": "spoken",
+      "timeboxSec": 60,
+      "weight": 5,
+      "prompt": "Out loud: reframe '@-mention autocomplete in a textarea' into something you have already built.",
+      "answer": "'This is a combobox whose anchor is the caret rather than the input, and whose value is a range rather than the whole field.' Everything from the combobox transfers: role=listbox on the popup, aria-activedescendant on the textarea which keeps focus, arrows move the active option, Enter selects, Escape closes. Three parts are genuinely new: trigger detection on the token before the caret, insertion via setRangeText over that range, and positioning the popup.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-40",
+      "track": "openai",
+      "type": "procedure",
+      "timeboxSec": 60,
+      "weight": 4,
+      "prompt": "Trigger detection for @-mentions: write the regex and name the three details.",
+      "answer": "/(^|\\s)@([\\w-]*)$/ against value.slice(0, caret). Details: (1) the trigger must follow start-of-input or whitespace, or every email address opens the menu; (2) the token is bounded by the caret, so moving the caret away closes the menu; (3) you return a range {start, end}, not just a query, because insertion rewrites the range — that is what makes it non-destructive.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-41",
+      "track": "openai",
+      "type": "fact",
+      "timeboxSec": 50,
+      "weight": 3,
+      "prompt": "A textarea does not expose caret coordinates. Name the standard technique — and the answer you should actually give under clock.",
+      "answer": "The mirror: an absolutely-positioned, visually-hidden div styled with the textarea's computed font, padding, border, and width, into which you copy the text up to the caret followed by a marker span; getBoundingClientRect on that span gives you x/y. That is the textarea-caret-position technique. Under clock, name it to prove you know the hard version, then anchor the popup to the textarea's top or bottom edge — which is what most chat products actually do — and say that is a deliberate simplification.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-42",
+      "track": "openai",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 4,
+      "prompt": "The mention menu's keyboard contract has four collisions with the composer. Name them.",
+      "answer": "Arrows must move the active option and NOT move the caret (preventDefault). Enter must select the option and NOT send the message — order the key handler so the menu wins. Escape must close the menu and NOT clear the input. Tab either selects or closes, and blur closes. The textarea keeps focus throughout; the active option is communicated with aria-activedescendant.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-43",
+      "track": "openai",
+      "type": "fact",
+      "timeboxSec": 50,
+      "weight": 4,
+      "prompt": "Edit-and-resubmit a transcript message: name the four decisions.",
+      "answer": "(1) The edit surface is a separate mode with its own local state seeded from the message; cancel restores the pre-image rather than re-reading the message, which may have been reconciled with a server id. (2) On entry, focus and put the caret at the END — not select-all, which makes the first keystroke destroy the message — in a useLayoutEffect, and restore focus to the Edit button on cancel. (3) Resubmit truncates the transcript below that turn, because everything after it responded to the old text; the richer alternative is branching, worth one sentence. (4) Abort any in-flight generation first and reuse the generation counter.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-44",
+      "track": "openai",
+      "type": "procedure",
+      "timeboxSec": 75,
+      "weight": 4,
+      "prompt": "Write the position transform: where does position p end up after an insert, and after a delete?",
+      "answer": "Insert: p < at ? p : p + text.length. Delete: p <= at ? p : (p >= at + len ? p - len : at) — before the range is unaffected, after shifts left, and inside collapses to the start of the deleted range. Three sentences complete it: a selection is two positions so transform both endpoints, and if they collapse you correctly get a caret; tie-breaking at an equal index is a policy not a fact, so pick one and say which; and this is OT with one transform authority — a CRDT is for convergence without a central authority, not for being better at two writers.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-45",
+      "track": "openai",
+      "type": "spoken",
+      "timeboxSec": 75,
+      "weight": 4,
+      "prompt": "Out loud: streaming model output into a document the user is also editing. Twenty seconds.",
+      "answer": "'Two writers on one buffer. I never write the model's output into a focused editable element, because setting value moves the caret and wipes native undo. Three postures: read-only until done, which is the simple correct answer; ranged ops with caret transform, which is setRangeText plus the transform function; or a decoration layer where pending edits render as an overlay the user accepts — best UX and it sidesteps the conflict. If the user types inside the range the model is rewriting, the human wins and I abort the rest.'",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-46",
+      "track": "openai",
+      "type": "spoken",
+      "timeboxSec": 90,
+      "weight": 4,
+      "prompt": "Out loud: asked to build a rich-text editor, why is the answer usually not contenteditable — and what is it?",
+      "answer": "contenteditable is genuinely hard to control: every browser has its own idea of what Enter produces, what Backspace merges, what a paste inserts, and it generates markup you never asked for. The production answer is model-first: your document model is the source of truth, contenteditable is only a rendering and event surface, and you intercept beforeinput to turn intent into ops against your model. That is what Lexical, ProseMirror, Slate and Quill do, and why they are each tens of thousands of lines. In sixty minutes use a textarea and be explicit that you are trading formatting for correctness.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-47",
+      "track": "openai",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 3,
+      "prompt": "If pushed on contenteditable, name the five things you should be able to say.",
+      "answer": "(1) beforeinput is the interception point — cancellable, and it gives you the intent (insertText, deleteContentBackward, insertFromPaste) before the DOM changes; input is too late. (2) The Selection API — getSelection, Range, anchorNode/focusOffset — maps DOM positions to model positions, and that bidirectional mapping is the hardest part. (3) IME composition cannot be cancelled, so interception must let composition through and reconcile after — which is why 'just intercept everything' fails. (4) Paste must handle text/html, text/plain and files, and sanitise. (5) Once you intercept input you own undo entirely.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-48",
+      "track": "openai",
+      "type": "procedure",
+      "timeboxSec": 90,
+      "weight": 5,
+      "prompt": "The five tests for a streaming chat. Which two do you actually write, and why those?",
+      "answer": "(1) Submit renders the user message and an empty assistant message immediately. (2) Text accumulates across chunks and the final text equals the full response. (3) Stop mid-stream keeps the partial text and sets status to stopped, not error. (4) Tokens arriving after Stop do not change the rendered text. (5) A rejected fetch surfaces an error and leaves partial text visible. Write 3 and 4 — they encode the hard parts, and 4 is the test that proves you understood why abort alone is insufficient.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-49",
+      "track": "openai",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 3,
+      "prompt": "Name the twelve-line helper that makes the coding round demonstrable, and the trick that makes it prove something.",
+      "answer": "A mockStream: a ReadableStream whose start() enqueues TextEncoder-encoded slices of a string on a timer, plus a mockFetch that wraps it in a Response. The trick: choose a chunk size that splits an emoji's bytes across two reads — mockStream('héllo 👋 world', 3). Now your TextDecoder({stream:true}) handling is demonstrated in front of the interviewer rather than merely asserted.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-50",
+      "track": "openai",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 3,
+      "prompt": "The OpenAI engineering story in three constraints — say them.",
+      "answer": "The constraint is compute: GPUs are scarce and expensive, which is why tiering, rate limits, model routing and caching are product-visible, and why cost per request belongs in your NFRs. The interface is a stream: nearly everything they ship is tokens rendered incrementally, so partial, incomplete, syntactically-invalid state is the normal case in their UIs rather than an edge case. And the products are converging on agents that act, which puts the interesting frontend problems in review surfaces — diffs, accept/reject, provenance, undo.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-51",
+      "track": "openai",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 3,
+      "prompt": "The mission question is asked in technical rounds too. Give the three-part shape, and the sentence to avoid.",
+      "answer": "(1) Something specific you built or used that changed your view, with a detail only someone who did it would know. (2) Why here rather than another lab — for a product engineer the honest answer is usually distribution: interface decisions at this scale set the norms for how everyone experiences the technology. (3) A real answer to 'where could this go wrong' in product terms: an agent acting on a user's behalf needs the user to see what it did and undo it, and confident-sounding wrong output is a UI problem as much as a model problem. Avoid 'AGI is the most important technology ever' — everyone says it.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-52",
+      "track": "openai",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 5,
+      "prompt": "9/16 evening: the twenty-minute bridge. What do you do, and why is it the highest-value twenty minutes of the month?",
+      "answer": "Write down every question the interviewer asked, every place they pushed, and every place you felt thin — immediately, while exact. Then ask whether any of it predicts tomorrow's coding problem, because it often does: interviewers on the same loop have talked, and the design round's subject matter is a real signal about what the team works on. If today was Canvas, review the editor chapter tonight; if today was streaming chat, review multi-turn, scroll pinning and markdown, because the core will be assumed. Then type the streaming skeleton once from blank and stop.",
+      "answerKey": "OpenAI Screen v1"
+    },
+    {
+      "id": "openai-53",
+      "track": "openai",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 5,
+      "prompt": "Name the five things that most change the outcome across both days.",
+      "answer": "(1) A working stream by minute 22 on the 17th — everything else is downstream of it. (2) A box diagram by minute 15 on the 16th, and reaching scale by minute 50. (3) Saying 'an abort is not an error' and implementing it — one line, disproportionate signal. (4) Two tests written, at a company that grades test coverage as its own axis. (5) Reaching storage and the inference layer on the 16th, honestly, with one stated edge.",
+      "answerKey": "OpenAI Screen v1"
+    },
     {
       "id": "js-01",
       "track": "js",

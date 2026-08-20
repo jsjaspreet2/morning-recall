@@ -11,6 +11,7 @@ import uieComponentsMd from './guides/uie-components.md?raw'
 import cursorScreenMd from './guides/cursor-screen.md?raw'
 import figmaScreenMd from './guides/figma-screen.md?raw'
 import discordScreenMd from './guides/discord-screen.md?raw'
+import openaiScreenMd from './guides/openai-screen.md?raw'
 
 export interface Guide {
   id: string
@@ -50,6 +51,15 @@ export const guides: Guide[] = [
       'Twelve-day plan for the two-hour screen: what each round grades, client-side system design, five worked designs, and the coding-hour script.',
     accent: 'rose',
     md: cursorScreenMd,
+  },
+  // Pinned through 9/17 — the last of the four screens. Drop it down afterwards.
+  {
+    id: 'openai-screen',
+    title: 'OpenAI Screen — 9/16 & 9/17',
+    subtitle:
+      'Two hours across two days, architecture then coding: the researched question bank, the streaming spine end to end, four worked architectures, and the two chapters that decide the coding hour — text streaming and text-editor concepts.',
+    accent: 'emerald',
+    md: openaiScreenMd,
   },
   {
     id: 'javascript',
@@ -135,6 +145,7 @@ export function pdfUrl(guide: Guide): string | undefined {
  */
 export function guideForAnswerKey(answerKey: string): Guide | undefined {
   const key = answerKey.toLowerCase()
+  if (key.startsWith('openai screen')) return guideById('openai-screen')
   if (key.startsWith('discord screen')) return guideById('discord-screen')
   if (key.startsWith('figma screen')) return guideById('figma-screen')
   if (key.startsWith('cursor screen')) return guideById('cursor-screen')
