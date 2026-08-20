@@ -18,7 +18,7 @@
          public directories: block Apple from listing it, and refuse imports. -->
     <itunes:block>Yes</itunes:block>
     <podcast:locked>yes</podcast:locked>
-    <lastBuildDate>Wed, 07 Jan 2026 09:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Sun, 11 Jan 2026 09:00:00 +0000</lastBuildDate>
     <item>
       <title>Ticketmaster, part one — the inverse of a scale problem</title>
       <link>https://jsjaspreet2.github.io/morning-recall/</link>
@@ -32,14 +32,62 @@
       <itunes:explicit>false</itunes:explicit>
     </item>
     <item>
+      <title>Ticketmaster, part three — two paths that barely touch</title>
+      <link>https://jsjaspreet2.github.io/morning-recall/</link>
+      <guid isPermaLink="false">jsjaspreet2/morning-recall/design-ticketmaster-02-paths</guid>
+      <pubDate>Tue, 06 Jan 2026 09:00:00 +0000</pubDate>
+      <description><![CDATA[The interface decisions worth narrating, the cache expiry that absorbs five million queries a second, and the purchase path end to end.]]></description>
+      <enclosure url="https://github.com/jsjaspreet2/morning-recall/releases/download/audio-v1/design-ticketmaster-02-paths.mp3" length="10173170" type="audio/mpeg"/>
+      <itunes:duration>636</itunes:duration>
+      <itunes:episode>2</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:explicit>false</itunes:explicit>
+    </item>
+    <item>
       <title>Ticketmaster, part two — the hold, and concurrency at a hundred and sixty-six to one</title>
       <link>https://jsjaspreet2.github.io/morning-recall/</link>
       <guid isPermaLink="false">jsjaspreet2/morning-recall/design-ticketmaster-03-dives-a</guid>
-      <pubDate>Tue, 06 Jan 2026 09:00:00 +0000</pubDate>
+      <pubDate>Wed, 07 Jan 2026 09:00:00 +0000</pubDate>
       <description><![CDATA[Three wrong ways to expire a hold, why lazy expiration beats all of them, and the one SQL clause that turns a serialization bottleneck into parallel work.]]></description>
       <enclosure url="https://github.com/jsjaspreet2/morning-recall/releases/download/audio-v1/design-ticketmaster-03-dives-a.mp3" length="10463234" type="audio/mpeg"/>
       <itunes:duration>654</itunes:duration>
-      <itunes:episode>2</itunes:episode>
+      <itunes:episode>3</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:explicit>false</itunes:explicit>
+    </item>
+    <item>
+      <title>Ticketmaster, part four — the waiting room, and why first-come-first-served is not fair</title>
+      <link>https://jsjaspreet2.github.io/morning-recall/</link>
+      <guid isPermaLink="false">jsjaspreet2/morning-recall/design-ticketmaster-04-waiting-room</guid>
+      <pubDate>Thu, 08 Jan 2026 09:00:00 +0000</pubDate>
+      <description><![CDATA[Admission control instead of capacity, where the position counter actually breaks, and the fairness argument almost nobody raises.]]></description>
+      <enclosure url="https://github.com/jsjaspreet2/morning-recall/releases/download/audio-v1/design-ticketmaster-04-waiting-room.mp3" length="9555008" type="audio/mpeg"/>
+      <itunes:duration>597</itunes:duration>
+      <itunes:episode>4</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:explicit>false</itunes:explicit>
+    </item>
+    <item>
+      <title>Ticketmaster, part five — optimistic hints, the payment saga, and bots</title>
+      <link>https://jsjaspreet2.github.io/morning-recall/</link>
+      <guid isPermaLink="false">jsjaspreet2/morning-recall/design-ticketmaster-05-commit</guid>
+      <pubDate>Fri, 09 Jan 2026 09:00:00 +0000</pubDate>
+      <description><![CDATA[Why staleness is a feature, why compensation is asymmetric, and why the challenge belongs at queue entry rather than at purchase.]]></description>
+      <enclosure url="https://github.com/jsjaspreet2/morning-recall/releases/download/audio-v1/design-ticketmaster-05-commit.mp3" length="7913683" type="audio/mpeg"/>
+      <itunes:duration>495</itunes:duration>
+      <itunes:episode>5</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:explicit>false</itunes:explicit>
+    </item>
+    <item>
+      <title>Ticketmaster, part six — the deliberate hot shard, and a queue allowed to lose data</title>
+      <link>https://jsjaspreet2.github.io/morning-recall/</link>
+      <guid isPermaLink="false">jsjaspreet2/morning-recall/design-ticketmaster-06-sharding</guid>
+      <pubDate>Sat, 10 Jan 2026 09:00:00 +0000</pubDate>
+      <description><![CDATA[Sharding for isolation rather than throughput, and why a queue built on lossy infrastructure still cannot cause a double sale.]]></description>
+      <enclosure url="https://github.com/jsjaspreet2/morning-recall/releases/download/audio-v1/design-ticketmaster-06-sharding.mp3" length="10637523" type="audio/mpeg"/>
+      <itunes:duration>665</itunes:duration>
+      <itunes:episode>6</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
       <itunes:explicit>false</itunes:explicit>
     </item>
@@ -47,11 +95,11 @@
       <title>Figma — why not O.T., and what last-write-wins costs</title>
       <link>https://jsjaspreet2.github.io/morning-recall/</link>
       <guid isPermaLink="false">jsjaspreet2/morning-recall/design-figma-03-dives-a</guid>
-      <pubDate>Wed, 07 Jan 2026 09:00:00 +0000</pubDate>
+      <pubDate>Sun, 11 Jan 2026 09:00:00 +0000</pubDate>
       <description><![CDATA[Why Operational Transformation is the wrong machinery for a map of objects, and the three costs of last-writer-wins with a central ordering authority.]]></description>
       <enclosure url="https://github.com/jsjaspreet2/morning-recall/releases/download/audio-v1/design-figma-03-dives-a.mp3" length="9201415" type="audio/mpeg"/>
       <itunes:duration>575</itunes:duration>
-      <itunes:episode>3</itunes:episode>
+      <itunes:episode>7</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
       <itunes:explicit>false</itunes:explicit>
     </item>

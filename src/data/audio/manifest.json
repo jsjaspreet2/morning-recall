@@ -38,16 +38,48 @@
       "status": "ready"
     },
     {
-      "id": "design-ticketmaster-03-dives-a",
+      "id": "design-ticketmaster-02-paths",
       "order": 6,
+      "title": "Ticketmaster, part three \u2014 two paths that barely touch",
+      "summary": "The interface decisions worth narrating, the cache expiry that absorbs five million queries a second, and the purchase path end to end.",
+      "source": "src/data/designs/design-ticketmaster.md",
+      "status": "ready"
+    },
+    {
+      "id": "design-ticketmaster-03-dives-a",
+      "order": 7,
       "title": "Ticketmaster, part two \u2014 the hold, and concurrency at a hundred and sixty-six to one",
       "summary": "Three wrong ways to expire a hold, why lazy expiration beats all of them, and the one SQL clause that turns a serialization bottleneck into parallel work.",
       "source": "src/data/designs/design-ticketmaster.md \u00a77-8",
       "status": "ready"
     },
     {
-      "id": "design-figma-03-dives-a",
+      "id": "design-ticketmaster-04-waiting-room",
+      "order": 8,
+      "title": "Ticketmaster, part four \u2014 the waiting room, and why first-come-first-served is not fair",
+      "summary": "Admission control instead of capacity, where the position counter actually breaks, and the fairness argument almost nobody raises.",
+      "source": "src/data/designs/design-ticketmaster.md",
+      "status": "ready"
+    },
+    {
+      "id": "design-ticketmaster-05-commit",
+      "order": 9,
+      "title": "Ticketmaster, part five \u2014 optimistic hints, the payment saga, and bots",
+      "summary": "Why staleness is a feature, why compensation is asymmetric, and why the challenge belongs at queue entry rather than at purchase.",
+      "source": "src/data/designs/design-ticketmaster.md",
+      "status": "ready"
+    },
+    {
+      "id": "design-ticketmaster-06-sharding",
       "order": 10,
+      "title": "Ticketmaster, part six \u2014 the deliberate hot shard, and a queue allowed to lose data",
+      "summary": "Sharding for isolation rather than throughput, and why a queue built on lossy infrastructure still cannot cause a double sale.",
+      "source": "src/data/designs/design-ticketmaster.md",
+      "status": "ready"
+    },
+    {
+      "id": "design-figma-03-dives-a",
+      "order": 20,
       "title": "Figma \u2014 why not O.T., and what last-write-wins costs",
       "source": "src/data/designs/design-figma.md \u00a77-8",
       "status": "ready",
