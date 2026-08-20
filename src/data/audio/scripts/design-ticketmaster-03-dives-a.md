@@ -1,6 +1,6 @@
 ---
 id: design-ticketmaster-03-dives-a
-title: "Ticketmaster, part two — the hold, and concurrency at a hundred and sixty-six to one"
+title: "Ticketmaster, part three — the hold, and concurrency at a hundred and sixty-six to one"
 source: src/data/designs/design-ticketmaster.md §7-8
 minutes: 9
 ---

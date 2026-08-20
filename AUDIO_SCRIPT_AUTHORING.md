@@ -5,6 +5,9 @@ steps to publish. **This is the file you hand to Claude Code when you want an ep
 
 Scripts live in `src/data/audio/scripts/` and are synthesized to mp3 by `npm run audio:synth`.
 
+**For setup, commands, publishing, cost, and current state, see `AUDIO_PIPELINE.md`.** This file is
+only about how an episode is written.
+
 ---
 
 ## What this format is for

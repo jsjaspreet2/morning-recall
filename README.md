@@ -21,6 +21,21 @@ Two sections:
   of contents and code highlighting. Read them for the full detail behind any short answer.
   Each guide also links to its original PDF.
 
+## Listen
+
+The design pages are also narrated as a private podcast feed — for prep while driving or at the
+gym. Sixteen episodes, ~2h 40m, covering Ticketmaster, Discord, and Cursor Tab end to end.
+
+Subscribe by URL in Apple Podcasts, Overcast, or Pocket Casts:
+
+```
+https://jsjaspreet2.github.io/morning-recall/feed/60c327e8c9a29b66d2dafcef/podcast.xml
+```
+
+Narration scripts are committed under `src/data/audio/scripts/`; audio lives on a GitHub Release
+rather than in git. See **`AUDIO_PIPELINE.md`** to synthesize and publish, and
+**`AUDIO_SCRIPT_AUTHORING.md`** for how an episode is written.
+
 ## Run locally
 
 ```bash

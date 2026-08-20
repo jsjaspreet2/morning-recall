@@ -40,7 +40,7 @@
     {
       "id": "design-ticketmaster-02-paths",
       "order": 6,
-      "title": "Ticketmaster, part three \u2014 two paths that barely touch",
+      "title": "Ticketmaster, part two \u2014 two paths that barely touch",
       "summary": "The interface decisions worth narrating, the cache expiry that absorbs five million queries a second, and the purchase path end to end.",
       "source": "src/data/designs/design-ticketmaster.md",
       "status": "ready"
@@ -48,7 +48,7 @@
     {
       "id": "design-ticketmaster-03-dives-a",
       "order": 7,
-      "title": "Ticketmaster, part two \u2014 the hold, and concurrency at a hundred and sixty-six to one",
+      "title": "Ticketmaster, part three \u2014 the hold, and concurrency at a hundred and sixty-six to one",
       "summary": "Three wrong ways to expire a hold, why lazy expiration beats all of them, and the one SQL clause that turns a serialization bottleneck into parallel work.",
       "source": "src/data/designs/design-ticketmaster.md \u00a77-8",
       "status": "ready"

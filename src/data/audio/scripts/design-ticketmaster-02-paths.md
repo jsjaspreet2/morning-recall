@@ -1,6 +1,6 @@
 ---
 id: design-ticketmaster-02-paths
-title: "Ticketmaster, part three — two paths that barely touch"
+title: "Ticketmaster, part two — two paths that barely touch"
 source: src/data/designs/design-ticketmaster.md §5-6
 minutes: 9
 ---

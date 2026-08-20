@@ -32,7 +32,7 @@
       <itunes:explicit>false</itunes:explicit>
     </item>
     <item>
-      <title>Ticketmaster, part three — two paths that barely touch</title>
+      <title>Ticketmaster, part two — two paths that barely touch</title>
       <link>https://jsjaspreet2.github.io/morning-recall/</link>
       <guid isPermaLink="false">jsjaspreet2/morning-recall/design-ticketmaster-02-paths</guid>
       <pubDate>Tue, 06 Jan 2026 09:00:00 +0000</pubDate>
@@ -44,7 +44,7 @@
       <itunes:explicit>false</itunes:explicit>
     </item>
     <item>
-      <title>Ticketmaster, part two — the hold, and concurrency at a hundred and sixty-six to one</title>
+      <title>Ticketmaster, part three — the hold, and concurrency at a hundred and sixty-six to one</title>
       <link>https://jsjaspreet2.github.io/morning-recall/</link>
       <guid isPermaLink="false">jsjaspreet2/morning-recall/design-ticketmaster-03-dives-a</guid>
       <pubDate>Wed, 07 Jan 2026 09:00:00 +0000</pubDate>
