@@ -18,7 +18,7 @@
          public directories: block Apple from listing it, and refuse imports. -->
     <itunes:block>Yes</itunes:block>
     <podcast:locked>yes</podcast:locked>
-    <lastBuildDate>Fri, 16 Jan 2026 09:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Tue, 20 Jan 2026 09:00:00 +0000</lastBuildDate>
     <item>
       <title>Ticketmaster, part one — the inverse of a scale problem</title>
       <link>https://jsjaspreet2.github.io/morning-recall/</link>
@@ -160,6 +160,54 @@
       <enclosure url="https://github.com/jsjaspreet2/morning-recall/releases/download/audio-v1/design-discord-05-storage.mp3" length="9232762" type="audio/mpeg"/>
       <itunes:duration>577</itunes:duration>
       <itunes:episode>12</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:explicit>false</itunes:explicit>
+    </item>
+    <item>
+      <title>Cursor Tab, part one — the latency budget that destroys retrieval</title>
+      <link>https://jsjaspreet2.github.io/morning-recall/</link>
+      <guid isPermaLink="false">jsjaspreet2/morning-recall/design-cursor-01-frame</guid>
+      <pubDate>Sat, 17 Jan 2026 09:00:00 +0000</pubDate>
+      <description><![CDATA[Why two hundred milliseconds forbids a retrieval pipeline, why there is no correctness invariant, and why over eighty percent of inference is wasted by design.]]></description>
+      <enclosure url="https://github.com/jsjaspreet2/morning-recall/releases/download/audio-v1/design-cursor-01-frame.mp3" length="10512971" type="audio/mpeg"/>
+      <itunes:duration>657</itunes:duration>
+      <itunes:episode>13</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:explicit>false</itunes:explicit>
+    </item>
+    <item>
+      <title>Cursor Tab, part two — retrieval without a retriever, and a codebase you do not own</title>
+      <link>https://jsjaspreet2.github.io/morning-recall/</link>
+      <guid isPermaLink="false">jsjaspreet2/morning-recall/design-cursor-02-context-privacy</guid>
+      <pubDate>Sun, 18 Jan 2026 09:00:00 +0000</pubDate>
+      <description><![CDATA[Ranking local editor signals in ten milliseconds, why embedding search is the last resort, and why Merkle sync is not on the Tab path at all.]]></description>
+      <enclosure url="https://github.com/jsjaspreet2/morning-recall/releases/download/audio-v1/design-cursor-02-context-privacy.mp3" length="9864716" type="audio/mpeg"/>
+      <itunes:duration>617</itunes:duration>
+      <itunes:episode>14</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:explicit>false</itunes:explicit>
+    </item>
+    <item>
+      <title>Cursor Tab, part three — the small model is better, and cancellation must reach the accelerator</title>
+      <link>https://jsjaspreet2.github.io/morning-recall/</link>
+      <guid isPermaLink="false">jsjaspreet2/morning-recall/design-cursor-03-serving</guid>
+      <pubDate>Mon, 19 Jan 2026 09:00:00 +0000</pubDate>
+      <description><![CDATA[Continuous batching, prefix caching, and the plumbing detail worth more than all the serving tricks combined.]]></description>
+      <enclosure url="https://github.com/jsjaspreet2/morning-recall/releases/download/audio-v1/design-cursor-03-serving.mp3" length="9085640" type="audio/mpeg"/>
+      <itunes:duration>568</itunes:duration>
+      <itunes:episode>15</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:explicit>false</itunes:explicit>
+    </item>
+    <item>
+      <title>Cursor Tab, part four — measuring a product with no correct answer</title>
+      <link>https://jsjaspreet2.github.io/morning-recall/</link>
+      <guid isPermaLink="false">jsjaspreet2/morning-recall/design-cursor-04-measuring</guid>
+      <pubDate>Tue, 20 Jan 2026 09:00:00 +0000</pubDate>
+      <description><![CDATA[Why acceptance rate is gameable, how the training flywheel narrows toward its own habits, and why nothing on the completion path is a database.]]></description>
+      <enclosure url="https://github.com/jsjaspreet2/morning-recall/releases/download/audio-v1/design-cursor-04-measuring.mp3" length="8823998" type="audio/mpeg"/>
+      <itunes:duration>551</itunes:duration>
+      <itunes:episode>16</itunes:episode>
       <itunes:episodeType>full</itunes:episodeType>
       <itunes:explicit>false</itunes:explicit>
     </item>

@@ -145,6 +145,38 @@
       "summary": "Why the access pattern picks the store, why the time bucket must be coarse, and why the right component here is no component.",
       "source": "src/data/designs/design-discord.md",
       "status": "ready"
+    },
+    {
+      "id": "design-cursor-01-frame",
+      "order": 40,
+      "title": "Cursor Tab, part one \u2014 the latency budget that destroys retrieval",
+      "summary": "Why two hundred milliseconds forbids a retrieval pipeline, why there is no correctness invariant, and why over eighty percent of inference is wasted by design.",
+      "source": "src/data/designs/design-cursor.md",
+      "status": "ready"
+    },
+    {
+      "id": "design-cursor-02-context-privacy",
+      "order": 41,
+      "title": "Cursor Tab, part two \u2014 retrieval without a retriever, and a codebase you do not own",
+      "summary": "Ranking local editor signals in ten milliseconds, why embedding search is the last resort, and why Merkle sync is not on the Tab path at all.",
+      "source": "src/data/designs/design-cursor.md",
+      "status": "ready"
+    },
+    {
+      "id": "design-cursor-03-serving",
+      "order": 42,
+      "title": "Cursor Tab, part three \u2014 the small model is better, and cancellation must reach the accelerator",
+      "summary": "Continuous batching, prefix caching, and the plumbing detail worth more than all the serving tricks combined.",
+      "source": "src/data/designs/design-cursor.md",
+      "status": "ready"
+    },
+    {
+      "id": "design-cursor-04-measuring",
+      "order": 43,
+      "title": "Cursor Tab, part four \u2014 measuring a product with no correct answer",
+      "summary": "Why acceptance rate is gameable, how the training flywheel narrows toward its own habits, and why nothing on the completion path is a database.",
+      "source": "src/data/designs/design-cursor.md",
+      "status": "ready"
     }
   ]
 }
