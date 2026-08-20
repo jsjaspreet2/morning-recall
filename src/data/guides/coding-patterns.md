@@ -23,33 +23,21 @@ A cheatsheet should reduce recall time. It should not replace explaining the inv
 
 - Re-code the templates from memory; passive rereading is not preparation.
 
-#### § FOCUS USE IT FOR
-
-02 Solve loop + priorities communication, invariant, tests, study order
-
-03 Hash + prefix lookup, frequency, subarray counts
-
-04 Pointers + windows sorted discard, contiguous ranges
-
-05 Stacks + binary search waiting answers, monotonic predicates
-
-06 Linked structures reversal, cycles, dummy nodes
-
-07 Trees + tries information flow, recursion, BFS
-
-08 Heaps + selection + HEAP TEMPLATE top-k, merge, running median
-
-09 Graphs + CYCLE DETECTION DFS/BFS, topo, union-find
-
-10 Weighted graphs Dijkstra, MST, Bellman-Ford
-
-11 Backtracking decision trees, pruning, dedupe
-
-12 Dynamic programming state, transition, bases, order
-
-13 Greedy + intervals proof, scheduling, merging
-
-14 Final decision tree debugging, edge cases, rehearsal
+| § | Focus | Use it for |
+|---|---|---|
+| 02 | Solve loop + priorities | communication, invariant, tests, study order |
+| 03 | Hash + prefix | lookup, frequency, subarray counts |
+| 04 | Pointers + windows | sorted discard, contiguous ranges |
+| 05 | Stacks + binary search | waiting answers, monotonic predicates |
+| 06 | Linked structures | reversal, cycles, dummy nodes |
+| 07 | Trees + tries | information flow, recursion, BFS |
+| 08 | Heaps + selection + heap template | top-k, merge, running median |
+| 09 | Graphs + cycle detection | DFS/BFS, topo, union-find |
+| 10 | Weighted graphs | Dijkstra, MST, Bellman-Ford |
+| 11 | Backtracking | decision trees, pruning, dedupe |
+| 12 | Dynamic programming | state, transition, bases, order |
+| 13 | Greedy + intervals | proof, scheduling, merging |
+| 14 | Final decision tree | debugging, edge cases, rehearsal |
 
 ## 02 — The solve loop and pattern priorities
 
@@ -79,45 +67,29 @@ A cheatsheet should reduce recall time. It should not replace explaining the inv
 
 ### C. PRIORITY TIERS
 
-#### TIER PATTERNS
-
-1 — automatic hash, two pointers, sliding window, prefix sum, stack, binary search, BFS/DFS
-
-2 — fluent linked list, trees, heap, intervals, topo, backtracking, 1-D DP
-
-3 — targeted union-find, Dijkstra, 2-D DP, trie, monotonic deque, greedy proof
-
-4 — roledependent
-
-MST, Bellman-Ford, bit tricks, advanced geometry, segment/Fenwick
+| Tier | Patterns |
+|---|---|
+| 1 — automatic | hash, two pointers, sliding window, prefix sum, stack, binary search, BFS/DFS |
+| 2 — fluent | linked list, trees, heap, intervals, topo, backtracking, 1-D DP |
+| 3 — targeted | union-find, Dijkstra, 2-D DP, trie, monotonic deque, greedy proof |
+| 4 — role-dependent | MST, Bellman-Ford, bit tricks, advanced geometry, segment/Fenwick |
 
 ### D. RECOGNITION MAP
 
-#### CUE REACH FOR
-
-pair / frequency / seen hash map/set
-
-sorted pair or palindrome two pointers
-
-contiguous longest/shortest sliding window
-
-subarray sum / range query prefix sum
-
-next greater / nesting stack / monotonic stack
-
-monotonic yes/no answer binary search
-
-k best / cheapest frontier heap
-
-connectivity / grid DFS/BFS/union-find
-
-prerequisites topological sort
-
-all combinations backtracking
-
-overlapping subproblems DP
-
-ranges sort intervals
+| Cue | Reach for |
+|---|---|
+| pair / frequency / seen | hash map/set |
+| sorted pair or palindrome | two pointers |
+| contiguous longest/shortest | sliding window |
+| subarray sum / range query | prefix sum |
+| next greater / nesting | stack / monotonic stack |
+| monotonic yes/no answer | binary search |
+| k best / cheapest frontier | heap |
+| connectivity / grid | DFS/BFS/union-find |
+| prerequisites | topological sort |
+| all combinations | backtracking |
+| overlapping subproblems | DP |
+| ranges | sort intervals |
 
 ### E. RECOVERY WHEN STUCK
 
@@ -460,15 +432,12 @@ TEST SET Empty, one node, two nodes, even/odd length, cycle/no cycle, remove hea
 
 ### A. TRAVERSAL CHOICE
 
-#### ORDER INFORMATION FLOW USE
-
-Preorder node before children copy, serialize, constraints down
-
-Inorder left-node-right BST sorted order
-
-Postorder children before node height, diameter, subtree DP
-
-BFS level by level shortest edges, views, levels
+| Order | Information flow | Use |
+|---|---|---|
+| Preorder | node before children | copy, serialize, constraints down |
+| Inorder | left-node-right | BST sorted order |
+| Postorder | children before node | height, diameter, subtree DP |
+| BFS | level by level | shortest edges, views, levels |
 
 ### B. RECURSION CONTRACT
 
@@ -622,15 +591,11 @@ CHOICE LINE "All items are available and n is modest, so sorting is simplest. If
 
 ### B. DFS VS BFS
 
-#### DFS BFS
-
-reachability, components, backtracking
-
-fewest unweighted edges, levels
-
-stack/recursion queue + visited on enqueue
-
-may go deep frontier memory may be wide
+| DFS | BFS |
+|---|---|
+| reachability, components, backtracking | fewest unweighted edges, levels |
+| stack/recursion | queue + visited on enqueue |
+| may go deep | frontier memory may be wide |
 
 - Mark visited when enqueuing, not when dequeuing, to avoid duplicates. In DFS mark before recursion.
 
@@ -714,19 +679,14 @@ COMPLEXITY Traversal is O(V+E), including building/reading adjacency. A grid wit
 
 ### A. CHOOSE BY EDGE WEIGHTS
 
-#### CONDITION ALGORITHM
-
-Unweighted / equal weight BFS
-
-Non-negative weights Dijkstra
-
-Negative edges, no negative cycle Bellman-Ford
-
-DAG weighted paths topological DP
-
-Connect all at minimum total cost MST: Prim/Kruskal
-
-All-pairs, small dense graph Floyd-Warshall
+| Condition | Algorithm |
+|---|---|
+| Unweighted / equal weight | BFS |
+| Non-negative weights | Dijkstra |
+| Negative edges, no negative cycle | Bellman-Ford |
+| DAG weighted paths | topological DP |
+| Connect all at minimum total cost | MST: Prim/Kruskal |
+| All-pairs, small dense graph | Floyd-Warshall |
 
 ### B. DIJKSTRA INVARIANT
 
@@ -933,15 +893,12 @@ for (let i = 1; i < a.length; i++) {
 
 ### C. INTERVAL SORT CHOICE
 
-#### GOAL SORT BY
-
-Merge / insert start
-
-Max non-overlap / min removals end
-
-Rooms / active count starts and ends, or end-heap
-
-Query min covering interval start + heap by size/end
+| Goal | Sort by |
+|---|---|
+| Merge / insert | start |
+| Max non-overlap / min removals | end |
+| Rooms / active count | starts and ends, or end-heap |
+| Query min covering interval | start + heap by size/end |
 
 ### D. MERGE
 
@@ -993,25 +950,16 @@ PROOF LINE "Keeping the earliest finishing interval can replace any laterfinishi
 
 ### B. INVARIANT LIBRARY
 
-#### PATTERN INVARIANT
-
-Hash map summarizes processed prefix
-
-Window [l,r] is current candidate; state matches it
-
-Monotonic stack
-
-entries wait for an answer; order maintained
-
-Binary search answer remains inside search interval
-
-BFS queue frontier is nondecreasing distance
-
-Dijkstra popped non-stale min is final
-
-Backtracking path/aux state match current recursion route
-
-DP each state meaning and dependencies stay fixed
+| Pattern | Invariant |
+|---|---|
+| Hash map | summarizes the processed prefix |
+| Window | `[l, r]` is the current candidate; state matches it |
+| Monotonic stack | entries wait for an answer; order maintained |
+| Binary search | the answer remains inside the search interval |
+| BFS queue | frontier is nondecreasing distance |
+| Dijkstra | popped non-stale min is final |
+| Backtracking | path/aux state match the current recursion route |
+| DP | each state meaning and its dependencies stay fixed |
 
 ### C. EDGE CASE MATRIX
 

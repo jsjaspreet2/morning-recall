@@ -23,25 +23,17 @@ A cheatsheet should reduce recall time. It should not replace explaining the inv
 
 - Re-code the templates from memory; passive rereading is not preparation.
 
-#### § FOCUS USE IT FOR
-
-02 Mental model values, scope, closures, this, prototypes
-
-03 Collections arrays, objects, Map/Set, strings, cloning
-
-04 Async runtime event loop, promises, cancellation, limits
-
-05 Browser APIs DOM events, fetch, storage, performance
-
-06 Prompts I: rate control contract-first, debounce, throttle (leading + trailing)
-
-07 Prompts II: caching + composition once, memoize, curry, pipe, canonical classNames
-
-08 Prompts III: async + RETRY, ALLSETTLED, ANY Promise.all family, limiter, retry with backoff
-
-09 Prompts IV: structures emitter, deep equal, flatten, get, groupBy
-
-10 Final drill runtime checks, edge cases, references
+| § | Focus | Use it for |
+|---|---|---|
+| 02 | Mental model | values, scope, closures, `this`, prototypes |
+| 03 | Collections | arrays, objects, Map/Set, strings, cloning |
+| 04 | Async runtime | event loop, promises, cancellation, limits |
+| 05 | Browser APIs | DOM events, fetch, storage, performance |
+| 06 | Prompts I: rate control | contract-first, debounce, throttle (leading + trailing) |
+| 07 | Prompts II: caching + composition | once, memoize, curry, pipe, canonical classNames |
+| 08 | Prompts III: async + retry, allSettled, any | `Promise.all` family, limiter, retry with backoff |
+| 09 | Prompts IV: structures | emitter, deep equal, flatten, get, groupBy |
+| 10 | Final drill | runtime checks, edge cases, references |
 
 ## 02 — Build the correct JavaScript mental model
 
@@ -61,23 +53,16 @@ A cheatsheet should reduce recall time. It should not replace explaining the inv
 
 ### B. COERCION TRAPS
 
-#### EXPRESSION RESULT / RULE
+| Expression | Result / rule |
+|---|---|
+| `1 + '2'` | `'12'` — `+` concatenates with a string |
+| `'3' - 1` | `2` — numeric operators coerce |
+| `Boolean([])` | `true` — objects are truthy |
+| `Number('')` | `0` |
+| `typeof null` | `'object'` — historical |
+| `x == null` | true only for `null`/`undefined` — the deliberate nullish check |
 
-`1 + '2'` `'12'`: + concatenates with a string
-
-`'3' - 1` `2`: numeric operators coerce
-
-`Boolean([])` `true`: objects are truthy
-
-Number('') 0
-
-`typeof null` `'object'`: historical
-
-`x == null` true only for null/undefined — the deliberate nullish check
-
-- Falsy complete list: `false, 0, -0, 0n, '', null,`
-
-`undefined, NaN`. Prefer explicit domain checks over truthiness when 0 or empty string is valid.
+- Falsy complete list: `false, 0, -0, 0n, '', null, undefined, NaN`. Prefer explicit domain checks over truthiness when `0` or the empty string is a valid value.
 
 ### C. SCOPE, HOISTING, CLOSURES
 
@@ -99,21 +84,15 @@ iteration binding)
 
 ### D. THIS: DECIDED BY THE CALL SITE
 
-#### CALL THIS
+| Call | `this` |
+|---|---|
+| `obj.f()` | `obj` |
+| `f()` | `undefined` in strict/module code |
+| `f.call(x, a)` / `f.apply(x, [a])` | `x`, invoked now |
+| `f.bind(x)` | new function bound to `x` |
+| arrow | lexical; `call`/`bind` cannot change it |
 
-`obj.f()` obj
-
-`f()` undefined in strict/module code
-
-`f.call(x,a)` / `apply(x,[a])` x, invoked now
-
-`f.bind(x)` new function bound to x
-
-arrow lexical; call/bind cannot change
-
-- A detached method loses its receiver: `const m = obj.f;`
-
-`m()`. Event/listener callbacks and timers are common places to notice this.
+- A detached method loses its receiver: `const m = obj.f; m()`. Event/listener callbacks and timers are common places to notice this.
 
 ### E. PROTOTYPES AND CLASSES
 
@@ -133,43 +112,29 @@ SAY THIS "I will state whether the prompt cares about identity, shallow structur
 
 ### A. WHICH COLLECTION?
 
-#### NEED USE KEY FACT
+| Need | Use | Key fact |
+|---|---|---|
+| Ordered indexed data | Array | `length`; numeric indices |
+| String/symbol property record | Object | prototype + enumeration rules |
+| Any-key dictionary | Map | identity keys; insertion order |
+| Unique membership | Set | `has`/`add`/`delete`; insertion order |
 
-Ordered indexed data Array length; numeric indices
-
-String/symbol property record
-
-Object prototype + enumeration rules
-
-Any-key dictionary Map identity keys; insertion order
-
-Unique membership Set has/add/delete; insertion order
-
-- Map: set/get/has/delete/clear/size. Set: add/has/delete/ clear/size. Arrays use includes/push/splice/length.
+- Map: `set`/`get`/`has`/`delete`/`clear`/`size`. Set: `add`/`has`/`delete`/`clear`/`size`. Arrays use `includes`/`push`/`splice`/`length`.
 
 ### B. ARRAY METHODS BY INTENT
 
-#### INTENT METHOD TRAP
+| Intent | Method | Trap |
+|---|---|---|
+| Transform | `map` / `flatMap` | returns a new array |
+| Keep | `filter` | predicate truthiness |
+| Find | `find` / `findIndex` | `undefined` vs `−1` |
+| Aggregate | `reduce` | always pass an initial value |
+| Test | `some` / `every` | short-circuits |
+| Copy range | `slice` | end exclusive |
+| Edit in place | `splice` | returns the removed items |
+| Order | `sort` | mutates; default is string order |
 
-Transform map / flatMap returns new array
-
-Keep filter predicate truthiness
-
-Find find / findIndex undefined vs −1
-
-Aggregate reduce always pass initial value
-
-Test some / every short-circuits
-
-Copy range slice end exclusive
-
-Edit in place splice returns removed items
-
-Order sort mutates; default is string order
-
-- Non-mutating twins: `toSorted, toReversed, toSpliced,`
-
-`with`. Confirm the runtime, or use spread + the classic method.
+- Non-mutating twins: `toSorted`, `toReversed`, `toSpliced`, `with`. Confirm the runtime, or use spread plus the classic method.
 
 ### C. OBJECTS, ENTRIES, ENUMERATION
 
@@ -247,15 +212,12 @@ console.log('B');            // A B C D
 
 - `catch(f)` is `then(undefined, f)`. `finally` normally passes through the original outcome.
 
-#### COMBINATOR FULFILLS REJECTS
-
-all all values, input order first rejection
-
-allSettled all outcome records never
-
-race first settlement if first settlement rejects
-
-any first fulfillment AggregateError if all reject
+| Combinator | Fulfills | Rejects |
+|---|---|---|
+| `all` | all values, input order | first rejection |
+| `allSettled` | all outcome records | never |
+| `race` | first settlement | if the first settlement rejects |
+| `any` | first fulfillment | `AggregateError` if all reject |
 
 ### C. SEQUENTIAL, PARALLEL, LIMITED
 
@@ -355,15 +317,12 @@ const data = await res.json();
 
 ### D. STORAGE AND SECURITY
 
-#### STORE LIFETIME / SCOPE WATCH
-
-localStorage origin, persistent sync; string only; XSS readable
-
-sessionStorage tab session string only
-
-IndexedDB origin, async transactions/schema
-
-Cookie sent by policy size; CSRF; flags
+| Store | Lifetime / scope | Watch |
+|---|---|---|
+| `localStorage` | origin, persistent | sync; string only; XSS readable |
+| `sessionStorage` | tab session | string only |
+| IndexedDB | origin, async | transactions/schema |
+| Cookie | sent by policy | size; CSRF; flags |
 
 - Avoid rendering untrusted HTML. Prefer `textContent` /React escaping; sanitize if HTML is a product requirement.
 
@@ -695,25 +654,16 @@ TEST PATTERN For every utility: normal case, empty input, one item, duplicate ca
 
 ### A. 60-SECOND LANGUAGE CHECK
 
-#### QUESTION ANSWER TO RETRIEVE
-
-Why stale closure? callback captured one render/ binding
-
-Why lost this? receiver determined by call site
-
-Why A B C D? sync job, microtasks, then task
-
-Why sort wrong? default string comparison
-
-Why clone still mutates? copy was shallow
-
-Why fetch did not throw? HTTP error is still a response
-
-Why forEach finished early? it ignores returned promises
-
-Why Set missed duplicate object?
-
-reference identity
+| Question | Answer to retrieve |
+|---|---|
+| Why stale closure? | callback captured one render/binding |
+| Why lost `this`? | receiver determined by the call site |
+| Why A B C D? | sync job, microtasks, then task |
+| Why sort wrong? | default string comparison |
+| Why clone still mutates? | the copy was shallow |
+| Why did `fetch` not throw? | an HTTP error is still a response |
+| Why did `forEach` finish early? | it ignores returned promises |
+| Why did Set miss a duplicate object? | reference identity |
 
 ### B. CODE REVIEW CHECKLIST
 
@@ -721,21 +671,19 @@ reference identity
 
 - No accidental coercion; null/undefined and empty inputs handled.
 
-- Receiver and closures correct; cleanup for timers/listeners/ requests.
+- Receiver and closures correct; cleanup for timers/listeners/requests.
 
 - Promise rejection observed; concurrency and ordering intentional.
 
-- Time/space complexity stated; hot path does not use shift/ splice accidentally.
+- Time/space complexity stated; hot path does not use `shift`/`splice` accidentally.
 
 - Tests include rapid repetition and failure, not only the happy path.
 
 ### C. RUNTIME AVAILABILITY
 
-- Conservative interview baseline: classic Map/Set/Array/ Promise APIs and AbortController.
+- Conservative interview baseline: classic Map/Set/Array/Promise APIs and `AbortController`.
 
-- Feature-check newer conveniences: Set algebra,
-
-`Object.groupBy`, `AbortSignal.any/timeout`, iterator helpers, and the non-mutating array twins.
+- Feature-check newer conveniences: Set algebra, `Object.groupBy`, `AbortSignal.any`/`AbortSignal.timeout`, iterator helpers, and the non-mutating array twins.
 
 - Browser and Node event loops differ in phases and APIs. Explain the portable ordering guarantee the prompt needs rather than overclaiming internals.
 

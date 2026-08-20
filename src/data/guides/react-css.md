@@ -23,29 +23,19 @@ A cheatsheet should reduce recall time. It should not replace explaining the inv
 
 - Re-code templates from memory; passive rereading is not preparation.
 
-#### § FOCUS USE IT FOR
-
-02 Render + state snapshots, updates, identity, keys, forms
-
-03 Effects + refs external sync, cleanup, custom hooks
-
-04 Async UI fetch, cancellation, races, Suspense, optimistic UI
-
-05 Streaming chat I transport choice, reader loop, SSE frame parsing
-
-06 Streaming chat II status machine, stop/retry, chat UX — the OpenAI-screen build
-
-07 Component design state ownership, context, reducer, performance
-
-08 Widget execution a11y, tabIndex, keyboard, testing, definition of done
-
-09 CSS layout box model, flex, grid, position, scroll
-
-10 CSS systems cascade, responsive, tokens, motion
-
-11 TypeScript + SSR types, hydration, React 19 awareness
-
-12 Final drill debugging tree, checklist, references
+| § | Focus | Use it for |
+|---|---|---|
+| 02 | Render + state | snapshots, updates, identity, keys, forms |
+| 03 | Effects + refs | external sync, cleanup, custom hooks |
+| 04 | Async UI | fetch, cancellation, races, Suspense, optimistic UI |
+| 05 | Streaming chat I | transport choice, reader loop, SSE frame parsing |
+| 06 | Streaming chat II | status machine, stop/retry, chat UX — the OpenAI-screen build |
+| 07 | Component design | state ownership, context, reducer, performance |
+| 08 | Widget execution | a11y, `tabIndex`, keyboard, testing, definition of done |
+| 09 | CSS layout | box model, flex, grid, position, scroll |
+| 10 | CSS systems | cascade, responsive, tokens, motion |
+| 11 | TypeScript + SSR | types, hydration, React 19 awareness |
+| 12 | Final drill | debugging tree, checklist, references |
 
 ## 02 — React mental model: render, state, identity
 
@@ -131,19 +121,14 @@ SAY THIS "I am keeping state minimal and colocated. Derived values stay in rende
 
 ### A. YOU MIGHT NOT NEED AN EFFECT
 
-#### NEED BETTER PLACE
-
-Derive value from props/state render
-
-Respond to click/submit event handler
-
-Reset subtree for entity `key`
-
-Notify parent of input same event that changes it
-
-Cache expensive pure value `useMemo` after profiling
-
-Sync network/widget/timer effect
+| Need | Better place |
+|---|---|
+| Derive value from props/state | render |
+| Respond to click/submit | event handler |
+| Reset subtree for entity | `key` |
+| Notify parent of input | the same event that changes it |
+| Cache expensive pure value | `useMemo`, after profiling |
+| Sync network/widget/timer | effect |
 
 ### B. EFFECT CONTRACT
 
@@ -165,15 +150,12 @@ useEffect(() => {
 
 ### C. REF VS STATE
 
-#### REF STATE
-
-mutable `.current` value rendered snapshot
-
-change does not render setter schedules render
-
-DOM node, timer, latest handle anything visible to UI
-
-escape hatch declarative source of truth
+| Ref | State |
+|---|---|
+| mutable `.current` value | rendered snapshot |
+| change does not render | setter schedules a render |
+| DOM node, timer, latest handle | anything visible to the UI |
+| escape hatch | declarative source of truth |
 
 - Do not read/write refs during render except predictable initialization. Use callback refs for dynamic node collections.
 
@@ -267,15 +249,11 @@ SAY THIS "I will keep the input urgent, cancel stale work, preserve current cont
 
 ### A. TRANSPORT DECISION
 
-#### TRANSPORT USE WHEN
-
-fetch POST + ReadableStream
-
-authenticated request/response streams; you send a body (chat). You own parsing, retry, reconnect.
-
-EventSource (SSE) browser-managed GET stream: autoreconnect with `Last-Event-ID`, named events, but no POST body, no custom headers.
-
-WebSocket bidirectional (typing indicators, multiplayer). Overkill for one-way token streams.
+| Transport | Use when |
+|---|---|
+| `fetch` POST + `ReadableStream` | authenticated request/response streams; you send a body (chat). You own parsing, retry, reconnect |
+| `EventSource` (SSE) | browser-managed GET stream: auto-reconnect with `Last-Event-ID`, named events, but no POST body and no custom headers |
+| WebSocket | bidirectional (typing indicators, multiplayer). Overkill for one-way token streams |
 
 Chat APIs need a POST body, so the interview answer is almost always fetch + reader loop — and saying why EventSource doesn't fit is the signal.
 
@@ -382,21 +360,14 @@ SAY THIS "I'll buffer partial SSE frames across chunks, drive the UI from a stat
 
 ### A. STATE OWNERSHIP DECISION
 
-#### STATE OWNER
-
-Input draft field/form component
-
-Selected item shared by siblings
-
-nearest common parent
-
-Server resource/cache data layer
-
-URL-shareable filter router/URL
-
-Theme/auth/locale stable context/external store
-
-Ephemeral hover/open local component
+| State | Owner |
+|---|---|
+| Input draft | field/form component |
+| Selected item shared by siblings | nearest common parent |
+| Server resource/cache | data layer |
+| URL-shareable filter | router/URL |
+| Theme/auth/locale | stable context/external store |
+| Ephemeral hover/open | local component |
 
 ### B. REDUCER FOR EXPLICIT TRANSITIONS
 
@@ -463,25 +434,14 @@ STAFF SIGNAL Explain who owns each state, how updates propagate, which subtree r
 
 ### A. THE 45-MINUTE FRONTEND LOOP
 
-#### MIN DO
-
-0–4 clarify interactions, data shape, keyboard behavior, responsive target, required async states
-
-4–8 semantic HTML and state model; name source of truth and component boundaries
-
-8–25 happy path end to end; simple CSS layout, real controls
-
-25– 35
-
-loading/empty/error, keyboard/focus, cleanup/races, rapid interaction
-
-35– 42
-
-tests and edge cases
-
-42– 45
-
-explain tradeoffs and production extensions
+| Min | Do |
+|---|---|
+| 0–4 | clarify interactions, data shape, keyboard behavior, responsive target, required async states |
+| 4–8 | semantic HTML and state model; name the source of truth and component boundaries |
+| 8–25 | happy path end to end; simple CSS layout, real controls |
+| 25–35 | loading/empty/error, keyboard/focus, cleanup/races, rapid interaction |
+| 35–42 | tests and edge cases |
+| 42–45 | explain tradeoffs and production extensions |
 
 ### B. ACCESSIBILITY DEFAULTS
 
@@ -509,19 +469,14 @@ const id = useId();
 
 ### C. TABINDEX: THE THREE-VALUE MODEL
 
-#### VALUE MEANING
+| Value | Meaning |
+|---|---|
+| (none) | native focusability; interactive elements are already in the tab order |
+| `0` | adds the element to the natural tab order (custom widget hosts) |
+| `-1` | focusable via JS `.focus()` only — roving tabindex members, dialog containers, skip targets |
+| `> 0` | hijacks the global tab order — effectively never use |
 
-(none) native focusability; interactive elements are already in tab order
-
-0 adds element to natural tab order (custom widget hosts)
-
--1 focusable via JS `.focus()` only — roving tabindex members, dialog containers, skip targets
-
-> 0 hijacks global tab order — effectively never use
-
-- Roving tabindex (toolbar/tabs/listbox): one member has
-
-`tabIndex=0`, the rest `-1`; arrow keys move both focus and the 0.
+- Roving tabindex (toolbar/tabs/listbox): one member has `tabIndex=0`, the rest `-1`; arrow keys move both focus and the `0`.
 
 ### D. MODAL / POPOVER CHECKLIST
 
@@ -764,51 +719,32 @@ const config = {...} satisfies Config;
 
 ### F. TESTING TYPES
 
-#### TEST BEST FOR
-
-Unit pure reducer/formatter/utility
-
-Component widget behavior + accessibility
-
-Integration data/router/form flow
-
-E2E critical browser journey
-
-Visual layout/theme regression
-
-Performance interaction/render budget
+| Test | Best for |
+|---|---|
+| Unit | pure reducer/formatter/utility |
+| Component | widget behavior + accessibility |
+| Integration | data/router/form flow |
+| E2E | critical browser journey |
+| Visual | layout/theme regression |
+| Performance | interaction/render budget |
 
 ## 12 — Final drill
 
 ### A. BUG → FIRST QUESTION
 
-#### SYMPTOM CHECK
-
-Old value in handler render snapshot; functional update
-
-Effect loops unneeded effect; unstable dependency
-
-Wrong row state unstable/index key
-
-Late request overwrites
-
-abort / request identity
-
-Garbled stream text decoder missing `stream:true`; frame buffer dropped
-
-Child rerenders state placement; prop identity; profile
-
-Sticky fails scroll ancestor / inset
-
-Ellipsis fails `min-width:0` + overflow chain
-
-z-index loses stacking context / top layer
-
-Keyboard cannot use widget
-
-native semantic / APG pattern
-
-Hydration warning nondeterministic initial render
+| Symptom | Check |
+|---|---|
+| Old value in handler | render snapshot; functional update |
+| Effect loops | unneeded effect; unstable dependency |
+| Wrong row state | unstable/index key |
+| Late request overwrites | abort / request identity |
+| Garbled stream text | decoder missing `stream:true`; frame buffer dropped |
+| Child rerenders | state placement; prop identity; profile |
+| Sticky fails | scroll ancestor / inset |
+| Ellipsis fails | `min-width:0` + overflow chain |
+| `z-index` loses | stacking context / top layer |
+| Keyboard cannot use widget | native semantic / APG pattern |
+| Hydration warning | nondeterministic initial render |
 
 ### B. FINAL FIVE-MINUTE CHECK
 
