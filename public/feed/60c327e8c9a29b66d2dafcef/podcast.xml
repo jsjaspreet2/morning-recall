@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"
+     xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd"
+     xmlns:atom="http://www.w3.org/2005/Atom"
+     xmlns:podcast="https://podcastindex.org/namespace/1.0">
+  <channel>
+    <title>Morning Recall</title>
+    <link>https://jsjaspreet2.github.io/morning-recall/</link>
+    <description><![CDATA[Narrated system design and technology decisions, derived from the morning-recall prep guides. Personal study notes, read aloud.]]></description>
+    <language>en-us</language>
+    <atom:link rel="self" type="application/rss+xml" href="https://jsjaspreet2.github.io/morning-recall/feed/60c327e8c9a29b66d2dafcef/podcast.xml"/>
+    <itunes:author>Jaspreet Singh</itunes:author>
+    <itunes:image href="https://jsjaspreet2.github.io/morning-recall/feed/60c327e8c9a29b66d2dafcef/cover.jpg"/>
+    <itunes:category text="Technology"/>
+    <itunes:explicit>false</itunes:explicit>
+    <itunes:type>serial</itunes:type>
+    <!-- These two, not the unguessable URL, are what actually keep this out of
+         public directories: block Apple from listing it, and refuse imports. -->
+    <itunes:block>Yes</itunes:block>
+    <podcast:locked>yes</podcast:locked>
+    <lastBuildDate>Wed, 07 Jan 2026 09:00:00 +0000</lastBuildDate>
+    <item>
+      <title>Ticketmaster, part one — the inverse of a scale problem</title>
+      <link>https://jsjaspreet2.github.io/morning-recall/</link>
+      <guid isPermaLink="false">jsjaspreet2/morning-recall/design-ticketmaster-01-frame</guid>
+      <pubDate>Mon, 05 Jan 2026 09:00:00 +0000</pubDate>
+      <description><![CDATA[Why a stadium onsale is a contention problem, not a scale problem: sixty thousand total sales, a hundred and sixty-six people per seat, and the numbers done at three levels.]]></description>
+      <enclosure url="https://github.com/jsjaspreet2/morning-recall/releases/download/audio-v1/design-ticketmaster-01-frame.mp3" length="9975475" type="audio/mpeg"/>
+      <itunes:duration>623</itunes:duration>
+      <itunes:episode>1</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:explicit>false</itunes:explicit>
+    </item>
+    <item>
+      <title>Ticketmaster, part two — the hold, and concurrency at a hundred and sixty-six to one</title>
+      <link>https://jsjaspreet2.github.io/morning-recall/</link>
+      <guid isPermaLink="false">jsjaspreet2/morning-recall/design-ticketmaster-03-dives-a</guid>
+      <pubDate>Tue, 06 Jan 2026 09:00:00 +0000</pubDate>
+      <description><![CDATA[Three wrong ways to expire a hold, why lazy expiration beats all of them, and the one SQL clause that turns a serialization bottleneck into parallel work.]]></description>
+      <enclosure url="https://github.com/jsjaspreet2/morning-recall/releases/download/audio-v1/design-ticketmaster-03-dives-a.mp3" length="10463234" type="audio/mpeg"/>
+      <itunes:duration>654</itunes:duration>
+      <itunes:episode>2</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:explicit>false</itunes:explicit>
+    </item>
+    <item>
+      <title>Figma — why not O.T., and what last-write-wins costs</title>
+      <link>https://jsjaspreet2.github.io/morning-recall/</link>
+      <guid isPermaLink="false">jsjaspreet2/morning-recall/design-figma-03-dives-a</guid>
+      <pubDate>Wed, 07 Jan 2026 09:00:00 +0000</pubDate>
+      <description><![CDATA[Why Operational Transformation is the wrong machinery for a map of objects, and the three costs of last-writer-wins with a central ordering authority.]]></description>
+      <enclosure url="https://github.com/jsjaspreet2/morning-recall/releases/download/audio-v1/design-figma-03-dives-a.mp3" length="9201415" type="audio/mpeg"/>
+      <itunes:duration>575</itunes:duration>
+      <itunes:episode>3</itunes:episode>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:explicit>false</itunes:explicit>
+    </item>
+  </channel>
+</rss>

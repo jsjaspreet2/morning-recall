@@ -1,0 +1,78 @@
+{
+  "_comment": "Show-level config plus the episode list. Episode `id` is the mp3 filename AND the permanent RSS guid \u2014 never rename a published episode. `order` sets play order in the feed. See AUDIO_SCRIPT_AUTHORING.md.",
+  "show": {
+    "title": "Morning Recall",
+    "description": "Narrated system design and technology decisions, derived from the morning-recall prep guides. Personal study notes, read aloud.",
+    "author": "Jaspreet Singh",
+    "language": "en-us",
+    "category": "Technology",
+    "explicit": false,
+    "link": "https://jsjaspreet2.github.io/morning-recall/",
+    "image": "cover.jpg",
+    "feedSlug": "60c327e8c9a29b66d2dafcef",
+    "releaseTag": "audio-v1",
+    "repo": "jsjaspreet2/morning-recall"
+  },
+  "synthesis": {
+    "voiceId": "onwK4e9ZLuTAKqWW03F9",
+    "modelId": "eleven_multilingual_v2",
+    "outputFormat": "mp3_44100_128",
+    "seed": 20260819,
+    "voiceSettings": {
+      "stability": 0.5,
+      "similarity_boost": 0.75,
+      "style": 0.0,
+      "use_speaker_boost": true,
+      "speed": 0.9
+    },
+    "maxChars": 8500,
+    "requestCharCap": 10000
+  },
+  "episodes": [
+    {
+      "id": "design-ticketmaster-01-frame",
+      "order": 5,
+      "title": "Ticketmaster, part one \u2014 the inverse of a scale problem",
+      "summary": "Why a stadium onsale is a contention problem, not a scale problem: sixty thousand total sales, a hundred and sixty-six people per seat, and the numbers done at three levels.",
+      "source": "src/data/designs/design-ticketmaster.md \u00a70-4",
+      "status": "ready"
+    },
+    {
+      "id": "design-ticketmaster-03-dives-a",
+      "order": 6,
+      "title": "Ticketmaster, part two \u2014 the hold, and concurrency at a hundred and sixty-six to one",
+      "summary": "Three wrong ways to expire a hold, why lazy expiration beats all of them, and the one SQL clause that turns a serialization bottleneck into parallel work.",
+      "source": "src/data/designs/design-ticketmaster.md \u00a77-8",
+      "status": "ready"
+    },
+    {
+      "id": "design-figma-03-dives-a",
+      "order": 10,
+      "title": "Figma \u2014 why not O.T., and what last-write-wins costs",
+      "source": "src/data/designs/design-figma.md \u00a77-8",
+      "status": "ready",
+      "summary": "Why Operational Transformation is the wrong machinery for a map of objects, and the three costs of last-writer-wins with a central ordering authority."
+    },
+    {
+      "id": "sysdesign-05-correctness",
+      "order": 20,
+      "title": "Correctness under concurrency \u2014 the invariant, the fencing token, and write skew",
+      "source": "src/data/guides/system-design.md (correctness sections)",
+      "status": "draft"
+    },
+    {
+      "id": "tech-01-push",
+      "order": 30,
+      "title": "Push notifications \u2014 the hint, not the truth",
+      "source": "src/data/guides/technology.md (push/APNs/FCM)",
+      "status": "draft"
+    },
+    {
+      "id": "sysdesign-02-estimation",
+      "order": 30,
+      "title": "Estimation \u2014 the four-line model, and the conclusion the numbers force",
+      "source": "src/data/guides/system-design.md \u2014 Estimate and set SLOs",
+      "status": "draft"
+    }
+  ]
+}
