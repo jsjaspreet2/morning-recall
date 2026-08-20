@@ -2,7 +2,7 @@
   "meta": {
     "title": "Morning Recall",
     "subtitle": "Produce the answer before you look.",
-    "version": 11,
+    "version": 12,
     "rule": "Attempt each prompt from memory first, out loud or on paper. A short answer is revealed only after you mark the card, so a blank is recoverable; the guides hold the full detail.",
     "dailyDeckSize": 12,
     "tracks": {
@@ -1756,7 +1756,7 @@
       "weight": 4,
       "prompt": "How does Postgres handle an UPDATE at the storage level, and why does that matter for readers?",
       "answer": "Postgres uses MVCC and does NOT update in place: an UPDATE writes a new row version and marks the old one dead, so readers get a consistent snapshot without blocking writers. VACUUM later reclaims the dead versions.",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-02",
@@ -1766,7 +1766,7 @@
       "weight": 4,
       "prompt": "What is the single most common real-world Postgres scaling gotcha, and does it hit before or after raw throughput limits?",
       "answer": "Connection exhaustion: each connection is roughly a backend process consuming megabytes of RAM, so a few thousand direct connections exhaust it well before you run out of raw throughput. Put PgBouncer (or equivalent) in front.",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-03",
@@ -1776,7 +1776,7 @@
       "weight": 4,
       "prompt": "Name Postgres's three durability layers and the distinct failure each one survives.",
       "answer": "Local WAL fsync survives a crash (power loss/panic) but not disk/node loss; synchronous replication (ANY 1 of several standbys, ideally another AZ) survives node loss so no acknowledged write lives on a single disk; WAL archiving + PITR survives logical corruption (a bad DELETE replicates faithfully, only point-in-time recovery saves you).",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-04",
@@ -1786,7 +1786,7 @@
       "weight": 4,
       "prompt": "Why is Cassandra a terrible choice for a queue or high-churn delete workload?",
       "answer": "Deletes write tombstones (markers) rather than removing data, and they linger until compaction; reading across many tombstones craters latency, so write-then-delete queue churn punishes you.",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-05",
@@ -1796,7 +1796,7 @@
       "weight": 4,
       "prompt": "CAP line: Cassandra is AP by design but tunable toward CP. What exact quorum config gives strong reads, and what consistency does it still NOT provide?",
       "answer": "QUORUM reads + QUORUM writes satisfy R + W > N, so the read overlaps the latest write for strong consistency. Even at ALL you only get replication consistency, never transactional — there's no 'update these three rows or none' and LWT is single-partition compare-and-set only.",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-06",
@@ -1806,7 +1806,7 @@
       "weight": 4,
       "prompt": "Modern Redis uses I/O threads — so is command execution still atomic, and what's the load-bearing property?",
       "answer": "Yes: I/O threads only handle network, but actual command (and Lua script) execution stays serialized/single-threaded, so every op runs atomically with no locks — the property that makes it right for admission control and rate limiting.",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-07",
@@ -1816,7 +1816,7 @@
       "weight": 4,
       "prompt": "Name the default Redis caching pattern and how you mitigate a hot key expiring under load.",
       "answer": "Cache-aside (lazy): app checks cache, on miss reads DB and populates. For a hot key expiring — cache stampede / thundering herd — mitigate with a short lock around the refill so one request repopulates, request coalescing, or probabilistic early expiry.",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-08",
@@ -1826,7 +1826,7 @@
       "weight": 4,
       "prompt": "Redis TTL hold vs a Postgres DB sweeper: what's the deciding factor for which one to use?",
       "answer": "Redis TTL only wins if the key IS the hold (its disappearance is the release), fit for ticket-onsale scale like 100k holds/s with a visible countdown. If Postgres owns the counter, a DB sweeper beats Redis keyspace notifications — durable and self-healing (notifications are at-most-once).",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-09",
@@ -1836,7 +1836,7 @@
       "weight": 4,
       "prompt": "In a Kafka consumer group, what caps parallelism, and what happens to processing when a consumer joins or leaves?",
       "answer": "Partition count caps parallelism — consumers ≤ partitions, so extra consumers sit idle. A join/leave triggers rebalancing. Under the classic protocol that reassignment is a stop-the-world pause (frequent rebalances from flapping consumers or long processing are a classic incident); the new KIP-848 protocol (GA in Kafka 4.0) makes it incremental and broker-driven, so the global pause is largely gone — name which protocol you assume.",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-10",
@@ -1846,7 +1846,7 @@
       "weight": 4,
       "prompt": "CAP/consistency line: Kafka's exactly-once semantics apply to what exactly, and what do they NOT cover?",
       "answer": "Exactly-once (EOS) applies only within Kafka — read-process-write across Kafka topics. It does not extend to external side effects like your DB write or an API call; delivery is at-least-once, so consumers must still be idempotent.",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-11",
@@ -1856,7 +1856,7 @@
       "weight": 4,
       "prompt": "State the rule of thumb for choosing a Kafka log vs a task queue (SQS/RabbitMQ).",
       "answer": "Need replay or multiple independent consumers of the same event → log (Kafka: retained, rewindable, fan-out). Need work distribution with per-message retry/DLQ → queue (consumed-and-deleted, ack/redelivery, competing consumers). Caveat: Kafka share groups (KIP-932) now add per-message ack, so the honest split is replay + fan-out (log) vs priority, delay, and mature DLQ tooling (queue).",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-12",
@@ -1866,7 +1866,7 @@
       "weight": 4,
       "prompt": "Walk through what happens to a message in a task queue from delivery through failure handling.",
       "answer": "A worker pulls a message, processes it, and acks to delete it. No ack (crash/timeout) makes it visible again and it's redelivered after the visibility timeout; after N failed attempts it goes to a dead-letter queue (DLQ) for inspection. Once consumed and acked it's gone — no offset to rewind, no replay.",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-13",
@@ -1876,7 +1876,7 @@
       "weight": 3,
       "prompt": "Cassandra vs sharded Postgres: at your volume, what is Cassandra's actual edge — and when should you just use Postgres?",
       "answer": "The edge isn't write throughput — it's that consistent hashing makes rebalancing automatic and multi-region replication a config line, not a project. Below genuine global scale Postgres is the better default even for keyed data, keeping transactions and query flexibility; Cassandra wins only when scale × geo-distribution × access-pattern-simplicity all hold at once.",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-14",
@@ -1886,7 +1886,7 @@
       "weight": 3,
       "prompt": "CAP/consistency line: what is S3's consistency model today, and what are its real limits?",
       "answer": "S3 is strongly read-after-write consistent for all operations (since Dec 2020), and since 2024 also supports single-object conditional writes — If-None-Match:* (write-if-absent) and If-Match:<etag> (compare-and-swap), failure returns 412. So retire BOTH the eventual-consistency caveat and \"you need a lock service to coordinate S3 writers.\" The real limits: no multi-object atomicity and no querying inside objects — a durable key→blob store with a CAS primitive, not a database.",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-15",
@@ -1896,7 +1896,7 @@
       "weight": 3,
       "prompt": "Describe the presigned direct upload and multipart patterns for S3, including the key numbers.",
       "answer": "Presigned direct upload: the client PUTs straight to S3 with a time-limited signed URL, so bytes bypass your API tier. Multipart splits big files into parts (one presigned URL per part, parallel, per-part retry, resumable via ListParts) — 5 MB part minimum, 10k parts max, and single PUT caps at 5 GB.",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-16",
@@ -1906,7 +1906,7 @@
       "weight": 3,
       "prompt": "CAP/consistency line: why is a CDN deliberately eventually consistent, and what's the right way to reason about it?",
       "answer": "The edge serves possibly-stale content bounded by TTL, and that staleness IS the tradeoff you accept for latency and origin offload. Design around what's cacheable and for how long — lean on short TTLs over active purge — not how to make the edge fresh.",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-17",
@@ -1916,7 +1916,7 @@
       "weight": 3,
       "prompt": "For a vector DB, what's the real deployment gotcha, and how do you fit a large corpus in RAM?",
       "answer": "The HNSW graph memory frequently exceeds the raw vectors, so the deployed memory footprint is the gotcha (e.g. 1M × 1536-dim is ~6 GB raw plus the graph). Quantization fits large corpora: int8 ~4× smaller, binary ~32×.",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-18",
@@ -1926,7 +1926,7 @@
       "weight": 3,
       "prompt": "Vector-only vs hybrid retrieval: when does pure vector search fail, and what's the sharp permission failure mode?",
       "answer": "Pure semantic search misses exact terms (names, IDs, codes), so hybrid BM25 + vector often wins. The sharp failure is permission leakage: embeddings ignore ACLs, so you must filter by permission (ACL) at query time or you retrieve across tenants.",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-19",
@@ -1936,7 +1936,7 @@
       "weight": 3,
       "prompt": "A workflow orchestrator gives exactly-once continuation on top of what activity guarantee, and how does its fan-in avoid a counter race?",
       "answer": "Exactly-once continuation layers on at-least-once activity execution, so activities must still be idempotent. Fan-in is a read over the ordered durable history log decided by a single evaluator ('is there a completion for every scheduled task'), so there's no concurrent-counter race by construction.",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-20",
@@ -1946,7 +1946,7 @@
       "weight": 3,
       "prompt": "The Elasticsearch-as-database trap: why is it wrong, and what is ES's actual role?",
       "answer": "It's a derived read model, not a source of truth — near-real-time (~1s refresh), no ACID/transactions, and eventually consistent with your primary by construction. Feed it from the primary via CDC, design a reconciliation path, and be able to rebuild the index from truth at any time.",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-21",
@@ -1956,7 +1956,7 @@
       "weight": 3,
       "prompt": "State the decision-matrix meta-rule for how most systems are composed and what signals coherence.",
       "answer": "Most systems are Postgres + one or two specialists: Postgres as the transactional source of truth plus a cache (Redis), blob store (S3), CDN, and maybe a search/vector index fed via CDC. Reach for Cassandra/Kafka/an orchestrator only when a named requirement forces it; naming the one store as truth and treating the rest as derived is the coherence signal.",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-22",
@@ -1966,7 +1966,7 @@
       "weight": 2,
       "prompt": "What cross-cutting asymmetry sits behind CDNs, read replicas, caches, and search indexes — and when do you move a guarantee out of the DB?",
       "answer": "Reads tolerate staleness; writes must be correct. Move a guarantee out of the database only when arrival rate makes the DB physically unable to provide it — the same rule for sharding, Redis holds, and counter offloading.",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-23",
@@ -1976,7 +1976,7 @@
       "weight": 4,
       "prompt": "What is the one thing you must get right when modeling a DynamoDB table, and what breaks if you don’t?",
       "answer": "The partition key must be high-cardinality and evenly accessed. A skewed key (one celebrity, one tenant) creates a hot partition that throttles — even when the table has spare total capacity. Same failure class as a Cassandra hot partition.",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-24",
@@ -1986,7 +1986,7 @@
       "weight": 3,
       "prompt": "DynamoDB reads: what is the default consistency, and how do you get strong consistency?",
       "answer": "Within a Region, reads default to eventually consistent (cheaper, any replica); opt into strongly consistent reads per request (leader replica). Across Regions there are now TWO modes: MREC (multi-Region eventual, last-writer-wins — the long-standing default) and MRSC (multi-Region strong consistency, GA June 2025), which acks a write only once it is durable across the Region set (RPO zero, any Region reads the latest). So retire \"global tables are eventually consistent, full stop.\"",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-25",
@@ -1996,7 +1996,7 @@
       "weight": 3,
       "prompt": "DynamoDB vs Cassandra — how do you actually decide between them?",
       "answer": "Mostly buy vs run: same Dynamo data model and tradeoffs. DynamoDB is managed/serverless with per-request pricing and zero ops; Cassandra is self-hosted with a fixed cluster cost. Both demand partition-key discipline and forbid joins/cheap cross-partition transactions.",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-26",
@@ -2006,7 +2006,7 @@
       "weight": 3,
       "prompt": "What are DynamoDB’s item-size and transaction limits, and how do they shape your design?",
       "answer": "Item cap is 400 KB — large blobs go to S3 with the key stored in Dynamo. TransactWriteItems caps at 100 actions / 4 MB aggregate, costs ~2× throughput, works only within one account and Region, and is unavailable on MRSC global tables. So model access patterns into composite keys (single-table design) and design reads as key lookups; never build around Scan.",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-27",
@@ -2016,7 +2016,7 @@
       "weight": 4,
       "prompt": "Kafka moves the stream — what does Flink add, and when do you need it?",
       "answer": "Flink is stateful compute over the stream: windowed aggregations, stream joins, sessionization, real-time pattern detection. Kafka moves and retains; Flink windows, aggregates, and joins. Reach for it when you need to compute over the stream, not just transport it — not a hand-rolled consumer with a counter.",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-28",
@@ -2026,7 +2026,7 @@
       "weight": 3,
       "prompt": "In Flink, what is the difference between event-time and processing-time, and what makes event-time correct?",
       "answer": "Event-time uses the event’s own timestamp plus watermarks (a watermark asserts “no more events older than T”) so late and out-of-order events still land in the right window. Processing-time uses the wall clock — simpler but wrong under lateness. Naming watermarks is the signal.",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-29",
@@ -2036,7 +2036,7 @@
       "weight": 4,
       "prompt": "How does Flink achieve exactly-once, and what is the catch?",
       "answer": "Distributed checkpointing: Chandy–Lamport barriers flow through the graph and snapshot each operator’s state; on failure the job rewinds to the last checkpoint and replays from the source offset → exactly-once state. Catch: end-to-end exactly-once needs a transactional/idempotent sink; otherwise the output is at-least-once.",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-30",
@@ -2046,7 +2046,7 @@
       "weight": 4,
       "prompt": "What is ZooKeeper/etcd for, and what should you never use it for?",
       "answer": "Consensus-backed coordination for small metadata: leader election, distributed locks, membership, consistent config that pushes changes to watchers. Never a data store or high-throughput write path — it holds kilobytes per node in memory, and every write is a quorum consensus round.",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-31",
@@ -2056,7 +2056,7 @@
       "weight": 3,
       "prompt": "Name ZooKeeper’s three primitives and what each one enables.",
       "answer": "Ephemeral nodes vanish when a client’s session heartbeat lapses → liveness/membership. Watches notify clients on change → config push and leader-change notification. Sequential nodes give globally ordered names → fair locks and leader election.",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-32",
@@ -2066,7 +2066,7 @@
       "weight": 3,
       "prompt": "Why is a ZooKeeper/etcd lock “more correct” than a Redis lock?",
       "answer": "ZooKeeper/etcd commit writes on quorum consensus (CP), so a minority partition cannot take the lock — no split-brain. A Redis lock is a best-effort lease (availability-first, safe only with a fencing token). Use consensus when a double-holder is a correctness bug, not a nuisance.",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-33",
@@ -2076,7 +2076,7 @@
       "weight": 3,
       "prompt": "Why is ZooKeeper/etcd CP, and what does that cost you during a partition?",
       "answer": "Writes commit only on a quorum (majority) via ZAB/Raft; a 2f+1 ensemble tolerates f failures. During a partition the minority side stops accepting writes rather than risk split-brain — you lose availability there, which is exactly what you want backing a lock or leader election.",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-34",
@@ -2086,7 +2086,7 @@
       "weight": 4,
       "prompt": "At what write throughput to a single Postgres table should you consider sharding or moving off — and what do you do before that?",
       "answer": "Under ~5k writes/s: fine, don’t move. ~5k–15k/s: tune first — batch inserts, offload the hot counter to Redis, faster-fsync disk, fewer indexes. ~15k–50k/s: shard by a good key (keep SQL/transactions within a shard). >~50k/s, an append-only firehose, or multi-region writes: move the hot table to an LSM/wide-column store (Cassandra/DynamoDB) or a TSDB.",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-35",
@@ -2096,7 +2096,7 @@
       "weight": 4,
       "prompt": "A global counter or inventory row is the bottleneck at a few hundred writes/s while the rest of the table is fine — what’s happening, and what do you do?",
       "answer": "A single hot row hits row-lock contention (ceiling ~500–1k serialized updates/s), not table throughput. Offload that one value to Redis INCR or shard the counter; the rest of the table stays in Postgres. It’s the row, not the table size.",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-36",
@@ -2106,7 +2106,7 @@
       "weight": 3,
       "prompt": "What actually forces you off a single Postgres primary — is it database size?",
       "answer": "Almost never aggregate size (100M+ rows on one primary is routine). It’s a specific hot table (past ~15–50k writes/s), a single hot row (past ~500–1k/s), an append-only firehose, or active-active multi-region writes — the write pattern, not the row count. Connection exhaustion also hits first; pool with PgBouncer before touching architecture.",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-37",
@@ -2116,7 +2116,7 @@
       "weight": 4,
       "prompt": "What is a columnar/OLAP store optimized for, and what one-sentence mechanism makes a GROUP BY over a billion rows feasible?",
       "answer": "Column-oriented storage: each column is stored contiguously and compressed, so a query touching 3 of 200 columns reads ~3/200 of the bytes — plus vectorized execution (batches per instruction) and per-block min/max pruning. Reach for it for dashboards and ad-hoc aggregation over huge fact tables (ClickHouse/Snowflake/BigQuery), fed from the OLTP primary via CDC. Never a transactional store.",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-38",
@@ -2126,7 +2126,7 @@
       "weight": 3,
       "prompt": "Distinguish an OLAP columnar store from a row store (OLTP) and from Flink.",
       "answer": "Row store is optimized for “all columns of one row,” a column store for “one column of all rows” — that sentence is the whole tradeoff. vs Flink: Flink pre-computes fixed aggregations continuously as events arrive; OLAP stores raw rows and answers unanticipated questions at read time. Real systems use both; keep Postgres as the source of truth.",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-39",
@@ -2136,7 +2136,7 @@
       "weight": 4,
       "prompt": "A design needs a global write with zero RPO on DynamoDB — what do you name, and what does it cost?",
       "answer": "MRSC (multi-Region strong consistency) global tables, GA June 2025: a write is acknowledged only once durable across the Region set, and any Region reads the latest value. Constraints are the interesting part: exactly three Regions in one Region set (US/EU/AP), possibly a managed witness replica, the table must be empty when enabling, transaction APIs are unavailable, and every write and strong read pays a cross-Region round trip.",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-40",
@@ -2146,7 +2146,7 @@
       "weight": 3,
       "prompt": "An interviewer says “Valkey” instead of Redis — what’s the one-liner?",
       "answer": "Valkey is the Linux Foundation’s BSD fork of Redis 7.2.4 (after Redis left BSD for RSALv2/SSPL in March 2024), backed by AWS/Google/Oracle and wire-compatible — same commands, same clients. AWS ElastiCache now defaults new clusters to Valkey and prices it below Redis. Nothing about the design changes; just don’t be surprised by the name.",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-41",
@@ -2156,7 +2156,7 @@
       "weight": 4,
       "prompt": "Does Kafka still need a ZooKeeper ensemble?",
       "answer": "No — Kafka 4.0 (March 2025) removed ZooKeeper entirely. Metadata now lives in KRaft, an internal Raft quorum of controller nodes. Describing Kafka as needing a ZooKeeper ensemble now describes a version nobody deploys new.",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-42",
@@ -2166,7 +2166,7 @@
       "weight": 3,
       "prompt": "What did Kafka share groups (KIP-932) change about the log-vs-queue distinction?",
       "answer": "A share group lets multiple consumers read the same partition cooperatively with per-message acknowledgement, a broker-side delivery count, and poison messages archived after a limit (default 5) — so consumer count is no longer capped by partition count, and Kafka gained queue-like per-message ack. It narrows the gap but doesn’t close it: still no priority, no delay, so “use a real queue” stays the safe answer; knowing share groups exist is the differentiator.",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-43",
@@ -2176,7 +2176,7 @@
       "weight": 3,
       "prompt": "What do S3 conditional writes enable that used to require a separate coordination service?",
       "answer": "If-None-Match:* writes only if the key is absent (Aug 2024); If-Match:<etag> is compare-and-swap against the current version (Nov 2024); failure returns a 412. That single-object CAS makes S3-only leader election, optimistic locking, and lock-free table formats possible with no separate lock service. It’s still single-object — no multi-object atomicity.",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-44",
@@ -2186,7 +2186,7 @@
       "weight": 4,
       "prompt": "Cassandra “writes are cheap” — so why is an overwrite-heavy row a problem, and where does the cost actually land?",
       "answer": "Writes and updates are cheap (appended to the memtable, no read-before-write) — Cassandra absorbs update volume fine. The cost lands on READS: immutable SSTables mean each update leaves another fragment of the row in another SSTable, and a read must merge fragments across them (bloom filters skip most, not all). So the fit is “mutated rarely,” not “written rarely” — repeated read-modify-write on one row shows up as read latency and compaction I/O, and deletes (tombstones) are the worst case. “Cassandra is bad at these writes” is the wrong diagnosis.",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-45",
@@ -2196,7 +2196,7 @@
       "weight": 3,
       "prompt": "Name Cassandra’s compaction strategies and when each fits — and why naming it signals seniority.",
       "answer": "STCS: cheap writes (~2–4× write amp), high read/space amp — write-heavy/append-only. LCS: ~one SSTable per level per read, for update- or read-heavy tables, at ~10–30× write amp. TWCS: time-windowed, for TTL’d time-series (expires whole windows without dragging reads through tombstones). UCS (5.0, current recommended default): unified, configurable to behave like any and changeable in flight. It’s where the update-vs-read tradeoff actually gets decided.",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "tech-46",
@@ -2206,7 +2206,337 @@
       "weight": 3,
       "prompt": "Is “query a non-partition column in Cassandra = full scan” still true?",
       "answer": "Too strong since Cassandra 5.0 (Sept 2024): Storage Attached Indexes (SAI) add real secondary indexes on most column types. But a query that doesn’t hit the partition key still fans out across the ring — cheaper than before, never free. And general-purpose transactions (Accord/CEP-15) are still not GA; don’t claim them in a design.",
-      "answerKey": "Technology Reference v5"
+      "answerKey": "Technology Reference v6"
+    },
+    {
+      "id": "tech-47",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 5,
+      "prompt": "localStorage vs IndexedDB: name the two properties that decide it, and the one case where localStorage's weakness is the reason to pick it.",
+      "answer": "Synchronous vs asynchronous, and ~5 MB of strings vs hundreds of MB of structured values. localStorage blocks the main thread on every read and write, so a large value costs a JSON.parse in the middle of startup. The exception: a value you need BEFORE first paint — a theme flag — where synchronous is the only thing that avoids a flash of the wrong colours, and an async store cannot satisfy the requirement at all.",
+      "answerKey": "Technology Reference v6"
+    },
+    {
+      "id": "tech-48",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 4,
+      "prompt": "sessionStorage: what exactly is its scope, and the one surprise about it?",
+      "answer": "Bounded by the tab, not the origin: it survives reload, dies with the tab, and is NOT shared between two tabs on the same site. The surprise is that it IS copied into a tab opened via target=\"_blank\", so 'per tab' has an inheritance case people don't expect.",
+      "answerKey": "Technology Reference v6"
+    },
+    {
+      "id": "tech-49",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 5,
+      "prompt": "Cookies vs localStorage for an auth token: name the attack each one gets, and the answer that dodges both.",
+      "answer": "Cookies get CSRF, because they're attached automatically so another site can cause an authenticated request — defence is SameSite plus an anti-CSRF token on state-changing requests. localStorage gets XSS, because any injected script can read and exfiltrate the token, and it stays valid on the attacker's machine. The dodge: refresh token in an HttpOnly Secure SameSite cookie, short-lived access token in memory that dies with the page. Costs a silent-refresh call on load.",
+      "answerKey": "Technology Reference v6"
+    },
+    {
+      "id": "tech-50",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 4,
+      "prompt": "Name the four cookie attributes that make up its security model, and what each one does.",
+      "answer": "HttpOnly removes it from document.cookie so injected script can't read it. Secure sends it only over HTTPS. SameSite governs cross-site attachment — Strict never, Lax on top-level GET navigation only (now the default), None always but requires Secure. Partitioned (CHIPS) gives an embedded third-party cookie a separate jar per top-level site, which is how legitimate embeds keep state as third-party cookies are phased out.",
+      "answerKey": "Technology Reference v6"
+    },
+    {
+      "id": "tech-51",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 4,
+      "prompt": "Why is a cookie a weaker boundary than every other client store, and what is its size tax?",
+      "answer": "It matches by domain and path, not by origin — so a.example.com and b.example.com can share a cookie set on .example.com, which no origin-scoped store allows. The tax: ~4 KB per cookie, ~50 per domain, and every one rides on EVERY matching request, so a fat cookie is permanent upload bandwidth on every asset request to the domain.",
+      "answerKey": "Technology Reference v6"
+    },
+    {
+      "id": "tech-52",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 50,
+      "weight": 5,
+      "prompt": "IndexedDB: what is the sharp edge about transactions that generates most real bugs?",
+      "answer": "A transaction auto-closes when its microtask queue drains. If you await anything that is NOT an IndexedDB request inside a transaction — a fetch, a timer, an unrelated promise — the transaction commits out from under you and the next operation throws TransactionInactiveError. The mental model: a transaction lives as long as it has outstanding IndexedDB work and not one tick longer. So do the network call first, then open the transaction and write.",
+      "answerKey": "Technology Reference v6"
+    },
+    {
+      "id": "tech-53",
+      "track": "technology",
+      "type": "procedure",
+      "timeboxSec": 60,
+      "weight": 5,
+      "prompt": "IndexedDB quota and eviction — the five facts, cold.",
+      "answer": "(1) One bucket per origin, SHARED by IndexedDB, the Cache API and OPFS — they don't have separate budgets. (2) The quota is a fraction of free disk, not a constant; navigator.storage.estimate() returns {usage, quota} at runtime. (3) Eviction is ALL-OR-NOTHING per origin — you don't lose your least-recently-used records, you lose the origin. (4) navigator.storage.persist() asks to move to persistent; the grant is heuristic, so it's a request not a guarantee. (5) Safari evicts script-writable storage after ~7 days without interaction — the fact that breaks offline-first on iOS.",
+      "answerKey": "Technology Reference v6"
+    },
+    {
+      "id": "tech-54",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 4,
+      "prompt": "What is the `idb` wrapper actually for, and what is it not?",
+      "answer": "IndexedDB's API is event-based — onsuccess, onerror, onupgradeneeded — and predates async/await by years. `idb` is a thin promise adapter over the same objects. It is a convenience decision, not an architectural one: it is not a different database and it changes none of the semantics, including the transaction auto-close.",
+      "answerKey": "Technology Reference v6"
+    },
+    {
+      "id": "tech-55",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 4,
+      "prompt": "Where may you create an IndexedDB object store or index, and what happens across tabs during that?",
+      "answer": "Only inside the onupgradeneeded handler, which fires when the version number you open with is higher than what's on disk. That's the single moment schema may change. Across tabs, one tab upgrading blocks the others, which fire versionchange — listen for it and close the connection, or the upgrade hangs forever.",
+      "answerKey": "Technology Reference v6"
+    },
+    {
+      "id": "tech-56",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 4,
+      "prompt": "The Cache API is not the browser's HTTP cache. Name three ways it differs, and the one correctness mechanism it gives you.",
+      "answer": "It ignores Cache-Control, it never evicts on its own, and you decide what goes in and comes out — the unit is a whole Request→Response pair. Because nothing expires by itself, staleness is entirely your bug: a response cached in January is served in June unless you deleted it. The only correctness mechanism is versioned cache names, deleted in activate. Versioning here isn't an optimization, it's the whole story.",
+      "answerKey": "Technology Reference v6"
+    },
+    {
+      "id": "tech-57",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 50,
+      "weight": 5,
+      "prompt": "The service worker update lifecycle: why doesn't a reload ship your fix, and what does skipWaiting cost?",
+      "answer": "A new worker WAITS by default until every tab controlled by the old one closes — a reload is not enough, so users can sit on a stale worker for days. skipWaiting() plus clients.claim() takes over immediately; the cost is that a live page can find its worker swapped mid-session, serving assets from a build it didn't load with. Pick one and say which. Most 'my fix didn't ship' reports are a waiting worker.",
+      "answerKey": "Technology Reference v6"
+    },
+    {
+      "id": "tech-58",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 4,
+      "prompt": "What does OPFS give you that nothing else on the platform does, and why does that matter?",
+      "answer": "createSyncAccessHandle() — SYNCHRONOUS read and write, available only inside a dedicated worker. A synchronous C API compiled to WebAssembly needs a synchronous byte store, and this is the only one the web platform offers, which is exactly why SQLite-in-WASM works. The worker-only restriction is the safety mechanism: synchronous file I/O on the main thread would be a jank machine.",
+      "answerKey": "Technology Reference v6"
+    },
+    {
+      "id": "tech-59",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 3,
+      "prompt": "OPFS vs File System Access — same vocabulary, opposite properties. Give the one-liner.",
+      "answer": "OPFS is storage that happens to look like files; File System Access is files that happen to be reachable from a web page. OPFS: origin-private, no picker, no prompt, shares the origin quota, evicts with it, sync access in a worker. FSA: a handle to the user's real file on disk, requires a gesture and a permission prompt, no quota, survives eviction because it's their file, no sync access, and much narrower browser support.",
+      "answerKey": "Technology Reference v6"
+    },
+    {
+      "id": "tech-60",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 50,
+      "weight": 5,
+      "prompt": "Long polling: what is the gap, and what is the fix — and why does the fix matter beyond long polling?",
+      "answer": "Between the moment a long poll returns and the moment the client's next request arrives, the client isn't listening, and anything the server emits in that window is gone. The fix is a per-client cursor: the server tags events with an id, the client sends it back, and the server replays from it. It matters beyond long polling because it's exactly what SSE's Last-Event-ID standardizes and exactly what a WebSocket makes you build yourself. Without it the transport silently drops messages under the load where it matters.",
+      "answerKey": "Technology Reference v6"
+    },
+    {
+      "id": "tech-61",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 3,
+      "prompt": "Two operational facts that size a long poll's hold duration.",
+      "answer": "Proxies and load balancers kill idle connections, commonly around 60 seconds, so the server's hold must expire BELOW that and return empty rather than let an intermediary sever it — usually ~25–50s. And under HTTP/1.1 a held request consumes one of the ~6 connections per origin the browser allows, so two long polls plus a few asset loads can stall the page. HTTP/2 multiplexing removes the second constraint.",
+      "answerKey": "Technology Reference v6"
+    },
+    {
+      "id": "tech-62",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 3,
+      "prompt": "You need to send a small payload as the page unloads. Why does fetch fail, and what works?",
+      "answer": "An ordinary fetch in unload is cancelled when the document goes away. navigator.sendBeacon() or fetch(url, {keepalive: true}) hands the request to the browser to complete after the document is gone. This is the standard answer for a final analytics event.",
+      "answerKey": "Technology Reference v6"
+    },
+    {
+      "id": "tech-63",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 5,
+      "prompt": "SSE: name the four frame fields, and say which one is the one that matters and why.",
+      "answer": "id, event, data, retry. data accumulates across repeated lines joined with newlines; event names the event so addEventListener works; retry sets the reconnect delay in ms. The one that matters is `id`: the browser remembers the last id it saw and on reconnect sends it back automatically as the Last-Event-ID request header. That is the cursor, standardized — resumption implemented on the server and free on the client. Emit it from day one; it can't be retrofitted onto a stream already in production.",
+      "answerKey": "Technology Reference v6"
+    },
+    {
+      "id": "tech-64",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 5,
+      "prompt": "Why can't you use EventSource for a chat prompt, and what do you give up by working around it?",
+      "answer": "The browser owns the request: no custom headers, no body, GET only. So auth must be a cookie or query param, and anything with a request payload doesn't fit the API at all. The workaround is making the same request with fetch, reading response.body as a stream and parsing the framing by hand — which regains headers, POST and AbortController, and gives up automatic reconnect and Last-Event-ID, which you then reimplement.",
+      "answerKey": "Technology Reference v6"
+    },
+    {
+      "id": "tech-65",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 3,
+      "prompt": "An SSE connection keeps failing and you want the client to stop. What actually stops it?",
+      "answer": "An HTTP error status, or an explicit close(). EventSource reconnects forever on a dropped connection — it waits `retry` ms and reopens, without your involvement. So a server that wants the client to give up must say so with a status code rather than by hanging up.",
+      "answerKey": "Technology Reference v6"
+    },
+    {
+      "id": "tech-66",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 5,
+      "prompt": "A WebSocket handshake: what exactly happens, and what do you lose the instant it succeeds?",
+      "answer": "An ordinary HTTP GET carrying Upgrade: websocket and a Sec-WebSocket-Key; the server answers 101 Switching Protocols, and from that instant the bytes on that TCP connection are RFC 6455 frames, not HTTP. What you lose: status codes, caching, content negotiation, per-request auth, standard retry, and resumption. Your load balancer now needs sticky long-lived connections, and a deploy that cycles the socket tier disconnects everyone at once.",
+      "answerKey": "Technology Reference v6"
+    },
+    {
+      "id": "tech-67",
+      "track": "technology",
+      "type": "procedure",
+      "timeboxSec": 60,
+      "weight": 5,
+      "prompt": "\"We'll use WebSockets.\" Recite the list of what you have just committed to building.",
+      "answer": "Reconnect with exponential backoff AND jitter; a heartbeat with a liveness deadline; resubscribe to whatever the old connection was watching; auth refresh for a token that expires mid-connection; and resumption — the cursor SSE gave you free. That list, not the API, is what the sentence actually commits you to. Plus: auth can't be a handshake header either, so the token goes in a query string, a cookie, or a first message the server waits for.",
+      "answerKey": "Technology Reference v6"
+    },
+    {
+      "id": "tech-68",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 5,
+      "prompt": "Why does a WebSocket need ping/pong, given that TCP already exists?",
+      "answer": "Because a TCP connection can be dead for minutes without either end noticing — a NAT table expiring or a phone changing networks produces a socket that is open, writable, and going nowhere. A heartbeat with a response deadline is the only way to detect it, and the protocol gives you the control frames but not the policy. A dead-but-open socket is the single most common production symptom.",
+      "answerKey": "Technology Reference v6"
+    },
+    {
+      "id": "tech-69",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 4,
+      "prompt": "WebTransport in one line: what does it fix about WebSockets?",
+      "answer": "A WebSocket is ONE ordered byte stream, so a large message blocks everything behind it — head-of-line blocking you can't design around. WebTransport runs over HTTP/3 and QUIC and gives you many independent streams plus unreliable datagrams, so a dropped position update doesn't delay a chat message, and it inherits QUIC connection migration so a phone switching wifi to cellular keeps its session. Name it; don't bet a design on it until you've checked support.",
+      "answerKey": "Technology Reference v6"
+    },
+    {
+      "id": "tech-70",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 4,
+      "prompt": "What does a WebRTC data channel offer that no other browser transport does, and what is the cost nobody budgets for?",
+      "answer": "Per-channel choice of ordered or unordered AND reliable or unreliable delivery — SCTP over DTLS over UDP. A position update superseded 40ms later shouldn't be retransmitted, and this is the only transport that will agree to drop it. The unbudgeted cost: peer-to-peer is not serverless. You still run signalling, and roughly 10–20% of peer pairs can't connect directly and fall back to a TURN relay that pays bandwidth for the whole session — skewed toward the corporate and mobile networks your enterprise customers are on.",
+      "answerKey": "Technology Reference v6"
+    },
+    {
+      "id": "tech-71",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 3,
+      "prompt": "When does WebRTC mesh stop working, and what replaces it?",
+      "answer": "Full mesh is n(n−1)/2 connections and stops being viable past roughly four to six participants. Beyond that you route through a server — an SFU that forwards streams without decoding them — at which point you've deliberately re-introduced the server you were avoiding, because it's simpler and cheaper than mesh at that size.",
+      "answerKey": "Technology Reference v6"
+    },
+    {
+      "id": "tech-72",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 5,
+      "prompt": "You move expensive work to a Web Worker and the page gets janker. Why?",
+      "answer": "postMessage passes by structured clone, which is a genuine deep copy. Moving a 50 MB object allocates 50 MB on the other side and blocks BOTH threads while it serializes and deserializes — so the transfer cost more than the computation saved. The escapes: transferables (postMessage(buf, [buf]) moves an ArrayBuffer by handing over ownership, O(1), sender's reference becomes unusable), or SharedArrayBuffer, which needs the page cross-origin isolated via COOP and COEP.",
+      "answerKey": "Technology Reference v6"
+    },
+    {
+      "id": "tech-73",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 3,
+      "prompt": "What does structured clone NOT preserve, and what's the practical consequence?",
+      "answer": "Functions, DOM nodes, and prototypes. It handles objects, arrays, Date, Map, Set, RegExp, ArrayBuffer and cyclic references — but class instances arrive as plain objects with their methods gone. So a worker can compute a layout but never apply it, and any class-based model you send across needs rehydrating on the far side.",
+      "answerKey": "Technology Reference v6"
+    },
+    {
+      "id": "tech-74",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 5,
+      "prompt": "\"One resource per browser, not per tab.\" Name the primitive, and why it beats a localStorage heartbeat.",
+      "answer": "navigator.locks.request(name, {mode:'exclusive'}, cb) — the browser grants the named lock to exactly one context across the whole origin, queues the rest, and RELEASES IT AUTOMATICALLY when the holding context goes away, including on a crash or force-quit. A leader election on localStorage timestamps has to guess a heartbeat timeout and always has a window where the leader is dead and nobody knows. Web Locks has no such window, because the browser owns the lifetime.",
+      "answerKey": "Technology Reference v6"
+    },
+    {
+      "id": "tech-75",
+      "track": "technology",
+      "type": "procedure",
+      "timeboxSec": 60,
+      "weight": 4,
+      "prompt": "Describe the one-tab-owns-the-socket pattern end to end.",
+      "answer": "Every tab requests the same exclusive Web Lock and holds it for the tab's lifetime. Exactly one gets it and opens the connection. That tab rebroadcasts what arrives over a BroadcastChannel; every other tab renders from the broadcast. When the leader closes, the lock releases automatically and the next tab in the queue takes over and reconnects — no timeout to tune. Treat the broadcast as a hint to go re-read the store, not as the data, because it has no replay and a late-opening tab has missed everything.",
+      "answerKey": "Technology Reference v6"
+    },
+    {
+      "id": "tech-76",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 4,
+      "prompt": "BroadcastChannel: name its delivery contract and the one asymmetry that surprises people.",
+      "answer": "At-most-once, unordered across senders, no history, no acknowledgement, no delivery guarantee to a tab that isn't listening yet. The asymmetry: postMessage delivers to every OTHER context on the origin — never to the sender. It replaced the older trick of writing to localStorage purely to fire the storage event in other tabs, which had the same sender-excluded asymmetry, was synchronous, and was limited to strings.",
+      "answerKey": "Technology Reference v6"
+    },
+    {
+      "id": "tech-77",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 3,
+      "prompt": "State the pairing that makes cross-tab coordination coherent.",
+      "answer": "Locks for who acts, broadcast for telling everyone to re-read, and the store for what is true. The lock is the strong guarantee — mutual exclusion with automatic release on context loss. The broadcast is deliberately weak, so it should carry a hint rather than data. And leadership is never stable: tabs close, get discarded under memory pressure, and get frozen in the background, so reacquiring the lock and reconnecting is the normal path, not the error path.",
+      "answerKey": "Technology Reference v6"
+    },
+    {
+      "id": "tech-78",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 5,
+      "prompt": "State the four client-side cross-cutting rules.",
+      "answer": "(1) The client is not a trust boundary and not a durable store — client storage is a cache of server truth plus an outbox of intent, never the only copy. (2) The main thread is the shared resource — every synchronous call on it is paid in dropped frames; move it off, make it async, or make it smaller. (3) Climb the transport ladder only as far as the requirement forces, and price the reconnect — the transport is the easy part, the resumption is the design. (4) One browser is N tabs — decide who owns a resource before you open it.",
+      "answerKey": "Technology Reference v6"
+    },
+    {
+      "id": "tech-79",
+      "track": "technology",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 5,
+      "prompt": "The client-side meta-rule: what is the default client, and what are the six named requirements that justify going past it?",
+      "answer": "Most clients are fetch plus one store plus at most one push channel: fetch for everything the user asks for, IndexedDB for anything that must survive a reload, and one stream — usually SSE — for what the server volunteers. Go past it only for a named requirement: genuine offline (service worker), a synchronous WASM byte store (OPFS), continuous client-to-server data (WebSocket), unreliable delivery (WebRTC), a frame-blocking computation (worker), or a resource that must be singular across tabs (Web Locks).",
+      "answerKey": "Technology Reference v6"
     },
     {
       "id": "llm-01",
