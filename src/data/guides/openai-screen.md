@@ -394,7 +394,15 @@ Useful because it tells you where *not* to spend September.
   "explain why this component renders twice" — a debugging skill, not a trivia one.
 - **Library knowledge.** CoderPad, from scratch. No component library, no data-fetching library.
   If you want to *mention* TanStack Query or the AI SDK as what you'd reach for in production,
-  do it as a one-line trade-off, then build it by hand.
+  do it as a one-line trade-off, then build it by hand. Have the names ready so the trade-off
+  sounds lived-in rather than gestured at: the **Vercel AI SDK**'s `useChat` gives you the
+  transcript, the token stream and the abort wiring in one hook, `useCompletion` is its
+  single-turn sibling, and **AI Elements** ships the chat primitives on top. The sentence is
+  *"in production I'd reach for `useChat` — it's this state machine with the transport already
+  solved; here I'll build it by hand so you can see the model."* Then move on: naming it costs
+  five seconds and buys you the "has shipped this" read.
+  ([patterns.dev's AI UI patterns](https://www.patterns.dev/react/ai-ui-patterns/) is the
+  tour of that stack; everything it covers is already in `§08`–`§09` below, minus the SDK.)
 
 ### F. COVERAGE MAP — WHAT YOU ALREADY HAVE, AND WHAT IS NEW
 
@@ -404,7 +412,7 @@ Useful because it tells you where *not* to spend September.
 
 | Bank item | Already covered? | Where |
 |---|---|---|
-| Streaming chat, core | ✅ **Fully** | `UIE Components §14` · `uie-practice/streaming-message-reference` · `uie-practice/cursor-01-streaming-message` · `uie-practice/streaming-practice-8-17` |
+| Streaming chat, core | ✅ **Fully** | `uie-practice/openai-01-streaming-chat` ← **the drill** · `UIE Components §14` · `uie-practice/streaming-message-reference` · `uie-practice/cursor-01-streaming-message` · `uie-practice/streaming-practice-8-17` |
 | Stop / abort / generation counter | ✅ **Fully** | `UIE Components §14 D` and `§17 F` |
 | Multi-turn transcript | ⚠️ **Partly** | `§14` is single-message. The transcript model is new — `§08 G` here |
 | Autocomplete with cancellation | ✅ **Fully** | `UIE Components §06 Combobox` · `uie-practice/combobox-reference`, `combobox-interview`, `cursor-02-typeahead` |
@@ -425,7 +433,7 @@ Useful because it tells you where *not* to spend September.
 | Fanout / connection scale (the Slack prompt) | ✅ **Fully** | `Designs → Discord` |
 | Refactor nested code, keep tests green | ⚠️ **Partly** | No dedicated drill. `Cursor Screen §08` covers reading tests. Low priority |
 | Iterator → 2D → async | ⚠️ **Partly** | `JavaScript` covers iterators; no async-iterator drill. `§12 B` drill 7 |
-| **The composer: caret, selection, Enter/Shift+Enter, IME, auto-resize** | ❌ **New** | `§09 B` here. **Build it — drill 2** |
+| **The composer: caret, selection, Enter/Shift+Enter, IME, auto-resize** | ✅ **Built** | `§09 B` here · `uie-practice/openai-02-composer` |
 | **`@`-mention / `/`-command autocomplete anchored to the caret** | ❌ **New** | `§09 C` here. **Build it — drill 4** |
 | **Edit-and-resubmit a transcript message** | ❌ **New** | `§09 D` here. **Build it — drill 5** |
 | **Streaming markdown, incremental** | ❌ **New** | `§08 I` here. **Build it — drill 6** |
@@ -2027,12 +2035,15 @@ worth more than another drill.
 
 ### B. THE SEVEN CODING DRILLS
 
-Live in `uie-practice` as new exercises. The first two are the load-bearing ones.
+Live in `uie-practice` as new exercises. The first two are the load-bearing ones, and both are
+**built** — the folders, briefs and specs are on disk, red by default. Drills 3–7 are still
+prospective; build each on its `§02` date rather than up front, so what you learn in the Discord,
+Cursor and Figma screens can shape them.
 
 | # | Drill | Folder | Timebox | Ships when |
 |---|---|---|---|---|
-| 1 | **Streaming chat, core** — mock stream, status enum, stop, abort, generation guard | `openai-01-streaming-chat` | 45 min | Stream visible ≤20 min; all five `§08 L` cases 1–5 handled |
-| 2 | **The composer** — auto-resize, Enter/Shift+Enter, IME guard, state-guarded submit | `openai-02-composer` | 30 min | Typed cold in 12 min; IME guard present without prompting |
+| 1 | **Streaming chat, core** — mock stream, status enum, stop, abort, generation guard | ✅ `openai-01-streaming-chat` | 45 min | Stream visible ≤20 min; all five `§08 L` cases 1–5 handled |
+| 2 | **The composer** — auto-resize, Enter/Shift+Enter, IME guard, state-guarded submit | ✅ `openai-02-composer` | 30 min | Typed cold in 12 min; IME guard present without prompting |
 | 3 | **Multi-turn + supersede** — transcript model, one in-flight generation, stale suppression | `openai-03-transcript` | 45 min | Submitting during a stream never interleaves output |
 | 4 | **`@`-mention autocomplete** — trigger detection, `setRangeText`, anchored popup, combobox keys | `openai-04-mention-autocomplete` | 60 min | Arrows don't move the caret; Enter selects without sending |
 | 5 | **Edit and resubmit** — edit mode, focus/caret restore, truncate below, abort in-flight | `openai-05-edit-resubmit` | 45 min | Cancel restores the pre-image; no orphaned generation |
@@ -2042,6 +2053,15 @@ Live in `uie-practice` as new exercises. The first two are the load-bearing ones
 **Reuse before you build.** Drills 1 and 3 start from
 `uie-practice/streaming-message-reference`; drill 4 starts from `combobox-reference`; drill 6's
 virtualization half is `UIE Components §13`. Only drills 2, 4, 5, and 6 contain genuinely new code.
+
+**What drill 1 takes, and what it deliberately does not.** It reuses the reference's `StreamStatus`
+enum, its two-layer `controllerRef` + `generationRef` guard, and its counter-intuitive a11y call
+(status in the live region, `aria-busy` on the text). It replaces the *transport*: the reference
+hands you an `onToken` callback and `cursor-01` hands you an `AsyncIterable<string>`, so both sit
+**above the byte layer** and neither can exercise `§08 A` failure #1. Drill 1 owns
+`fetch → res.ok → res.body.getReader() → TextDecoder(…, { stream: true })`, and its mock endpoint
+can split a UTF-8 character across two chunks on demand. That is the whole reason it is not a
+fourth copy of the same widget.
 
 ### C. THE FOUR DESIGN REPS
 
