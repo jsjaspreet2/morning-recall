@@ -230,40 +230,38 @@ parameter property. **Say it out loud when you start**, because it is eight seco
 credibility: *"I'm running the TypeScript directly, so the annotations are documentation rather than
 checks — a mistake will show up as a runtime error, not a compile error."*
 
-**Editor types are worth having, and they are the one install that pays.** Without `@types/node`,
-VS Code has no definitions for `node:net`: the import gets a red squiggle and you get no completion
-on `net.createServer`, `socket.on`, or the event names — which is exactly the API you will be
-leaning on. With it, you get the member list and the signatures. Note what you do **not** need: the
-`typescript` package. VS Code ships its own TypeScript and uses it for the editor, so `typescript`
-buys you only the command-line `tsc`, and `node server.ts` never calls it.
-
-**So arrive with the directory already built.** The invitation says *"please have your development
-environment set up"* — that is an instruction, not a loophole, and doing this on the 26th is the
-thing to avoid, not doing it at all. Build it now, once:
+**Editor types are worth having, and getting them is two commands.** Without `@types/node`, VS Code
+has no definitions for `node:net`: the import gets a red squiggle and you get no completion on
+`net.createServer`, `socket.on`, or the event names — which is exactly the API you will be leaning
+on. With it, you get the member list and the signatures.
 
 ```bash
 mkdir -p ~/interviews/discord && cd ~/interviews/discord
-npm init -y
-npm pkg set type=module          # npm init writes "type": "commonjs" — this is the line that matters
 npm i -D @types/node
-printf '{"compilerOptions":{"module":"nodenext","target":"es2022","strict":true,"noEmit":true,"types":["node"]}}\n' > tsconfig.json
+npm pkg set type=module
 ```
 
-Then `node server.ts` still runs with no build step, and the editor is fully typed. **Leave
-`server.ts` out of it** — the directory is the environment, and the environment is what you are
-allowed to prepare. `§01 B` draws that line and it is worth restating here: **stage the environment,
-never the program.** A `package.json` and a `tsconfig.json` waiting for you is preparation. A
-`makeLineReader` waiting for you is not.
+**That is the whole setup.** No `npm init` — `npm i` writes the `package.json` itself. No
+`tsconfig.json` — TypeScript picks up anything in `node_modules/@types` automatically, so the editor
+is typed without one. No `typescript` package either: VS Code ships its own and uses it for the
+editor, so installing it would buy you only the command-line `tsc`, which `node server.ts` never
+calls. The file you end up with is four lines long and contains nothing but a dependency and a
+module type.
 
-**If you want command-line checking too,** add `typescript` — but pin it, because a fresh
-`npm i -D typescript` now installs **TypeScript 7**, which no longer picks up `@types/node`
-implicitly and greets you with `Cannot find name 'node:net'` on line 1 of a file that runs
-perfectly. The `"types": ["node"]` above is what makes 7 behave; `typescript@5` does not need it.
-Run it in a fourth pane, never on the critical path:
+**The third command is optional, and knowing why makes it easy to remember.** Without it everything
+still works — Node detects the module syntax and runs the file — it just prints a
+`MODULE_TYPELESS_PACKAGE_JSON` warning about the reparse each time. `npm pkg set type=module`
+removes the noise. **So the rule to hold in your head is: `npm i -D @types/node` to get types,
+`npm pkg set type=module` to get silence.** If you blank on the second one under pressure, you lose
+nothing but tidiness.
 
-```bash
-npm i -D typescript@5 && npx tsc --watch
-```
+**Arrive with it already built.** The invitation says *"please have your development environment set
+up"* — that is an instruction, not a loophole, and the thing to avoid is doing this on the 26th, not
+doing it at all. But **leave `server.ts` out of it.** `§01 B` draws the line and it is worth
+restating here: **stage the environment, never the program.** A `package.json` waiting for you is
+preparation. A `makeLineReader` waiting for you is not — and that is also why the setup is worth
+being able to retype from memory rather than keeping in a script. A script you run is a script you
+cannot adapt when the directory turns out to be somewhere else.
 
 **On the no-AI rule, since this is the obvious place to wonder.** TypeScript completion is static
 analysis over `.d.ts` files — deterministic, offline, the same category of tool as a compiler error
@@ -1777,7 +1775,7 @@ Five things, from blank, no reference, until they are boring. Ten minutes a day 
 | 2 | The skeleton from `§06 F`, whole | Under 4 minutes |
 | 3 | The `Client` interface and the three registry functions from `§04 D` | 90 seconds |
 | 4 | The scripted client from `§07 C` | 60 seconds |
-| 5 | `mkdir`, `server.ts` from blank, `node server.ts`, two `nc` clients | 90 seconds, from an empty directory |
+| 5 | `mkdir`, the two setup commands, `server.ts` from blank, `node server.ts`, two `nc` clients | 90 seconds, from an empty directory |
 
 **Number 5 is not padding.** The environment is yours on the 26th, which means an environment
 failure is yours too, and it happens in the first five minutes when it is most expensive.
