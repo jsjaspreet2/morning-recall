@@ -1,12 +1,13 @@
 // Thin, typed localStorage wrapper. Single user, single device (per the spec).
 // All keys are namespaced so nothing collides with other apps on the origin.
 
-import type { Session, SchedMap } from './types'
+import type { Session, SchedMap, ThemeChoice } from './types'
 
 const NS = 'morning-recall:'
 const K_SCHED = NS + 'sched'
 const K_SESSION = NS + 'session' // the active/in-progress quiz run
 const K_STREAK = NS + 'streak' // { lastCompletedISO, count }
+const K_THEME = NS + 'theme' // 'light' | 'dark' | 'system'
 
 function read<T>(key: string, fallback: T): T {
   try {
@@ -51,7 +52,18 @@ export const store = {
     write(K_STREAK, s)
   },
 
+  // 'system' is the default: a first-time visitor gets whatever their OS is set
+  // to. Read by the inline script in index.html too, which parses the same JSON.
+  getTheme(): ThemeChoice {
+    return read<ThemeChoice>(K_THEME, 'system')
+  },
+  setTheme(t: ThemeChoice): void {
+    write(K_THEME, t)
+  },
+
   // Escape hatch: wipe scheduling history and streak (does not touch guides).
+  // Theme is deliberately not in here — it's a display preference, not practice
+  // history, and losing it on a reset would just be surprising.
   resetAll(): void {
     ;[K_SCHED, K_SESSION, K_STREAK].forEach((k) => localStorage.removeItem(k))
   },

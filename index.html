@@ -1,11 +1,39 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#0a0a0b" />
+    <meta name="theme-color" content="#fbfbfc" />
     <title>Morning Recall</title>
     <meta name="description" content="Daily active-recall practice for interviews, plus a browsable learning library." />
+    <!--
+      Paint the right theme before the first frame. The app is a static SPA on
+      GitHub Pages, so waiting for React to mount would flash the wrong colours
+      on every load — long enough to notice on a phone at 6am.
+
+      This duplicates resolve()/apply() from src/lib/theme.ts on purpose: nothing
+      is importable this early. Keep the two in sync — theme.ts carries the same
+      note pointing back here. Classic script, not a module, so Vite leaves it
+      inline rather than deferring it into the bundle.
+    -->
+    <script>
+      ;(function () {
+        try {
+          var stored = localStorage.getItem('morning-recall:theme')
+          var choice = stored ? JSON.parse(stored) : 'system'
+          var dark =
+            choice === 'dark' ||
+            (choice !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+          var root = document.documentElement
+          root.classList.toggle('dark', dark)
+          root.style.colorScheme = dark ? 'dark' : 'light'
+          var meta = document.querySelector('meta[name="theme-color"]')
+          if (meta) meta.setAttribute('content', dark ? '#0a0a0b' : '#fbfbfc')
+        } catch (e) {
+          /* private mode, storage disabled, ancient browser — fall through to light */
+        }
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

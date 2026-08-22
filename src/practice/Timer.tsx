@@ -36,8 +36,8 @@ export default function Timer({ seconds }: { seconds: number }) {
       className={[
         'inline-flex items-center gap-2 tabular-nums font-mono text-sm px-3 py-1 rounded-full ring-1 transition-colors',
         overtime
-          ? 'text-amber-300 ring-amber-500/40 bg-amber-500/10'
-          : 'text-zinc-400 ring-zinc-800 bg-zinc-900/60',
+          ? 'text-amber-700 ring-amber-600/40 bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/40'
+          : 'text-zinc-600 ring-zinc-200 bg-zinc-100 dark:text-zinc-400 dark:ring-zinc-800 dark:bg-zinc-900/60',
       ].join(' ')}
       role="timer"
       aria-live="off"
@@ -45,7 +45,7 @@ export default function Timer({ seconds }: { seconds: number }) {
       <span
         className={[
           'inline-block w-1.5 h-1.5 rounded-full',
-          overtime ? 'bg-amber-400' : 'bg-zinc-600',
+          overtime ? 'bg-amber-600 dark:bg-amber-400' : 'bg-zinc-400 dark:bg-zinc-600',
         ].join(' ')}
       />
       {label}

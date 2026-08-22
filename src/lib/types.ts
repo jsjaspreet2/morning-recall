@@ -78,3 +78,10 @@ export interface Session {
   pos: number
   startedISO: string
 }
+
+// What the user picked in the header's theme selector. 'system' defers to the
+// OS and keeps following it; 'light'/'dark' pin it. Persisted in localStorage.
+export type ThemeChoice = 'light' | 'dark' | 'system'
+
+// What 'system' collapses to once the OS preference is read.
+export type ResolvedTheme = 'light' | 'dark'

@@ -61,7 +61,7 @@ export default function DocLayout({
     <div className="px-4 py-5">
       <Link
         to={backTo}
-        className="text-sm text-zinc-500 hover:text-zinc-300 inline-flex items-center gap-1"
+        className="text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-500 dark:hover:text-zinc-300 inline-flex items-center gap-1"
       >
         ← {backLabel}
       </Link>
@@ -70,8 +70,8 @@ export default function DocLayout({
         <div className={`w-1 self-stretch rounded-full ${ac.bar}`} aria-hidden />
         <div className="min-w-0">
           {eyebrow}
-          <h1 className="text-2xl font-bold text-zinc-50">{title}</h1>
-          {subtitle && <p className="mt-1 text-sm text-zinc-500">{subtitle}</p>}
+          <h1 className="text-2xl lg:text-3xl font-bold text-zinc-900 dark:text-zinc-50">{title}</h1>
+          {subtitle && <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-500">{subtitle}</p>}
         </div>
       </div>
 
@@ -90,8 +90,8 @@ export default function DocLayout({
         <div className="min-w-0">
           {/* The collapsible TOC stays for narrow screens, where the sidebar is hidden. */}
           {headings.length > 0 && (
-            <details className="xl:hidden mb-6 rounded-xl bg-zinc-900/40 ring-1 ring-zinc-800 overflow-hidden">
-              <summary className="cursor-pointer select-none px-4 py-3 text-sm font-medium text-zinc-300">
+            <details className="xl:hidden mb-6 rounded-xl bg-white ring-1 ring-zinc-200 dark:bg-zinc-900/40 dark:ring-zinc-800 shadow-sm dark:shadow-none overflow-hidden">
+              <summary className="cursor-pointer select-none px-4 py-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">
                 Contents · {headings.length} sections
               </summary>
               <nav className="px-2 pb-2">
@@ -101,8 +101,10 @@ export default function DocLayout({
                       <button
                         onClick={() => jumpTo(h.id)}
                         className={[
-                          'w-full text-left px-2 py-1.5 rounded-md text-sm hover:bg-zinc-800/60',
-                          h.depth === 3 ? 'pl-6 text-zinc-500' : 'text-zinc-300',
+                          'w-full text-left px-2 py-1.5 rounded-md text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800/60',
+                          h.depth === 3
+                            ? 'pl-6 text-zinc-600 dark:text-zinc-500'
+                            : 'text-zinc-700 dark:text-zinc-300',
                         ].join(' ')}
                       >
                         {h.text}
@@ -120,10 +122,10 @@ export default function DocLayout({
         </div>
       </div>
 
-      <div className="mt-10 pt-6 border-t border-zinc-900 text-center">
+      <div className="mt-10 pt-6 border-t border-zinc-200 dark:border-zinc-900 text-center">
         <Link
           to={backTo}
-          className="text-sm text-zinc-400 hover:text-zinc-200 underline underline-offset-4"
+          className="text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 underline underline-offset-4"
         >
           ← Back to {footerLabel}
         </Link>

@@ -1,6 +1,10 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
+  // Theme is a deliberate choice (Light / Dark / System), not just the OS
+  // preference, so the `dark` class on <html> — set by the inline script in
+  // index.html and kept in sync by src/lib/theme.ts — is what drives `dark:`.
+  darkMode: 'class',
   theme: {
     extend: {
       fontFamily: {

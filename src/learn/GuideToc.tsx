@@ -37,13 +37,20 @@ export default function GuideToc({ sections, activeId, onJump }: GuideTocProps) 
     const base =
       'block w-full text-left rounded-md transition-colors border-l-2 leading-snug ' +
       (h.depth === 3 ? 'pl-4 pr-2 py-1 text-[12.5px] ' : 'px-2 py-1.5 text-[13px] font-medium ')
-    if (isActive) return base + 'border-zinc-500 bg-zinc-800/70 text-zinc-100'
-    return base + 'border-transparent text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/40'
+    if (isActive)
+      return (
+        base +
+        'border-zinc-900 bg-zinc-100 text-zinc-900 dark:border-zinc-500 dark:bg-zinc-800/70 dark:text-zinc-100'
+      )
+    return (
+      base +
+      'border-transparent text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100/70 dark:text-zinc-500 dark:hover:text-zinc-200 dark:hover:bg-zinc-800/40'
+    )
   }
 
   return (
     <nav ref={navRef} aria-label="On this page" className="flex flex-col gap-0.5">
-      <p className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-wider text-zinc-600">
+      <p className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-600">
         On this page
       </p>
 

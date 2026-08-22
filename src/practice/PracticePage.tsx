@@ -100,10 +100,10 @@ export default function PracticePage() {
   return (
     <div className="flex-1 flex flex-col">
       <div className="flex items-center justify-between px-4 pt-3">
-        <span className="text-xs font-medium text-zinc-500 truncate">{session.scope.label}</span>
+        <span className="text-xs font-medium text-zinc-600 dark:text-zinc-500 truncate">{session.scope.label}</span>
         <button
           onClick={() => persist(null)}
-          className="text-xs text-zinc-500 hover:text-zinc-300 px-2 py-1 -mr-2"
+          className="text-xs text-zinc-600 hover:text-zinc-900 dark:text-zinc-500 dark:hover:text-zinc-300 px-2 py-1 -mr-2"
         >
           End
         </button>

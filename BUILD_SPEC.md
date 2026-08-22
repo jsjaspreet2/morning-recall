@@ -58,7 +58,8 @@ Read `/mnt/skills/public/frontend-design/SKILL.md` before styling.
   targets, one thumb, no horizontal scroll, works at 375px.
 - Track accents come from `meta.tracks[].accent` — use them as a thin marker on the card,
   not as a full background.
-- Dark by default. It's used early.
+- Follows the system appearance by default, with a Light / Dark / System selector in
+  the header. Dark is the fallback when there's no preference to read — it's used early.
 - The prompt text is the interface. Everything else recedes.
 
 ## Explicitly out of scope

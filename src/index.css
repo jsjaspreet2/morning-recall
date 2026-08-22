@@ -2,8 +2,100 @@
 @tailwind components;
 @tailwind utilities;
 
+/* --------------------------------------------------------------------------
+   Theme tokens.
+
+   Every colour below this block is a var(), defined once per theme here. The
+   alternative — repeating the whole 300-line prose stylesheet under `.dark` —
+   would double the file and guarantee the two halves drift apart.
+
+   The `dark` class on <html> is set by the inline script in index.html before
+   first paint, then kept in sync by src/lib/theme.ts.
+   -------------------------------------------------------------------------- */
 :root {
+  color-scheme: light;
+
+  --page-bg: #ffffff;
+  --header-bg: #fffffff2;
+  --body-fg: #27272a;
+
+  --prose-fg: #3f3f46;
+  --h1: #18181b;
+  --h2: #27272a;
+  --h3: #3f3f46;
+  --h4: #52525b;
+  --rule: #e4e4e7;
+  --marker: #a1a1aa;
+  --marker-ol: #52525b;
+  --link: #1d4ed8;
+  --strong: #18181b;
+  --quote-fg: #52525b;
+  --quote-bar: #d4d4d8;
+
+  --panel-bg: #f6f8fa;
+  --panel-border: #e4e4e7;
+  --code-bg: #f4f4f5;
+  --code-border: #e4e4e7;
+  --code-fg: #a21caf;
+  --pre-bg: #f6f8fa;
+  --pre-fg: #24292f;
+  --th-bg: #f4f4f5;
+  --th-fg: #18181b;
+
+  --scroll-thumb: #d4d4d8;
+  --focus-ring: #2563eb;
+
+  /* highlight.js — github-light, matched to the github-dark set below */
+  --hl-comment: #6e7781;
+  --hl-keyword: #cf222e;
+  --hl-string: #0a3069;
+  --hl-title: #8250df;
+  --hl-number: #0550ae;
+  --hl-attr: #953800;
+  --hl-builtin: #116329;
+}
+
+:root.dark {
   color-scheme: dark;
+
+  --page-bg: #0a0a0b;
+  --header-bg: #0a0a0be6;
+  --body-fg: #e7e7ea;
+
+  --prose-fg: #d4d4d8;
+  --h1: #fafafa;
+  --h2: #f4f4f5;
+  --h3: #e4e4e7;
+  --h4: #a1a1aa;
+  --rule: #26262b;
+  --marker: #71717a;
+  --marker-ol: #a1a1aa;
+  --link: #93c5fd;
+  --strong: #fafafa;
+  --quote-fg: #a1a1aa;
+  --quote-bar: #3f3f46;
+
+  --panel-bg: #131317;
+  --panel-border: #26262b;
+  --code-bg: #1c1c22;
+  --code-border: #2a2a30;
+  --code-fg: #f0abfc;
+  --pre-bg: #131318;
+  --pre-fg: #e4e4e7;
+  --th-bg: #161619;
+  --th-fg: #f4f4f5;
+
+  --scroll-thumb: #3f3f46;
+  --focus-ring: #60a5fa;
+
+  /* highlight.js — github-dark, trimmed */
+  --hl-comment: #8b949e;
+  --hl-keyword: #ff7b72;
+  --hl-string: #a5d6ff;
+  --hl-title: #d2a8ff;
+  --hl-number: #79c0ff;
+  --hl-attr: #ffa657;
+  --hl-builtin: #7ee787;
 }
 
 html,
@@ -14,8 +106,8 @@ body,
 
 body {
   margin: 0;
-  background: #0a0a0b;
-  color: #e7e7ea;
+  background: var(--page-bg);
+  color: var(--body-fg);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   /* respect the notch / home indicator on phones */
@@ -28,12 +120,40 @@ button {
   touch-action: manipulation;
 }
 
+/* Keyboard focus. Tailwind's preflight removes the UA outline and nothing put
+   one back, so tabbing through the app showed nothing at all — fine when the
+   only input is a thumb, not fine now that it's used on a desktop too.
+
+   :where() keeps this at zero specificity, so any element that wants its own
+   focus treatment (the theme toggle does) still overrides it without !important.
+   :focus-visible rather than :focus so a mouse click never draws the ring.
+   .sr-only is excluded: those inputs are clipped to 1px and the outline would
+   land on nothing. */
+:where(a, button, summary, input, select, textarea, [tabindex]):not(.sr-only):focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* The fade behind the sticky "start" bar on the practice home. Written here
+   rather than as Tailwind gradient utilities because the stops need the themed
+   page background at two different alphas, and threading an alpha-modified
+   custom property through arbitrary values is worse than one honest rule. */
+.start-bar-fade {
+  background-image: linear-gradient(
+    to top,
+    var(--page-bg) 0%,
+    var(--page-bg) 55%,
+    transparent 100%
+  );
+}
+
 /* --------------------------------------------------------------------------
    Prose styling for the Learn section (rendered markdown).
-   Kept hand-rolled (no typography plugin) so it stays tuned for dark reading.
+   Kept hand-rolled (no typography plugin) so both themes stay tuned by hand.
    -------------------------------------------------------------------------- */
 .prose {
-  color: #d4d4d8;
+  color: var(--prose-fg);
   font-size: 1.02rem;
   line-height: 1.7;
 }
@@ -44,22 +164,22 @@ button {
   font-size: 1.9rem;
   line-height: 1.2;
   font-weight: 700;
-  color: #fafafa;
+  color: var(--h1);
   margin: 0 0 0.75rem;
 }
 .prose h2 {
   font-size: 1.4rem;
   font-weight: 700;
-  color: #f4f4f5;
+  color: var(--h2);
   margin: 2.2rem 0 0.75rem;
   padding-top: 0.5rem;
-  border-top: 1px solid #26262b;
+  border-top: 1px solid var(--rule);
   scroll-margin-top: 5rem;
 }
 .prose h3 {
   font-size: 1.12rem;
   font-weight: 600;
-  color: #e4e4e7;
+  color: var(--h3);
   margin: 1.5rem 0 0.5rem;
   letter-spacing: 0.01em;
   scroll-margin-top: 5rem;
@@ -69,7 +189,7 @@ button {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #a1a1aa;
+  color: var(--h4);
   margin: 1.25rem 0 0.4rem;
 }
 .prose p {
@@ -114,50 +234,50 @@ button {
   margin: 0.35rem 0;
 }
 .prose li::marker {
-  color: #71717a;
+  color: var(--marker);
 }
 /* In an ordered list the number is content — which step this is, out of how many
    — rather than decoration, so it reads at the body colour instead of the muted
    grey a bullet gets. */
 .prose ol > li::marker {
-  color: #a1a1aa;
+  color: var(--marker-ol);
   font-weight: 600;
 }
 .prose a {
-  color: #93c5fd;
+  color: var(--link);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 .prose strong {
-  color: #fafafa;
+  color: var(--strong);
   font-weight: 650;
 }
 .prose blockquote {
   margin: 1rem 0;
   padding: 0.5rem 0 0.5rem 1rem;
-  border-left: 3px solid #3f3f46;
-  color: #a1a1aa;
+  border-left: 3px solid var(--quote-bar);
+  color: var(--quote-fg);
   font-size: 0.95em;
 }
 .prose hr {
   border: none;
-  border-top: 1px solid #26262b;
+  border-top: 1px solid var(--rule);
   margin: 2rem 0;
 }
 
 /* collapsible sections (rehype-raw renders <details>/<summary> from the markdown) */
 .prose details {
   margin: 1.25rem 0;
-  border: 1px solid #26262b;
+  border: 1px solid var(--panel-border);
   border-radius: 6px;
-  background: #131317;
+  background: var(--panel-bg);
 }
 .prose details > summary {
   padding: 0.6rem 0.9rem;
   cursor: pointer;
   font-size: 0.9em;
   font-weight: 600;
-  color: #d4d4d8;
+  color: var(--prose-fg);
   list-style: none;
   user-select: none;
 }
@@ -169,14 +289,14 @@ button {
   content: '▸';
   display: inline-block;
   width: 1em;
-  color: #71717a;
+  color: var(--marker);
   transition: transform 0.15s ease;
 }
 .prose details[open] > summary::before {
   transform: rotate(90deg);
 }
 .prose details[open] > summary {
-  border-bottom: 1px solid #26262b;
+  border-bottom: 1px solid var(--panel-border);
 }
 /* the body of an open block gets its own padding; code blocks inside sit flush */
 .prose details > *:not(summary) {
@@ -196,20 +316,20 @@ button {
 
 /* inline code */
 .prose :not(pre) > code {
-  background: #1c1c22;
-  border: 1px solid #2a2a30;
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
   border-radius: 5px;
   padding: 0.1em 0.38em;
   font-size: 0.86em;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  color: #f0abfc;
+  color: var(--code-fg);
   overflow-wrap: anywhere;
 }
 
 /* code blocks */
 .prose pre {
-  background: #131318;
-  border: 1px solid #26262b;
+  background: var(--pre-bg);
+  border: 1px solid var(--panel-border);
   border-radius: 10px;
   padding: 1rem 1.1rem;
   overflow-x: auto;
@@ -221,7 +341,7 @@ button {
   background: none;
   border: none;
   padding: 0;
-  color: #e4e4e7;
+  color: var(--pre-fg);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
@@ -229,7 +349,7 @@ button {
 .prose .table-wrap {
   overflow-x: auto;
   margin: 1rem 0;
-  border: 1px solid #26262b;
+  border: 1px solid var(--panel-border);
   border-radius: 10px;
 }
 .prose table {
@@ -241,12 +361,12 @@ button {
 .prose td {
   text-align: left;
   padding: 0.55rem 0.8rem;
-  border-bottom: 1px solid #26262b;
+  border-bottom: 1px solid var(--panel-border);
   vertical-align: top;
 }
 .prose th {
-  background: #161619;
-  color: #f4f4f5;
+  background: var(--th-bg);
+  color: var(--th-fg);
   font-weight: 600;
   white-space: nowrap;
 }
@@ -254,42 +374,42 @@ button {
   border-bottom: none;
 }
 
-/* highlight.js dark theme (github-dark, trimmed) */
+/* highlight.js — colours come from the --hl-* tokens (github-light / github-dark) */
 .hljs-comment,
 .hljs-quote {
-  color: #8b949e;
+  color: var(--hl-comment);
   font-style: italic;
 }
 .hljs-keyword,
 .hljs-selector-tag,
 .hljs-literal,
 .hljs-type {
-  color: #ff7b72;
+  color: var(--hl-keyword);
 }
 .hljs-string,
 .hljs-meta .hljs-string,
 .hljs-regexp {
-  color: #a5d6ff;
+  color: var(--hl-string);
 }
 .hljs-title,
 .hljs-title.function_,
 .hljs-section {
-  color: #d2a8ff;
+  color: var(--hl-title);
 }
 .hljs-number,
 .hljs-symbol,
 .hljs-bullet {
-  color: #79c0ff;
+  color: var(--hl-number);
 }
 .hljs-attr,
 .hljs-attribute,
 .hljs-variable,
 .hljs-template-variable {
-  color: #ffa657;
+  color: var(--hl-attr);
 }
 .hljs-built_in,
 .hljs-class .hljs-title {
-  color: #7ee787;
+  color: var(--hl-builtin);
 }
 .hljs-emphasis {
   font-style: italic;
@@ -310,13 +430,13 @@ button {
    page scrollbar sitting next to the real one. */
 .toc-scroll {
   scrollbar-width: thin;
-  scrollbar-color: #3f3f46 transparent;
+  scrollbar-color: var(--scroll-thumb) transparent;
 }
 .toc-scroll::-webkit-scrollbar {
   width: 6px;
 }
 .toc-scroll::-webkit-scrollbar-thumb {
-  background: #3f3f46;
+  background: var(--scroll-thumb);
   border-radius: 3px;
 }
 .toc-scroll::-webkit-scrollbar-track {

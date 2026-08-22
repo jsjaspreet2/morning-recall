@@ -22,12 +22,18 @@ export interface Guide {
   /** Filename under public/pdfs. Omit for guides with no PDF yet — the download
    *  link is hidden rather than left pointing at a 404. */
   pdf?: string
+  /** Company-specific screen prep: a self-contained track for one interview on
+   *  one date — round script, worked problems, the lot. Grouped separately from
+   *  the general guides on the Learn index, since the two are read for very
+   *  different reasons. */
+  screen?: true
 }
 
 export const guides: Guide[] = [
   // Pinned to the top through 8/26 — the nearest date. Drop it back down afterwards.
   {
     id: 'discord-screen',
+    screen: true,
     title: 'Discord Skill Challenge — 8/26',
     subtitle:
       'Seventy-five minutes on your own machine, a TCP server driven over nc: the round script, the line server every part is made of, five worked problems, and framing done properly.',
@@ -37,6 +43,7 @@ export const guides: Guide[] = [
   // Pinned to the top through 9/9. Drop it back down the list afterwards.
   {
     id: 'figma-screen',
+    screen: true,
     title: 'Figma Screen — 9/9',
     subtitle:
       'One hour, one multi-part problem in CoderPad: the round script, the document model that every Figma question is made of, five worked problems, and undo/redo done properly.',
@@ -46,6 +53,7 @@ export const guides: Guide[] = [
   // Pinned second through 8/28, then drop it back down the list.
   {
     id: 'cursor-screen',
+    screen: true,
     title: 'Cursor Screen — 8/28',
     subtitle:
       'Twelve-day plan for the two-hour screen: what each round grades, client-side system design, five worked designs, and the coding-hour script.',
@@ -55,6 +63,7 @@ export const guides: Guide[] = [
   // Pinned through 9/17 — the last of the four screens. Drop it down afterwards.
   {
     id: 'openai-screen',
+    screen: true,
     title: 'OpenAI Screen — 9/16 & 9/17',
     subtitle:
       'Two hours across two days, architecture then coding: the researched question bank, the streaming spine end to end, four worked architectures, and the two chapters that decide the coding hour — text streaming and text-editor concepts.',
@@ -130,6 +139,18 @@ export const guides: Guide[] = [
     // markdown has folded away. Regenerate before re-adding the link.
   },
 ]
+
+/**
+ * Split the index into its two halves. Company screens keep their hand-set
+ * order (nearest date first — see the comments on each entry); the general
+ * guides follow in declaration order.
+ */
+export function guidesBySection(): { screens: Guide[]; general: Guide[] } {
+  return {
+    screens: guides.filter((g) => g.screen),
+    general: guides.filter((g) => !g.screen),
+  }
+}
 
 export function guideById(id: string | undefined): Guide | undefined {
   return guides.find((g) => g.id === id)
