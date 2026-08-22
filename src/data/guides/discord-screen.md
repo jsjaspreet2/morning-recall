@@ -525,14 +525,12 @@ split. Nothing about this is theoretical.
 ```ts
 import net from 'node:net'
 
-type LineSink = (line: string) => void
-
 /**
  * Chunks in, lines out. The only function in the program that knows about `\n`.
  * Nothing above this layer should ever see a partial line, and nothing below it
  * should ever see a command.
  */
-function makeLineReader(onLine: LineSink, onOverflow: () => void, maxLen = 4096) {
+function makeLineReader(onLine: (line: string) => void, onOverflow: () => void, maxLen = 4096) {
   let buf = ''
   return (chunk: string) => {
     buf += chunk
@@ -830,7 +828,7 @@ things — encoding, framing, the error listener, the close listener — and han
 import net from 'node:net'
 
 // ---- framing: written once, never touched again (§04 C) --------------------
-function makeLineReader(onLine: (l: string) => void, onOverflow: () => void, maxLen = 4096) {
+function makeLineReader(onLine: (line: string) => void, onOverflow: () => void, maxLen = 4096) {
   let buf = ''
   return (chunk: string) => {
     buf += chunk
@@ -1421,7 +1419,7 @@ about forty lines, it takes under four minutes with practice, and it is correct 
 ```ts
 import net from 'node:net'
 
-function makeLineReader(onLine: (l: string) => void, onOverflow: () => void, maxLen = 4096) {
+function makeLineReader(onLine: (line: string) => void, onOverflow: () => void, maxLen = 4096) {
   let buf = ''
   return (chunk: string) => {
     buf += chunk
