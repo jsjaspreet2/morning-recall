@@ -230,30 +230,43 @@ parameter property. **Say it out loud when you start**, because it is eight seco
 credibility: *"I'm running the TypeScript directly, so the annotations are documentation rather than
 checks — a mistake will show up as a runtime error, not a compile error."*
 
-**Editor types are worth having, and getting them is two commands.** Without `@types/node`, VS Code
-has no definitions for `node:net`: the import gets a red squiggle and you get no completion on
+**Editor types are worth having, and getting them is three commands.** Without them, VS Code has no
+definitions for `node:net`: the import gets a red squiggle and you get no completion on
 `net.createServer`, `socket.on`, or the event names — which is exactly the API you will be leaning
-on. With it, you get the member list and the signatures.
+on.
 
 ```bash
 mkdir -p ~/interviews/discord && cd ~/interviews/discord
 npm i -D @types/node
 npm pkg set type=module
+echo '{"compilerOptions":{"types":["node"]}}' > tsconfig.json
 ```
 
-**That is the whole setup.** No `npm init` — `npm i` writes the `package.json` itself. No
-`tsconfig.json` — TypeScript picks up anything in `node_modules/@types` automatically, so the editor
-is typed without one. No `typescript` package either: VS Code ships its own and uses it for the
-editor, so installing it would buy you only the command-line `tsc`, which `node server.ts` never
-calls. The file you end up with is four lines long and contains nothing but a dependency and a
-module type.
+**Three commands, three different jobs, which is what makes them possible to retype from memory:**
 
-**The third command is optional, and knowing why makes it easy to remember.** Without it everything
-still works — Node detects the module syntax and runs the file — it just prints a
-`MODULE_TYPELESS_PACKAGE_JSON` warning about the reparse each time. `npm pkg set type=module`
-removes the noise. **So the rule to hold in your head is: `npm i -D @types/node` to get types,
-`npm pkg set type=module` to get silence.** If you blank on the second one under pressure, you lose
-nothing but tidiness.
+| Command | Buys you |
+|---|---|
+| `npm i -D @types/node` | The definitions exist on disk |
+| `npm pkg set type=module` | Node runs the file **without a warning** |
+| the one-line `tsconfig.json` | The **editor** actually uses the definitions |
+
+**The third one is not optional, and it is the one that will surprise you.** VS Code ships its own
+TypeScript — 6.0.3 at the time of writing — and on 6 the `@types/node` in your `node_modules` is
+**not** picked up implicitly. Without `"types": ["node"]` you get a red squiggle reading
+`Cannot find name 'node:net'. Do you need to install type definitions for node?` on a file that runs
+perfectly, which is a maddening thing to debug because the suggested fix is the thing you already
+did. Nothing else in a `tsconfig.json` matters here — not `module`, not `moduleResolution`, not
+`target`. One line is the whole file. **If you add it while the editor is open, run
+`TypeScript: Restart TS Server` from the command palette**, or the language service will keep
+serving the old answer.
+
+**What you still do not need:** `npm init` — `npm i` writes the `package.json` itself. And the
+`typescript` package — VS Code uses its bundled copy for the editor, so installing it would buy you
+only the command-line `tsc`, which `node server.ts` never calls.
+
+**The second command is the forgiving one.** Without it everything still works — Node detects the
+module syntax and runs the file — it just prints a `MODULE_TYPELESS_PACKAGE_JSON` warning about the
+reparse each time. Blank on it under pressure and you lose tidiness, not the round.
 
 **Arrive with it already built.** The invitation says *"please have your development environment set
 up"* — that is an instruction, not a loophole, and the thing to avoid is doing this on the 26th, not
@@ -288,6 +301,7 @@ and nothing in this guide depends on the types. **The worst case is not *"I can'
 | `EADDRINUSE` | A previous run still holds the port | `lsof -ti:8080 \| xargs kill` — put it in your shell history before the call |
 | `Connection refused` in `nc` | The server is not running, or is on another port | Check the server pane actually says `listening on 8080` |
 | `Cannot use import statement outside a module` | A `package.json` above the file says `"type": "commonjs"`, which disables syntax detection | `npm pkg set type=module`, or delete the `package.json`, or rename the file to `server.mts` |
+| Red squiggle: `Cannot find name 'node:net'` — but the file runs fine | The editor's TypeScript (VS Code bundles 6.x) does not pick up `@types/node` implicitly | `echo '{"compilerOptions":{"types":["node"]}}' > tsconfig.json`, then `TypeScript: Restart TS Server` |
 | `Unknown file extension ".ts"` | Node older than 23.6 | `node -v` first. On 22.x: `node --experimental-strip-types server.ts` |
 | `nc` connects but nothing echoes | Nothing has been sent yet — `nc` sends on Return | Press Return. Then check you are typing into the pane you think you are |
 
