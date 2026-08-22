@@ -230,18 +230,50 @@ parameter property. **Say it out loud when you start**, because it is eight seco
 credibility: *"I'm running the TypeScript directly, so the annotations are documentation rather than
 checks — a mistake will show up as a runtime error, not a compile error."*
 
-**Do not install TypeScript on the day.** Nothing needs it in order to run, and it currently carries
-a trap: a fresh `npm i -D typescript` installs **TypeScript 7**, which no longer picks up
-`@types/node` implicitly, so the first thing you see is `Cannot find name 'node:net'` on line 1 of a
-file that runs perfectly. Diagnosing that costs exactly the five minutes the setup was meant to
-save. If you want checking anyway, set it up **before the 26th**, in a second pane, off the critical
-path:
+**Editor types are worth having, and they are the one install that pays.** Without `@types/node`,
+VS Code has no definitions for `node:net`: the import gets a red squiggle and you get no completion
+on `net.createServer`, `socket.on`, or the event names — which is exactly the API you will be
+leaning on. With it, you get the member list and the signatures. Note what you do **not** need: the
+`typescript` package. VS Code ships its own TypeScript and uses it for the editor, so `typescript`
+buys you only the command-line `tsc`, and `node server.ts` never calls it.
+
+**So arrive with the directory already built.** The invitation says *"please have your development
+environment set up"* — that is an instruction, not a loophole, and doing this on the 26th is the
+thing to avoid, not doing it at all. Build it now, once:
 
 ```bash
-npm init -y && npm i -D typescript @types/node
+mkdir -p ~/interviews/discord && cd ~/interviews/discord
+npm init -y
+npm pkg set type=module          # npm init writes "type": "commonjs" — this is the line that matters
+npm i -D @types/node
 printf '{"compilerOptions":{"module":"nodenext","target":"es2022","strict":true,"noEmit":true,"types":["node"]}}\n' > tsconfig.json
-npx tsc --watch
 ```
+
+Then `node server.ts` still runs with no build step, and the editor is fully typed. **Leave
+`server.ts` out of it** — the directory is the environment, and the environment is what you are
+allowed to prepare. `§01 B` draws that line and it is worth restating here: **stage the environment,
+never the program.** A `package.json` and a `tsconfig.json` waiting for you is preparation. A
+`makeLineReader` waiting for you is not.
+
+**If you want command-line checking too,** add `typescript` — but pin it, because a fresh
+`npm i -D typescript` now installs **TypeScript 7**, which no longer picks up `@types/node`
+implicitly and greets you with `Cannot find name 'node:net'` on line 1 of a file that runs
+perfectly. The `"types": ["node"]` above is what makes 7 behave; `typescript@5` does not need it.
+Run it in a fourth pane, never on the critical path:
+
+```bash
+npm i -D typescript@5 && npx tsc --watch
+```
+
+**On the no-AI rule, since this is the obvious place to wonder.** TypeScript completion is static
+analysis over `.d.ts` files — deterministic, offline, the same category of tool as a compiler error
+or a linter. It is not what `§01 D` is about. What has to be off is anything generating suggestions
+from a model: **Copilot, Cursor's completions, and — the one people forget — VS Code IntelliCode**,
+which re-ranks the completion list with an ML model and ships preinstalled in some setups. Turn all
+of them off at the settings level, then spend ten seconds on it in the opening: *"Copilot and
+IntelliCode are off. I do have the Node type definitions installed so I get autocomplete on the
+standard library — say the word if you'd rather I drop those too."* The invitation explicitly invites
+that question, asking costs nothing, and it removes the only ambiguity in the room.
 
 **Two fallbacks, in order, and between them the setup is unloseable.** First: **rename it
 `server.mts`.** An explicit `.mts` is ESM TypeScript no matter what any `package.json` says, so it
