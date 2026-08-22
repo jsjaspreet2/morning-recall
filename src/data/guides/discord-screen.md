@@ -146,18 +146,108 @@ both are load-bearing here:
 Every rep in `§11` is run with AI off. That is not a purity thing — an AI-assisted rep measures a
 skill you will not have on the 26th, so it produces a number you cannot use.
 
-### E. YOUR OWN MACHINE: THE FIRST NINETY SECONDS
+### E. FROM AN EMPTY DIRECTORY TO A SERVER YOU CAN TALK TO
 
-Unlike a CoderPad round, the environment is yours and the setup cost is refundable in advance. Do
-this once now and once more on D-1 so it is stale-proof:
+The `discord-drills` repo hands you a configured project — a `package.json`, a test runner, `tsx`
+already installed. **The interview hands you an empty directory.** That gap is the one part of the
+round with no partial credit: it either works in ninety seconds or it eats five minutes while
+somebody watches you read an error message. So rehearse the part that looks too trivial to rehearse.
+
+**The fact that removes the setup entirely: Node runs TypeScript directly.** Since Node 23.6 a `.ts`
+file needs no flag, no `tsconfig.json`, no `tsx`, no `package.json` and no `npm install`. On 24.19.0
+it is on by default and completely silent — nothing on stderr, no experimental warning. The whole of
+"getting started" is two commands and one file, and **none of it touches the network.**
+
+**Step 1 · the directory.**
 
 ```bash
 mkdir -p ~/interviews/discord && cd ~/interviews/discord
-npm init -y && npm i -D typescript tsx @types/node
-npx tsc --init
-printf 'console.log("ok")\n' > server.ts
-npx tsx server.ts        # must print ok. If this errors on the 26th you have lost five minutes
 ```
+
+**Step 2 · `server.ts`, typed from blank.** This is not throwaway scaffolding. It is the opening of
+the skeleton in `§06 F`, and every part of the round is built by adding to it.
+
+```ts
+import net from 'node:net'
+
+const PORT = 8080
+
+const server = net.createServer((socket) => {
+  console.log('connected')
+  socket.setEncoding('utf8')                      // chunks arrive as strings, not Buffers
+  socket.on('data', (chunk: string) => {
+    console.log('recv:', JSON.stringify(chunk))   // stringify so you SEE the \n
+    socket.write(`echo: ${chunk}`)
+  })
+  socket.on('close', () => console.log('disconnected'))
+  socket.on('error', () => {})                    // an unlistened 'error' kills the process
+})
+
+server.listen(PORT, () => console.log(`listening on ${PORT}`))
+```
+
+**Step 3 · run it, and connect twice.** No build, no watcher, no npm script. Two clients from the
+first minute, because one client cannot demonstrate a broadcast.
+
+```bash
+node server.ts          # pane 1
+nc localhost 8080       # panes 2 and 3
+```
+
+**The checkpoint, before a single line of logic.** Forty seconds, and it converts every later bug
+into a logic bug:
+
+| Where | You do | You must see |
+|---|---|---|
+| Server | `node server.ts` | `listening on 8080` |
+| Client A | connect | The server prints `connected` |
+| Client A | type `hello`, Return | Client: `echo: hello` · server: `recv: "hello\n"` |
+| Client A | `Ctrl-C` | The server prints `disconnected` **and keeps running** |
+
+**`recv: "hello\n"` is the line that earns its keep.** The quotes and the escape make the whole of
+`§04 C` visible: what arrived is a *chunk that happens to contain a newline*, not a line. Drive the
+same server from `telnet` and it prints `recv: "hi\r\n"` instead — the carriage return of `§04 C`,
+seen rather than remembered. Keep that `console.log` until framing works, then delete it.
+
+**What `node server.ts` does and does not do.** It strips types. It does not check them:
+
+| | |
+|---|---|
+| Works | `interface` · annotations · generics · `as` · `satisfies` · `import type` · ESM `import` |
+| Fails to parse | `enum` · `namespace` · parameter properties — `constructor(private x: number)` |
+| Not attempted | **Type checking.** `const n: number = 'oops'` runs, and prints `oops` |
+
+None of the three failures matter here — nothing in `§05`, `§06 F` or the drills uses an `enum` or a
+parameter property. **Say it out loud when you start**, because it is eight seconds of free
+credibility: *"I'm running the TypeScript directly, so the annotations are documentation rather than
+checks — a mistake will show up as a runtime error, not a compile error."*
+
+**Do not install TypeScript on the day.** Nothing needs it in order to run, and it currently carries
+a trap: a fresh `npm i -D typescript` installs **TypeScript 7**, which no longer picks up
+`@types/node` implicitly, so the first thing you see is `Cannot find name 'node:net'` on line 1 of a
+file that runs perfectly. Diagnosing that costs exactly the five minutes the setup was meant to
+save. If you want checking anyway, set it up **before the 26th**, in a second pane, off the critical
+path:
+
+```bash
+npm init -y && npm i -D typescript @types/node
+printf '{"compilerOptions":{"module":"nodenext","target":"es2022","strict":true,"noEmit":true,"types":["node"]}}\n' > tsconfig.json
+npx tsc --watch
+```
+
+**The fallback that makes setup unloseable.** If `node server.ts` fails for any reason you cannot
+diagnose in thirty seconds: rename it to `server.mjs`, delete the one annotation — `chunk: string` —
+and run `node server.mjs`. Plain JavaScript, same file, ten seconds, and nothing in this guide
+depends on the types. The worst case is not *"I can't run"*, it is *"I lost my annotations"*.
+
+**When it goes wrong,** which is nearly always one of four things:
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `EADDRINUSE` | A previous run still holds the port | `lsof -ti:8080 \| xargs kill` — put it in your shell history before the call |
+| `Connection refused` in `nc` | The server is not running, or is on another port | Check the server pane actually says `listening on 8080` |
+| `Unknown file extension ".ts"` | Node older than 23.6 | `node -v` first. On 22.x: `node --experimental-strip-types server.ts` |
+| `nc` connects but nothing echoes | Nothing has been sent yet — `nc` sends on Return | Press Return. Then check you are typing into the pane you think you are |
 
 Then arrange the screen **before** the call, because rearranging terminals while someone watches
 reads as unpreparedness:
@@ -165,7 +255,7 @@ reads as unpreparedness:
 | Pane | Holds | Why |
 |---|---|---|
 | Left, large | The editor on `server.ts` | The thing being graded |
-| Right, top | `npx tsx server.ts` | Restarted constantly. Keep it on its own pane so the scrollback stays readable |
+| Right, top | `node server.ts` | Restarted constantly. Keep it on its own pane so the scrollback stays readable |
 | Right, middle | `nc localhost 8080` — client A | |
 | Right, bottom | `nc localhost 8080` — client B | **Two clients from minute one.** A one-client demo cannot show broadcast, which is the whole feature |
 
@@ -179,6 +269,10 @@ minutes and your composure.
 **Have `nc` in your fingers.** `nc localhost 8080` connects. `Ctrl-C` kills the client hard,
 `Ctrl-D` sends EOF, and they produce different events on the server — `§07 E` has the table, and
 knowing the difference out loud is a cheap signal.
+
+**Rehearse the whole sequence cold** — `mkdir` to `echo: hello`, no reference open — twice: once
+today and once on D-1. It is item 5 in `§08 B`, and it is the only failure mode in this round you
+can eliminate completely in advance.
 
 ### F. RESOURCES, RANKED
 
@@ -672,7 +766,7 @@ server.listen(8080, () => console.log('listening on 8080'))
 | `server.listen(0)` | Binds an ephemeral port | How the drill specs avoid port collisions — `§11` |
 
 **Three ergonomics that save real keystrokes under time pressure.** Use `node:net` rather than
-`net` so the import is unambiguous. Run with `npx tsx server.ts` rather than a build step, so
+`net` so the import is unambiguous. Run with `node server.ts` rather than a build step, so
 restarting is one keystroke of history. And give `Client` a `send` method at construction — closing
 over the socket once means the rest of the program never types `socket.write` again, which is what
 makes `§04 G` a two-line change.
@@ -1519,7 +1613,7 @@ When clicking between panes gets slow — and it will, around the time rate limi
 this pays for itself immediately:
 
 ```ts
-// client.ts — usage: npx tsx client.ts 8080 alice hello "how are you"
+// client.ts — usage: node client.ts 8080 alice hello "how are you"
 import net from 'node:net'
 
 const [, , port, name, ...lines] = process.argv
@@ -1603,7 +1697,7 @@ Five things, from blank, no reference, until they are boring. Ten minutes a day 
 | 2 | The skeleton from `§06 F`, whole | Under 4 minutes |
 | 3 | The `Client` interface and the three registry functions from `§04 D` | 90 seconds |
 | 4 | The scripted client from `§07 C` | 60 seconds |
-| 5 | `mkdir`, `npm init -y`, install, `npx tsx server.ts` | 90 seconds, from an empty directory |
+| 5 | `mkdir`, `server.ts` from blank, `node server.ts`, two `nc` clients | 90 seconds, from an empty directory |
 
 **Number 5 is not padding.** The environment is yours on the 26th, which means an environment
 failure is yours too, and it happens in the first five minutes when it is most expensive.
@@ -1612,7 +1706,7 @@ failure is yours too, and it happens in the first five minutes when it is most e
 
 | Instead of | Type | Saves |
 |---|---|---|
-| A build step | `npx tsx server.ts` | Restart is one up-arrow and Return |
+| A build step, or `tsx` | `node server.ts` — Node 23.6+ runs `.ts` directly | No install, no config, and restart is one up-arrow and Return |
 | `const x = new Map(); x.set(...)` guards | `let s = m.get(k); if (!s) m.set(k, (s = new Set()))` | The get-or-create in one statement |
 | `Array.from(set).map(...)` | `[...set].map(...)` | Consistently shorter, and reads better in a `.sort()` chain |
 | `if (a) { b(); return }` | `if (a) return b()` | Every dispatch row becomes one line, which is what makes the table readable |
@@ -1821,8 +1915,9 @@ have a dedicated drill.
 ### A. THE NIGHT BEFORE (TUE 8/25)
 
 - **Turn Copilot off at the settings level.** Verify by opening a file and typing a function header.
-- Verify the environment from scratch: new directory, `npm init -y`, install, `npx tsx server.ts`
-  prints `ok`. Ninety seconds, and it is the only failure mode you can fully eliminate in advance.
+- Verify the environment from scratch, exactly as `§01 E`: new directory, `server.ts` typed from
+  blank, `node server.ts`, `nc` in two panes, `echo: hello` comes back. Ninety seconds, and it is
+  the only failure mode you can fully eliminate in advance.
 - `nc localhost 8080` against a throwaway server, both panes. Confirm `Ctrl-C` and `Ctrl-D` behave
   as `§07 E` says.
 - Retype `§06 F` from blank, twice. Time the second one.
