@@ -266,10 +266,46 @@ reads as unpreparedness:
 
 | Pane | Holds | Why |
 |---|---|---|
-| Left, large | The editor on `server.ts` | The thing being graded |
-| Right, top | `node server.ts` | Restarted constantly. Keep it on its own pane so the scrollback stays readable |
-| Right, middle | `nc localhost 8080` — client A | |
-| Right, bottom | `nc localhost 8080` — client B | **Two clients from minute one.** A one-client demo cannot show broadcast, which is the whole feature |
+| Editor | `server.ts` | The thing being graded |
+| Server | `node server.ts` | Restarted constantly. Keep it on its own pane so the scrollback stays readable |
+| Client A | `nc localhost 8080` | |
+| Client B | `nc localhost 8080` | **Two clients from minute one.** A one-client demo cannot show broadcast, which is the whole feature |
+
+**The shape to arrange them in.** With the editor in a separate application, the three terminals
+want to be server across the top, clients side by side underneath — not three stacked rows. The
+server gets full width and half the height, which is where the scrollback is needed, and putting the
+clients side by side means a broadcast is visibly a message crossing from left to right, which is
+the single clearest way to demonstrate that the feature works:
+
+```text
+┌─────────────────────────────┐
+│  node server.ts             │
+├──────────────┬──────────────┤
+│ nc … client A│ nc … client B│
+└──────────────┴──────────────┘
+```
+
+**In Ghostty, that is two keystrokes** from a fresh window — `Cmd+Shift+D` to split down, which
+moves focus into the new bottom pane, then `Cmd+D` to split that pane right. If you keep the editor
+in Ghostty too, press `Cmd+D` first to claim the left half and build the three terminals in the
+right one. Skip `tmux`: it is a prefix key you do not have in your fingers and a status bar on a
+shared screen, to replace two keystrokes.
+
+**The four Ghostty keys worth having before the day** — the defaults, so there is nothing to
+configure:
+
+| Key | Does | Why it matters here |
+|---|---|---|
+| `Cmd+Option+←↑→↓` | Move between panes | **The one to drill.** Reaching for the mouse to change pane is slow and reads as fumbling |
+| `Cmd+Shift+Enter` | Zoom the focused pane to fill the window | For when the server pane fills with a stack trace: zoom, read, zoom back |
+| `Cmd+Ctrl+=` | Equalise the splits | After panes drift while you resize |
+| `Cmd+Ctrl+←↑→↓` | Resize by ten columns or rows | Give the server pane more height once the `recv:` lines pile up |
+
+**`node --watch server.ts` restarts on every save** and rebinds the port cleanly, with no
+`EADDRINUSE`. Use it while drilling, where it is free iteration speed. **Do not use it in the
+round:** a restart drops every connected client, and you want that to happen when you decide it
+does, not because you saved the file in the middle of explaining something. In the round, restart by
+hand — up-arrow, Return.
 
 **The ninety seconds themselves,** once the problem is stated: confirm the run command still works,
 confirm the port, and say what you are about to do. *"I'm going to get an empty server listening
