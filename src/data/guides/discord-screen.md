@@ -164,6 +164,14 @@ it is on by default and completely silent — nothing on stderr, no experimental
 mkdir -p ~/interviews/discord && cd ~/interviews/discord
 ```
 
+**Empty means empty, and this is the one place it bites.** Node decides whether a file is ESM or
+CommonJS from the nearest `package.json`, and only falls back to reading your syntax when there
+isn't one. `npm init -y` writes `"type": "commonjs"` explicitly, which switches that fallback
+**off** — so a directory you "just ran npm init in" rejects the `import` on line 1 with
+`Cannot use import statement outside a module`, on a file that is otherwise perfect. Do not run
+`npm init` in this directory. If something already did, `§01 E`'s troubleshooting table below has
+the two one-line fixes.
+
 **Step 2 · `server.ts`, typed from blank.** This is not throwaway scaffolding. It is the opening of
 the skeleton in `§06 F`, and every part of the round is built by adding to it.
 
@@ -235,10 +243,13 @@ printf '{"compilerOptions":{"module":"nodenext","target":"es2022","strict":true,
 npx tsc --watch
 ```
 
-**The fallback that makes setup unloseable.** If `node server.ts` fails for any reason you cannot
-diagnose in thirty seconds: rename it to `server.mjs`, delete the one annotation — `chunk: string` —
-and run `node server.mjs`. Plain JavaScript, same file, ten seconds, and nothing in this guide
-depends on the types. The worst case is not *"I can't run"*, it is *"I lost my annotations"*.
+**Two fallbacks, in order, and between them the setup is unloseable.** First: **rename it
+`server.mts`.** An explicit `.mts` is ESM TypeScript no matter what any `package.json` says, so it
+walks past the whole module-type question and costs you nothing — you keep the types. If even that
+fails for a reason you cannot diagnose in thirty seconds, rename to `server.mjs`, delete the one
+annotation — `chunk: string` — and run `node server.mjs`: plain JavaScript, same file, ten seconds,
+and nothing in this guide depends on the types. **The worst case is not *"I can't run"*, it is
+*"I lost my annotations"*.**
 
 **When it goes wrong,** which is nearly always one of four things:
 
@@ -246,6 +257,7 @@ depends on the types. The worst case is not *"I can't run"*, it is *"I lost my a
 |---|---|---|
 | `EADDRINUSE` | A previous run still holds the port | `lsof -ti:8080 \| xargs kill` — put it in your shell history before the call |
 | `Connection refused` in `nc` | The server is not running, or is on another port | Check the server pane actually says `listening on 8080` |
+| `Cannot use import statement outside a module` | A `package.json` above the file says `"type": "commonjs"`, which disables syntax detection | `npm pkg set type=module`, or delete the `package.json`, or rename the file to `server.mts` |
 | `Unknown file extension ".ts"` | Node older than 23.6 | `node -v` first. On 22.x: `node --experimental-strip-types server.ts` |
 | `nc` connects but nothing echoes | Nothing has been sent yet — `nc` sends on Return | Press Return. Then check you are typing into the pane you think you are |
 
