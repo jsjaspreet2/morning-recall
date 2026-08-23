@@ -1344,13 +1344,21 @@ double the limit across a boundary.
 
 ```ts
 function allow(c: Client): boolean {
-  const cutoff = now() - windowMs
+  const t = now()                                                        // read the clock once
+  const cutoff = t - windowMs
   while (c.stamps.length > 0 && c.stamps[0] <= cutoff) c.stamps.shift()   // evict first
   if (c.stamps.length >= limit) return false
-  c.stamps.push(now())
+  c.stamps.push(t)
   return true
 }
 ```
+
+**Read the clock once per decision.** With an injected clock the two reads return the same value, so
+this changes nothing you can observe — but it means the eviction, the limit check and the stamp you
+store all agree on what *now* is, and *"it can't move between those lines, I take it once"* is a
+complete answer to the obvious follow-up. Note also that `cutoff` is an **instant, not a duration**:
+an epoch millisecond minus a window length is still an epoch millisecond, which is why every
+comparison in here is timestamp against timestamp.
 
 Called from exactly one place, because `handleLine` is a table:
 
