@@ -97,6 +97,13 @@ const META: Record<string, Meta> = {
     tension: 'Convergence on one shared mutable document. The inverse of WhatsApp: delivery is easy, agreement is the problem.',
     accent: 'violet',
   },
+  'settings-sync': {
+    label: 'IDE settings sync',
+    archetype: 'Layered configuration & sync',
+    tension:
+      'Nobody writes the same document, so a "conflict" is really an unwritten precedence rule. The inverse of Figma: once delivery is only a hint, duplicate, late, and reordered pushes are the same no-op.',
+    accent: 'teal',
+  },
   feed: {
     label: 'Twitter feed',
     archetype: 'Read-heavy content & fanout',

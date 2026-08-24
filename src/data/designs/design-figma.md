@@ -331,6 +331,7 @@ Two implementation details worth stating because they are where it actually goes
 | **A collaborative spreadsheet** | Map of cells **plus a formula dependency graph** | LWW per cell, plus **recompute of the dependency closure** | Adds a derived-state problem this page doesn't have: convergence of inputs no longer implies convergence of outputs unless recomputation is deterministic |
 | **A multiplayer level or CAD editor** | Map of objects, but with **geometric constraints between them** | LWW per property, plus **constraint solving** | Property-level LWW can produce a document that converges and is *invalid* — two users each satisfying one constraint. Introduces validation as a first-class server concern |
 | **A single-player editor with sync** | Same map, but **one writer at a time** | No algorithm at all — last device to save wins | Collapses §7, §8, and §11 into a version number. Useful to state, because it isolates what multiplayer actually costs |
+| **Layered configuration** (IDE settings) | **No shared structure at all** — several separately-owned documents merged at read time | A precedence function, not a merge algorithm | The inverse of this page, and **its own page — see IDE settings sync**. Nobody writes the same document, so there is no convergence problem; what's called a conflict is an unwritten precedence rule |
 
 ---
 

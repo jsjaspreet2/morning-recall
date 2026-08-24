@@ -153,6 +153,7 @@ label from this table — the index groups by it.
 | **Interval inventory & search** | Conflict is range overlap rather than row identity; contention ~1, so search dominates | Airbnb |
 | **Real-time messaging & delivery** | Ordering and delivery semantics vs fanout cost | WhatsApp |
 | **Real-time collaborative editing** | Convergence on a shared mutable document; the data model picks the algorithm | Figma |
+| **Layered configuration & sync** | Precedence between layers is a product decision, not a merge algorithm; delivery is a hint and versions are the truth | IDE settings sync |
 | **Read-heavy content & fanout** | Fanout-on-write vs fanout-on-read | Twitter feed |
 | **LLM application** | Non-determinism, latency, cost, and eval | LLM knowledge assistant |
 | **Low-latency inference in a loop** | Latency budget forbids the standard pipeline | Cursor Tab |
