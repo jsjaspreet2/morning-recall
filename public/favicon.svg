@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Morning Recall">
+  <!--
+    The app's own card, at 32px: the accent bar down the left, three lines of
+    text beside it. Deliberately theme-independent — browsers cache favicons
+    hard and render them against tab chrome we don't control, so this stays a
+    high-contrast filled tile in both themes rather than adapting like the UI.
+    Indigo → violet are both accents from src/lib/accents.ts.
+  -->
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4f46e5" />
+      <stop offset="1" stop-color="#7c3aed" />
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="8" fill="url(#g)" />
+  <rect x="7" y="8" width="3.5" height="16" rx="1.75" fill="#fff" />
+  <rect x="14.5" y="8" width="10.5" height="3.5" rx="1.75" fill="#fff" opacity=".92" />
+  <rect x="14.5" y="14.25" width="10.5" height="3.5" rx="1.75" fill="#fff" opacity=".6" />
+  <rect x="14.5" y="20.5" width="6.5" height="3.5" rx="1.75" fill="#fff" opacity=".38" />
+</svg>

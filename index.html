@@ -4,6 +4,17 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#fbfbfc" />
+    <!--
+      SVG first for anything current; the 32px PNG is the fallback for browsers
+      that don't take an SVG icon. apple-touch-icon is square and full-bleed on
+      purpose — iOS applies its own rounded mask, so a pre-rounded icon is
+      clipped twice. Paths are written with a leading slash and no %BASE_URL%:
+      Vite prepends the base itself, and doing both double-prefixes it in dev.
+    -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <!-- Set here as the pre-mount default; App keeps it in step with the route. -->
     <title>Morning Recall</title>
     <meta name="description" content="Daily active-recall practice for interviews, plus a browsable learning library." />
     <!--

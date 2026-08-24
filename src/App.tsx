@@ -1,4 +1,4 @@
-import { Suspense, lazy } from 'react'
+import { Suspense, lazy, useEffect } from 'react'
 import { Link, NavLink, Route, Routes, useMatch } from 'react-router-dom'
 import type { AccentName } from './lib/types'
 import PracticePage from './practice/PracticePage'
@@ -13,6 +13,29 @@ const LearnIndex = lazy(() => import('./learn/LearnIndex'))
 const GuidePage = lazy(() => import('./learn/GuidePage'))
 const DesignsIndex = lazy(() => import('./designs/DesignsIndex'))
 const DesignPage = lazy(() => import('./designs/DesignPage'))
+
+const SITE = 'Morning Recall'
+
+/**
+ * The browser tab title.
+ *
+ * Guide and design pages already publish their title upward through
+ * `DocTitleProvider` for the compact header, so this reuses that rather than
+ * re-deriving it from the route param — which would mean importing designs.ts
+ * into the main bundle and undoing its code-splitting (see docTitle.tsx).
+ *
+ * Titles are trimmed at the em dash — "Design Airbnb — Interval Inventory &
+ * Search-Dominant Booking" becomes "Design Airbnb" — because a tab shows about
+ * twenty characters and the half after the dash is never one of them. It's the
+ * same trim designs.ts uses for a card label. All three tabs label themselves,
+ * Practice included — they're peers, not a landing page and its subpages, and
+ * with several tabs open the consistency is what makes them findable.
+ */
+function useBrowserTitle(section: string | null) {
+  useEffect(() => {
+    document.title = section ? `${section} · ${SITE}` : SITE
+  }, [section])
+}
 
 function TabLink({ to, label }: { to: string; label: string }) {
   return (
@@ -72,6 +95,13 @@ export default function App() {
   // A doc page publishes its title here; `compact` flips once its <h1> is gone.
   const { doc, compact } = useDocTitle()
   const showDocTitle = doc !== null && compact
+
+  // A doc page's own title wins once it has mounted; until then (its chunk is
+  // lazy) the tab shows the bare site name rather than a stale section.
+  useBrowserTitle(
+    doc?.title.split('—')[0].trim() ??
+      (onLearnIndex ? 'Learn' : onDesignsIndex ? 'Designs' : onGuide || onDesign ? null : 'Practice'),
+  )
 
   return (
     <div

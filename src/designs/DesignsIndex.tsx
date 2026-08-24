@@ -10,7 +10,7 @@ function Card({ design, chip }: { design: Design; chip?: string }) {
   return (
     <Link
       to={`/designs/${design.slug}`}
-      className="group flex items-stretch rounded-2xl bg-white ring-1 ring-zinc-200 hover:ring-zinc-300 dark:bg-zinc-900/40 dark:ring-zinc-800 dark:hover:ring-zinc-700 shadow-sm dark:shadow-none overflow-hidden transition-all motion-safe:hover:-translate-y-0.5 hover:shadow-md dark:hover:shadow-none"
+      className="group flex h-full items-stretch rounded-2xl bg-white ring-1 ring-zinc-200 hover:ring-zinc-300 dark:bg-zinc-900/40 dark:ring-zinc-800 dark:hover:ring-zinc-700 shadow-sm dark:shadow-none overflow-hidden transition-all motion-safe:hover:-translate-y-0.5 hover:shadow-md dark:hover:shadow-none"
     >
       <div className={`w-1.5 shrink-0 ${ac.bar}`} aria-hidden />
       <div className="flex-1 p-4 min-w-0">
@@ -28,6 +28,18 @@ function Card({ design, chip }: { design: Design; chip?: string }) {
   )
 }
 
+/**
+ * Two-up only when there's something to pair with.
+ *
+ * Nine of the ten archetypes hold exactly one problem — the grouping exists to
+ * name the shape, not to fill a row — so an unconditional `sm:grid-cols-2` left
+ * a dead half-width beside almost every card on desktop. Learn never showed this
+ * because its two sections have four and eight guides.
+ */
+function gridCols(count: number): string {
+  return count > 1 ? 'sm:grid-cols-2' : ''
+}
+
 export default function DesignsIndex() {
   const { pinned, groups } = designsByArchetype()
 
@@ -40,7 +52,7 @@ export default function DesignsIndex() {
       </p>
 
       {pinned.length > 0 && (
-        <ul className="mt-6 grid gap-3 sm:grid-cols-2">
+        <ul className={`mt-6 grid gap-3 ${gridCols(pinned.length)}`}>
           {pinned.map((d) => (
             <li key={d.slug}>
               <Card design={d} chip="start here" />
@@ -54,7 +66,7 @@ export default function DesignsIndex() {
           <h2 className="text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-600 dark:text-zinc-500">
             {group.archetype}
           </h2>
-          <ul className="mt-3 grid gap-3 sm:grid-cols-2">
+          <ul className={`mt-3 grid gap-3 ${gridCols(group.problems.length)}`}>
             {group.problems.map((d) => (
               <li key={d.slug}>
                 <Card design={d} />
