@@ -121,8 +121,19 @@ function probe(buf) {
 const hhmmss = (s) =>
   [Math.floor(s / 3600), Math.floor((s % 3600) / 60), s % 60].map((n) => String(n).padStart(2, '0')).join(':')
 
+/**
+ * `/with-timestamps` is the same generation as plain text-to-speech — same voice,
+ * same seed, same audio, billed the same per character — but it returns the
+ * character-level alignment alongside the mp3. Alignment is only free at
+ * synthesis time: recovering it afterwards means paying again for forced
+ * alignment, so we always take it, even when no transcript is being built yet.
+ *
+ * There is deliberately no fallback to the plain endpoint. A silent fallback
+ * would spend a full episode's credits and hand back audio with no timings,
+ * which is the one failure worth failing loudly on.
+ */
 async function synthesize(ep) {
-  const url = `https://api.elevenlabs.io/v1/text-to-speech/${S.voiceId}?output_format=${encodeURIComponent(S.outputFormat)}`
+  const url = `https://api.elevenlabs.io/v1/text-to-speech/${S.voiceId}/with-timestamps?output_format=${encodeURIComponent(S.outputFormat)}`
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'xi-api-key': process.env.ELEVENLABS_API_KEY, 'content-type': 'application/json' },
@@ -137,7 +148,15 @@ async function synthesize(ep) {
     }),
   })
   if (!res.ok) throw new Error(`${res.status} ${res.statusText} — ${(await res.text()).slice(0, 300)}`)
-  return Buffer.from(await res.arrayBuffer())
+  const json = await res.json()
+  if (!json.audio_base64) throw new Error('response carried no audio_base64')
+  return {
+    buf: Buffer.from(json.audio_base64, 'base64'),
+    // `alignment` indexes the text we sent, break tags and all; the VTT builder
+    // maps back through it. `normalized_alignment` is kept because it is the
+    // only record of what the model actually spoke.
+    alignment: { text: ep.body, alignment: json.alignment, normalized: json.normalized_alignment },
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -211,11 +230,14 @@ console.log()
 for (const ep of toSynth) {
   process.stdout.write(`  → ${ep.id} … `)
   try {
-    const buf = await synthesize(ep)
+    const { buf, alignment } = await synthesize(ep)
     const file = join(OUT, `${ep.id}.mp3`)
     writeFileSync(file, buf)
+    // Written before the cache entry: a crash here must not leave an episode
+    // marked synthesized with no timings on disk.
+    writeFileSync(join(OUT, `${ep.id}.alignment.json`), JSON.stringify(alignment))
     const p = probe(buf) ?? { kbps: 0, bytes: statSync(file).size, duration: 0 }
-    cache[ep.id] = { hash: ep.hash, bytes: p.bytes, duration: p.duration, kbps: p.kbps, title: ep.title, order: ep.order, chars: ep.body.length }
+    cache[ep.id] = { hash: ep.hash, bytes: p.bytes, duration: p.duration, kbps: p.kbps, title: ep.title, order: ep.order, chars: ep.body.length, aligned: true }
     writeFileSync(CACHE, JSON.stringify(cache, null, 2))
     console.log(`${(p.bytes / 1024 / 1024).toFixed(1)} MB  ${hhmmss(p.duration)}  ${p.kbps}kbps`)
   } catch (err) {

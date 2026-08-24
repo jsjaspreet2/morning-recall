@@ -1,5 +1,24 @@
 # Design an LLM Knowledge Assistant — RAG, Permissions, Latency & Evals
 
+## The question
+
+> *"Design an internal knowledge assistant. Employees ask questions in plain English and get answers drawn from the company's own documents — the wiki, Drive, tickets, the codebase — with links back to the sources."*
+
+**The product.** A chat box inside an internal tool. Someone types "what's our on-call escalation policy" or "how do I get access to prod" and gets a written answer assembled from the company's actual documents, with citations they can click to check. Roughly 10,000 employees, each asking a handful of questions a day.
+
+The constraint that shapes everything: **not everyone can see every document.** Salary reviews, unreleased plans, legal threads and security incidents all live in the same corpus, and an answer must never quote something the person asking wasn't allowed to open. There is no version of this product where that is a follow-up.
+
+**What a working system delivers**
+
+- An answer grounded in real internal documents, with citations that go to the document and are worth checking.
+- Nothing in that answer sourced from a document the asker couldn't have opened themselves — including the fact that such a document exists.
+- Text that starts appearing quickly enough that people stop going back to searching the wiki by hand.
+- Some way of knowing whether a change made it better or worse that isn't somebody's impression.
+
+**Why this gets asked.** Uniquely among these problems, it is genuinely not a scale problem: 10,000 people × 20 questions a day is about two queries per second, which one database serves on a laptop. All of the engineering is in answer quality, permissions, cost per query, and proving any of it works — which is exactly where people who have only read about these systems run out of things to say.
+
+---
+
 **Archetype:** LLM application — a non-deterministic, slow, expensive, context-bounded component wrapped in a product.
 **Cousins that reuse ~70% of this page:** ChatGPT over documents, customer support assistants, code assistants, Glean/internal search, any "chat with your data" product, the retrieval half of most agents.
 

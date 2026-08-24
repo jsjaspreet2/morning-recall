@@ -1,5 +1,21 @@
 # Design Ticketmaster — High-Contention Inventory
 
+## The question
+
+> *"Design Ticketmaster — specifically the onsale. A stadium tour goes on sale at 10am, ten million people are waiting, and there are sixty thousand seats."*
+
+**The product.** You pick an event, look at a seat map, choose specific seats, and get a few minutes to enter payment while those seats are held for you. Then you either buy them or they go back. Seats are not interchangeable — row 3 centre is a different product from the back of the upper bowl, and people care intensely about which one they get. The system is quiet almost all the time; it is defined entirely by the sixty seconds when a big tour opens.
+
+**What a working system delivers**
+
+- The seat map you are clicking on is close enough to true to be worth clicking.
+- A seat you select is yours while you type your card number, and comes back for someone else if you wander off.
+- No seat is ever sold twice — not when a hundred people tap it in the same second, and not when payment times out halfway through.
+
+**Why this gets asked.** The total volume is small — sixty thousand rows — and the concurrency on any individual row is enormous. That inverts almost every instinct trained on "make it scale" problems, and watching which of the two a candidate optimizes for is the point of the exercise.
+
+---
+
 **Archetype:** non-fungible inventory reservation under thundering herd, with money attached.
 **Cousins that reuse ~70% of this page:** airline seat selection, StubHub, hotel booking, OpenTable, exam/DMV slot booking, vaccine appointments, IPO allocation, Amazon flash sale (with one big simplification — see §15).
 

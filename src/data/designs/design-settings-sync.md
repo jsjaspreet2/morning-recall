@@ -1,5 +1,25 @@
 # Design IDE Settings Sync — Layered Config with Team Precedence
 
+## The question
+
+> *"Design settings sync for an IDE like VS Code. A developer's editor settings should follow them to any machine they sign into — and their company should be able to require some of those settings for everyone. Which value wins for a given setting has to be a rule you can state, not a consequence of which update happened to arrive last."*
+
+**The product.** An editor has hundreds of settings: theme, font size, tab width, keybindings, format-on-save, which linter runs, which extensions are enabled. Today each install has its own copy, so a new laptop starts blank. This feature makes them follow the person — sign in and the editor is already yours.
+
+The twist is that there is a **second owner**. A team or an organization can also set values, and some of those the individual is not allowed to override — a company that requires format-on-save means it, and the UI has to show that value as locked rather than pretending the developer chose it. So for a single setting like `editor.formatOnSave`, a product default, one or more team values, and the developer's own value can all exist at once, and something has to decide which one wins. Meanwhile developers work on planes and in tunnels, and the editor has to start regardless of whether any of this is reachable.
+
+**What a working system delivers**
+
+- A laptop you signed into an hour ago already has your theme, your keybindings, and your font size.
+- Your organization's required settings are applied, and when you click one the UI can tell you it's locked and which team set it.
+- An admin changes a policy and it reaches everyone's running editor within seconds — and reaches the person whose laptop was shut all week when they next open the lid.
+- Editing a setting on two of your own machines doesn't silently lose one of the edits.
+- The editor opens, correctly configured, with the service completely down.
+
+**Why this gets asked.** It is presented as a synchronization problem and it isn't one. Nobody is editing the same document: you own your layer, the admin owns theirs. What everyone reflexively calls a "conflict" here is really a precedence rule that nobody ever wrote down — and whether a candidate writes it down before designing any transport is the whole test.
+
+---
+
 **Archetype:** layered configuration resolved by a deterministic function, distributed to clients that are offline more often than they are online.
 **Cousins that reuse ~70% of this page:** VS Code and JetBrains settings sync, Chrome enterprise policy, MDM configuration profiles, Slack and Notion workspace preferences, feature-flag delivery, AWS AppConfig, Kubernetes ConfigMaps. Also **any product where an administrator's value and an individual's value can both exist for the same key** and something has to decide.
 

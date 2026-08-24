@@ -1,5 +1,24 @@
 # Design Twitter — Read-Heavy Feed & Fanout
 
+## The question
+
+> *"Design the Twitter home timeline. You follow a few hundred accounts, you pull to refresh, and you get their recent posts, newest first."*
+
+**The product.** People post short messages. People follow other people. Your home timeline is the merge of everything the accounts you follow have posted, newest first, and you pull to refresh it many times a day. Reading vastly outweighs posting.
+
+The distribution is what makes it interesting. A typical person follows a couple hundred accounts and has a couple hundred followers — but a handful of accounts have tens or hundreds of millions of followers, and those accounts are not an edge case to handle later, they're the product's centre of gravity.
+
+**What a working system delivers**
+
+- Pull to refresh and posts are on screen in a couple hundred milliseconds, every single time.
+- A post from someone you follow turns up within seconds of them posting it.
+- Posting works identically whether you have twelve followers or a hundred million, and a celebrity posting doesn't slow down everyone else's app.
+- Following someone new means their posts start appearing, without you having to reload the world.
+
+**Why this gets asked.** There are exactly two obvious implementations — build everybody's timeline at the moment somebody posts, or assemble a timeline at the moment somebody reads — and the follower distribution above breaks each of them at a different end. Naming both and picking one is half the problem; knowing that neither survives on its own is the other half.
+
+---
+
 **Archetype:** read-heavy content distribution over a wildly skewed subscription graph.
 **Cousins that reuse ~70% of this page:** Instagram feed, Facebook News Feed, LinkedIn, Reddit home, YouTube subscriptions, notification feeds, activity streams.
 

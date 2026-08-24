@@ -1,12 +1,16 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import type { AccentName } from '../lib/types'
 import { accent } from '../lib/accents'
 import { extractHeadings, groupHeadings } from './toc'
 import { useActiveHeading } from './useActiveHeading'
+import { useDocTitle } from '../lib/docTitle'
 import GuideToc from './GuideToc'
 import Markdown from './Markdown'
+
+/** Height of the sticky app header, in px — the nav pill plus its padding. */
+const HEADER_HEIGHT = 68
 
 /**
  * The long-form reading layout, shared by guides (`/learn/:guideId`) and design
@@ -55,6 +59,31 @@ export default function DocLayout({
     window.scrollTo(0, 0)
   }, [resetKey])
 
+  // Hand the title to the app header, which shows it once the <h1> below has
+  // scrolled away. Cleared on unmount so it never lingers over another route.
+  const titleRef = useRef<HTMLHeadingElement>(null)
+  const { setDoc, setCompact } = useDocTitle()
+
+  useEffect(() => {
+    setDoc({ title, accent: accentName, backTo })
+    return () => {
+      setDoc(null)
+      setCompact(false)
+    }
+  }, [title, accentName, backTo, setDoc, setCompact])
+
+  useEffect(() => {
+    const el = titleRef.current
+    if (!el) return
+    // Shrink the viewport by the header's height so the swap happens exactly as
+    // the <h1> slides under the chrome, rather than when it leaves the screen.
+    const io = new IntersectionObserver(([entry]) => setCompact(!entry.isIntersecting), {
+      rootMargin: `-${HEADER_HEIGHT}px 0px 0px 0px`,
+    })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [setCompact, resetKey])
+
   const ac = accent(accentName)
 
   return (
@@ -70,7 +99,9 @@ export default function DocLayout({
         <div className={`w-1 self-stretch rounded-full ${ac.bar}`} aria-hidden />
         <div className="min-w-0">
           {eyebrow}
-          <h1 className="text-2xl lg:text-3xl font-bold text-zinc-900 dark:text-zinc-50">{title}</h1>
+          <h1 ref={titleRef} className="text-2xl lg:text-3xl font-bold text-zinc-900 dark:text-zinc-50">
+            {title}
+          </h1>
           {subtitle && <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-500">{subtitle}</p>}
         </div>
       </div>

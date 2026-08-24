@@ -1,5 +1,22 @@
 # Design Discord — Persistent Connections and Guild Fanout
 
+## The question
+
+> *"Design Discord. Communities are organized into servers and channels, people leave the app open all day, and a busy channel can have tens of thousands of members watching it at the same moment."*
+
+**The product.** Persistent group chat. You join a server — a gaming community, a company, a fandom — and inside it are channels you can read and post to. Unlike a messaging app, you don't open it to check messages and close it; it sits open in a tab for hours. Alongside the messages you see who's online, who's typing right now, and who's sitting in a voice channel. A large server's `#general` has thousands of people connected to it simultaneously.
+
+**What a working system delivers**
+
+- A message typed into a busy channel is on everyone else's screen before the sender has finished typing the next one.
+- You can see at a glance who's around, and that dot flips the moment somebody closes their laptop.
+- Closing a lid and reopening it doesn't lose the last ten minutes of a conversation.
+- Scrolling back through a channel's history is instant, even years back.
+
+**Why this gets asked.** It is the same archetype as WhatsApp with the constraint inverted: the recipients are already connected, so a single write has to become tens of thousands of socket writes in a few milliseconds. And presence — the little green dots — generates far more traffic than the messages do, which almost every candidate scopes out.
+
+---
+
 **Archetype:** real-time messaging & delivery, in the regime where **the recipients are already connected**. The cost is not storing the message or ordering it; it is that one write must reach tens of thousands of live sockets before the sender finishes typing the next one.
 **Cousins that reuse ~70% of this page:** Slack, Twitch chat, IRC, Matrix, a live-ops event bus, a multiplayer game lobby, a trading-floor broadcast. Also **any product where a client holds a socket open for hours and expects to be pushed to**.
 

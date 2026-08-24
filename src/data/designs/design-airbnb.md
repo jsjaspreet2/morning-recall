@@ -1,5 +1,21 @@
 # Design Airbnb — Interval Inventory & Search-Dominant Booking
 
+## The question
+
+> *"Design Airbnb. A guest searches for a place to stay in a city over some dates, filters it down, and books it — and the host who owns that place never gets two guests for the same night."*
+
+**The product.** A marketplace of homes. Hosts list a place, set nightly prices, and block off dates they aren't available. Guests search by location and a date range, narrow by the things that matter to them — how many it sleeps, price, a hot tub — browse the results on a map, and book one for a run of nights. A session is dozens of searches and, at most, one booking.
+
+**What a working system delivers**
+
+- "Tahoe, March 3–7, sleeps 6, under $300, hot tub" comes back fast, with places that are genuinely free those exact nights.
+- The cabin you book is yours for precisely those nights, and nobody else's.
+- A host who blocks a week, or takes a booking on another site, sees those nights leave search almost immediately.
+
+**Why this gets asked.** It looks like a ticketing problem and isn't. Inventory here is a *range of nights* rather than a single seat, and essentially nobody is racing you for a specific cabin — so the difficulty quietly relocates from the write to the query, and noticing that relocation is the exercise.
+
+---
+
 **Archetype:** non-fungible **interval** inventory with near-zero contention and a search-dominant read path.
 **Cousins that reuse ~70% of this page:** Vrbo, Booking.com (with the fungibility caveat in §15), campsite and venue rental, equipment hire, meeting-room booking, doctor-appointment scheduling with variable durations.
 

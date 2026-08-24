@@ -1,5 +1,25 @@
 # Design Cursor — AI Coding Assistant (Tab Completion)
 
+## The question
+
+> *"Design Cursor's Tab completion. As a developer types, the editor predicts the rest of the edit and shows it inline in grey — Tab accepts it, anything else dismisses it."*
+
+**The product.** Cursor is an AI-enabled code editor with several distinct AI surfaces: chat on the side, inline edit on a selection, an agent that goes off and does a task — and Tab. **This question is about Tab only.** Tab is the greyed-out "ghost text" that appears ahead of your cursor as you type, predicting the rest of the line, the rest of the block, or the change you were clearly about to make. You press Tab and it's inserted; you type anything else and it disappears.
+
+It fires constantly — potentially on every keystroke — and the great majority of what it produces is never looked at, because the developer kept typing. Meanwhile the code it's predicting from is on the developer's own machine, and for a lot of companies it is not allowed to leave the building.
+
+**What a working system delivers**
+
+- The suggestion is on screen before you've typed past the point where it would have been useful.
+- It knows about the rest of the codebase — a function you defined in another file, the conventions of the project — not just the twenty lines around the cursor.
+- A wrong suggestion costs one keystroke to dismiss and nothing else.
+- A suggestion never references code the developer just renamed a second ago.
+- Enterprise code doesn't leave the network when the customer says it can't.
+
+**Why this gets asked.** The interactive latency budget — a couple of hundred milliseconds, because the user is still typing — is small enough to rule out the retrieve-then-rerank-then-large-model pipeline that everyone reaches for. And a system that discards most of its own work by design ends up organized around not paying for the part it throws away.
+
+---
+
 **Archetype:** ultra-low-latency inference in the interaction loop, over a local, constantly-mutating corpus.
 **Cousins that reuse ~70% of this page:** GitHub Copilot, Windsurf, Zed's AI, JetBrains AI, any inline completion product. Also **any inference that sits inside a keystroke loop** rather than behind a submit button.
 

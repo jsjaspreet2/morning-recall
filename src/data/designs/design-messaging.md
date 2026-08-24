@@ -1,5 +1,22 @@
 # Design WhatsApp — Real-Time Messaging & Delivery Semantics
 
+## The question
+
+> *"Design WhatsApp. One-to-one and small-group chat on phones, with the ticks that tell you whether your message was sent, delivered, and read."*
+
+**The product.** You type a message to one person or a group of a few dozen, and it appears on their phone — and on every other device they own. Underneath it you get a status: one tick sent, two ticks delivered, two blue ticks read. The other side is frequently unreachable: the phone is off, in a tunnel, or out of battery for a day. When they come back, everything they missed is there, in the right order, once each.
+
+**What a working system delivers**
+
+- A message reaches every one of the recipient's devices, and appears exactly once even though the network made you send it three times.
+- Both people looking at the same conversation see the same messages in the same order.
+- Someone who has been offline for three days opens the app and catches up in seconds, without gaps.
+- The tick under your message means something specific and true.
+
+**Why this gets asked.** The write rate is unremarkable and a message-send touches one uncontended row — so nothing here is a throughput problem. The hard part is *semantics*: what "delivered" means on a network that drops and retries, and what ordering you can actually promise. Those are the failures you can get wrong quietly.
+
+---
+
 **Archetype:** persistent-connection fanout with delivery guarantees over an unreliable network.
 **Cousins that reuse ~70% of this page:** Slack, Discord, Messenger, Signal, Twitch chat, live comments, notification infrastructure. **Also the client half of any LLM chat product** — optimistic echo, reconnect reconciliation, and ordering under retry are the same problems in a streaming UI.
 

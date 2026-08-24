@@ -1,5 +1,21 @@
 # Design Uber — Real-Time Ride Matching
 
+## The question
+
+> *"Design the backend for Uber. A rider opens the app, sees cars near them, requests a ride, and gets matched with a driver — then both of them watch each other move on a map until the trip ends."*
+
+**The product.** Two apps against one backend. Drivers drive around all day with the app open, and their phone reports its position every few seconds whether or not anyone is in the car. Riders open the app occasionally, see nearby cars on a map, tap request, and wait ten or fifteen seconds for a driver to accept. Then the ride runs for twenty minutes and ends.
+
+**What a working system delivers**
+
+- The cars a rider sees are genuinely nearby and genuinely free — not a stale picture from a minute ago.
+- A rider who taps request gets exactly one driver, and that driver gets exactly one rider. Two riders never end up in the same car.
+- Both sides watch a position that moves smoothly for the whole trip, and the trip survives a tunnel.
+
+**Why this gets asked.** The system's dominant load — millions of drivers emitting a location every four seconds — has almost nothing to do with its dominant product action, and the two have opposite requirements about what happens if you lose the data. Then matching, which looks like a geometry question, turns out to be a race.
+
+---
+
 **Archetype:** two-sided geospatial marketplace with a hard real-time matching loop.
 **Cousins that reuse ~70% of this page:** DoorDash, Lyft, Instacart, Find My Friends, Yelp/proximity search, on-call dispatch, Google Maps live traffic.
 

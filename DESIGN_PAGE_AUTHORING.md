@@ -39,12 +39,27 @@ architecture
 
 ---
 
-## The required header block
+## The required opening
 
 The site parses this, so it is not optional. Every problem page opens with exactly:
 
 ```markdown
 # Design Ticketmaster — High-Contention Inventory
+
+## The question
+
+> *"Design Ticketmaster — specifically the onsale. A stadium tour goes on sale at 10am, ten
+> million people are waiting, and there are sixty thousand seats."*
+
+**The product.** …
+
+**What a working system delivers**
+
+- …
+
+**Why this gets asked.** …
+
+---
 
 **Archetype:** non-fungible inventory reservation under thundering herd, with money attached.
 **Cousins that reuse ~70% of this page:** airline seat selection, StubHub, hotel booking, …
@@ -57,12 +72,34 @@ The site parses this, so it is not optional. Every problem page opens with exact
 - `**Archetype:**` is the fallback card subtitle if the file isn't registered yet.
 - Everything after the header block is the section schema.
 
+### Why "The question" is unnumbered
+
+It sits above the header block because it is the only part of the page written for a reader who
+does **not** already know the product — everything from `**Archetype:**` down assumes they do. It
+stays unnumbered because the numbered sections are cross-referenced as `§7`, `§9` throughout every
+page; renumbering to make room for it would invalidate all of them for no gain. §0 is still §0.
+
+**Rules for writing it** (~150–250 words, ~350 for a page whose product needs explaining):
+
+- **No architecture vocabulary in "The product."** Not "effective-settings function", not
+  "fanout-on-write", not "CRDT". If a term makes its first appearance here, the section has failed.
+- **The blockquote is the prompt as an interviewer would say it in one breath** — answerable and
+  slightly under-specified, which is what a real prompt is. It is not a summary of the page. Where
+  the page later says "the problem statement calls out X", the blockquote is what has to say X.
+- **"What a working system delivers" is user-visible outcomes**, not components and not §1 in
+  requirements-ese. "Your theme is already right on a laptop you signed into an hour ago", not
+  "the client resolves settings locally".
+- **"Why this gets asked" hands off; it does not compete.** One or two sentences naming the shape of
+  the difficulty, ending exactly where `**What's actually being graded:**` picks up. Don't restate
+  the graded line, the contrast line, or §0.
+
 ---
 
 ## Section schema
 
 | § | Section | Standing rules |
 |---|---|---|
+| — | **The question** | The prompt as an interviewer says it, then what the product *is* in plain language, what a working one delivers in user terms, and one hand-off line on why it's a hard problem. Unnumbered, and it sits **above** the header block |
 | — | **Header** | Archetype in one line. Cousins that reuse ~70% of the page. "What's actually being graded" — the specific misconception this problem exists to catch |
 | 0 | **The 60-second frame** | A verbatim script. Names the archetype, the tension, the scope, and **pre-commits a deep dive** |
 | 1 | **Functional requirements** | Exactly three. Plus explicit out-of-scope, plus "below the line" likely follow-ups |
@@ -203,6 +240,7 @@ npm run dev            # /designs lists it; /designs/<slug> renders; TOC populat
 
 Run this against the finished page. Each line maps to a standing rule above.
 
+- [ ] "The question" present, above the header block, and free of architecture vocabulary
 - [ ] Header block present and complete — archetype, cousins, what's being graded
 - [ ] §0 is a script you could read aloud, and it pre-commits a deep dive
 - [ ] Exactly three functional requirements, with explicit out-of-scope

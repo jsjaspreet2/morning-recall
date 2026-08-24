@@ -308,9 +308,27 @@ button {
   margin-bottom: 0.9rem;
 }
 
+/* The header's title swap, when a guide scrolls under the chrome. */
+@keyframes doc-title-in {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.doc-title-in {
+  animation: doc-title-in 140ms ease-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .prose details > summary::before {
     transition: none;
+  }
+  .doc-title-in {
+    animation: none;
   }
 }
 

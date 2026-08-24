@@ -1,5 +1,22 @@
 # Design Figma — Multiplayer Design Editor
 
+## The question
+
+> *"Design Figma. A design tool that runs in the browser, where several people can edit the same file at the same time and watch each other's cursors move."*
+
+**The product.** A design file is a canvas of shapes, frames, text, and reusable components — an object graph you drag around, not a document you type into. Several designers open the same file, move things, resize things, and change colours, and each of them sees everyone else's changes land live, along with a labelled cursor for each person. It runs in a browser tab and has to stay smooth with thousands of objects on screen, on a laptop, over a wifi connection that occasionally stalls.
+
+**What a working system delivers**
+
+- Two people dragging two different rectangles both land immediately, on both screens.
+- Two people dragging the *same* rectangle end up looking at the same result — one file, not two divergent versions.
+- The canvas keeps its frame rate while all of that is arriving.
+- A network stall doesn't freeze your editing; you keep working and it reconciles when you're back.
+
+**Why this gets asked.** Delivery is the easy half here — everyone is online, looking at one document. *Agreement* is the problem, and how hard agreement turns out to be is decided by a modelling choice made in the first two minutes of the round.
+
+---
+
 **Archetype:** concurrent mutation of one shared document, where the choice of data model *is* the choice of concurrency algorithm.
 **Cousins that reuse ~70% of this page:** Miro, Canva, Framer, Lucidchart, a collaborative spreadsheet, a multiplayer level editor. Also **any product where several people mutate one identified object graph** rather than appending to a stream.
 
