@@ -18,7 +18,7 @@ a client that carries as much complexity as the server, and a component whose *i
 | **Round** | Systems Design | Technical Coding |
 | **With** | An engineer, collaborative | Pairing with an engineer |
 | **Tool** | Excalidraw or equivalent, your choice | CoderPad, link dropped in chat |
-| **Deliverable** | A design you talked through | A React component |
+| **Deliverable** | A design you talked through | A React component — or, on reported evidence, a plain module: a streaming parser, a content hash (§06 G) |
 | **Named criteria** | requirements gathered diligently, follow-up questions, thought process shared, **clear technology decisions, POV, systems depth** | **code correctness · component API design · test quality** |
 | **Explicitly de-emphasised** | — | **styling, component structure** |
 
@@ -204,12 +204,18 @@ The reps are what move the number; reading this guide is not a rep.
 | Thu 8/20 · D-8 | Background agents — §05 D | `cursor-07-undo-redo`, then finish `combobox-practice-8-13` cold | §07 |
 | **Fri 8/21 · D-7** | **Full mock #1 — 10:00–12:00, real clock, both hours back to back, no breaks** | | §10 the night before |
 | Sat 8/22 · D-6 | Re-rep whatever the mock scored lowest. Only that. | | Re-read the relevant section |
-| Sun 8/23 · D-5 | Collaborative review comments — §05 E (non-Cursor on purpose) | `cursor-08-chip-multiselect` + `cursor-04-file-tree` | §06 |
+| Sun 8/23 · D-5 | Collaborative review comments — §05 E (non-Cursor on purpose) | **`cursor-11-streaming-markdown`** (reported question, 40 min) + `cursor-08-chip-multiselect` | §06, and §06 G |
 | Mon 8/24 · D-4 | Three requirements-gathering openings, 10 min each, no design | **Speed:** three 25-min mini-builds, AI off | §01 G |
 | **Tue 8/25 · D-3** | **Full mock #2 — different problems, same clock** | | — |
-| Wed 8/26 · D-2 | Weak-spot surgery | `cursor-09-inline-diff-review` | Whatever mock #2 exposed |
+| Wed 8/26 · D-2 | Weak-spot surgery | **`cursor-12-merkle-hash`** (reported question, 45 min), then `cursor-09-inline-diff-review` if time | Whatever mock #2 exposed |
 | Thu 8/27 · D-1 | **Taper.** One light rep, nothing new. Set up Excalidraw, a clean browser profile, and your notes. | | §03, §06, §10 only |
 | **Fri 8/28 · D-0** | Runbook — §10 | | |
+
+**Amended 8/23**, on two coding prompts reported from actual Cursor screens: a streaming Markdown
+parser and a Merkle hash over a repository. Neither is a React component. They displace
+`cursor-04-file-tree` (whose keyboard model you have now built three times) and half of D-2's
+re-rep, because a reported prompt outranks a repeat of a shape you already own. §06 G is the new
+build order for a round that hands you a module instead of a component.
 
 **Rules for the twelve days.**
 
@@ -879,6 +885,12 @@ editor, then recently changed by git, then imports of those, then breadth-first 
 make the index **queryable while incomplete**, reporting coverage. Show progress. Merkle-tree the
 directory structure so a re-open only walks subtrees whose hash changed.
 
+**That Merkle tree is a reported coding prompt in its own right** — see §06 G and
+`cursor-12-merkle-hash`. If you draw it here, be ready to be asked for `getHash(path)` in the next
+hour. The one sentence that earns in both rounds: *"domain-separated and length-prefixed, so an
+empty file and an empty directory can't collide and two directories can't serialise to the same
+bytes."*
+
 **Storage and retrieval.** Vector index with an ANN structure (HNSW or IVF-PQ); exact search is
 fine up to ~10⁴ vectors and stops being fine well before a million. Metadata filters (path glob,
 language, git-tracked) applied as pre-filters, which is a real constraint on which ANN index you
@@ -1207,6 +1219,48 @@ Silently omitting it demonstrates nothing.
 assert implementation details · went silent for minutes · ran out of time with no summary ·
 used a library the pad doesn't have without checking.
 
+### G. WHEN THE PROMPT ISN'T A COMPONENT
+
+Two reported Cursor coding prompts are **not React at all** — a streaming Markdown parser fed
+arbitrary chunks, and a deterministic Merkle hash over a repository. Both are `.ts` modules with a
+function signature and no DOM. Assume the same rubric, because the rubric doesn't mention React:
+*code correctness · API design · test quality.* What changes is the build order, and walking in
+with the component one is how you lose ten minutes.
+
+| Minutes | Component round | Module round |
+|---|---|---|
+| 0–2 | Test runner, restate the problem | Same |
+| 2–7 | The prop signature, out loud | **The contract, out loud** — types, and what the function refuses to do |
+| 7–12 | Skeleton renders with hardcoded data | **One end-to-end case passing**, however naively |
+| 12–35 | Core behaviour | Core behaviour, generalised from that case |
+| 35–38 | Checkpoint | Same |
+| 38–50 | Tests | Tests |
+
+The substitutions that matter:
+
+1. **"Controlled or uncontrolled?" becomes "what does one call decide, and what does it defer?"**
+   For a streaming parser: *"`feed` returns what became unambiguous during this chunk, and it may
+   return nothing."* That single sentence is the API. For a hash: *"`getHash` is pure over a
+   snapshot; if the snapshot moves under me I throw rather than return a hash of a state that
+   never existed."*
+2. **"Skeleton renders" becomes "one case green."** You still need something running inside five
+   minutes; it just isn't pixels. Hardcode the simplest input, get the simplest output, then
+   generalise. Do not write the state machine before anything runs.
+3. **State the encoding or the state set before the loop.** Both of these problems are won in the
+   four lines you write before the traversal — the token union, or the record layout. Write them
+   as a comment block and read them out. That is the module round's version of typing the props.
+4. **The edge cases are the question, not a bonus.** A chunk boundary inside a delimiter; two
+   different directories that serialise to the same bytes. In a component round the edge cases are
+   polish; here they are the entire reason the question was chosen. Name them in the first five
+   minutes, out loud, before you can be asked.
+5. **Tests get easier, so there is no excuse.** No jsdom, no `act`, no fake timers — a pure module
+   is the most testable thing in the round, and the strongest test is usually a loop over an
+   invariant rather than three hand-picked cases: *the same tokens at every chunk boundary*, *the
+   same hash under every listing order.* Write one of those and say why it beats examples.
+
+Drills `cursor-11-streaming-markdown` and `cursor-12-merkle-hash` are these two prompts, with
+their specs. `UIE Components` §17 N–O are the two underlying techniques written out.
+
 ## 07 — Component API design
 
 They defined this axis inline in the invitation — *"the props and interface your component
@@ -1513,7 +1567,7 @@ The point of the timed retype is that layout and boilerplate stop consuming work
 the specific capacity AI autocomplete has been renting from you, and it's the capacity the round
 needs for reasoning out loud.
 
-### B. THE ELEVEN
+### B. THE THIRTEEN
 
 | Slug | Min | What it drills | Why it's on the list |
 |---|---:|---|---|
@@ -1527,6 +1581,8 @@ needs for reasoning out loud.
 | `cursor-08-chip-multiselect` | 50 | Two focus models in one widget; Backspace-removes-last | The `UIE Components` §02 B worked example, now runnable |
 | `cursor-09-inline-diff-review` | 45 | Accept/reject hunks, staged vs committed, keyboard | Closest thing to real Cursor surface |
 | `cursor-10-write-the-tests-ii` | 30 | **Test quality** against an async hook — races, cleanup | Second rep on the thinnest axis |
+| `cursor-11-streaming-markdown` | 40 | A chunk-boundary state machine; carry buffer; `finish()` | **Reported Cursor question.** Not a component — see §06 G |
+| `cursor-12-merkle-hash` | 45 | Domain separation, length prefixes, cache on a snapshot | **Reported Cursor question**, and §05 C's index in code |
 | `combobox-practice-8-13` | 45 | The full combobox, cold, from the given API | Already in progress; finish it AI-off |
 
 ### C. THE THREE-MINI-BUILD DAY (D-4)

@@ -1479,6 +1479,15 @@ Real assistant output is markdown, and markdown arrives cut in half. The naive
    block. Same for a lone `**` or a half-written link. **The fix is to close constructs
    speculatively**: if the text ends inside an open fence, append a virtual closing fence before
    parsing so it renders as code from the first line.
+
+   **There are two answers here and the POV is picking one out loud.** Speculative closing is the
+   workaround for handing an *off-the-shelf parser* (`marked`, `remark`) a document that isn't
+   finished — it only accepts complete input, so you lie to it. The other answer is to own an
+   **incremental tokenizer**, which knows it is inside a fence the moment the opening delimiter
+   arrives and therefore never flickers at all — that is `cursor-11-streaming-markdown`, and it is
+   a reported Cursor prompt in its own right. Say: *"I'd speculatively close, because I don't want
+   to own a Markdown parser in a 60-minute round — but if we already had a streaming tokenizer the
+   problem wouldn't exist, and at ChatGPT's volume that's the version I'd expect to ship."*
 2. **Reparse cost.** Parsing the whole accumulated string per delta is O(n²) over the response. Two
    fixes, and it is worth naming both: **debounce the reparse to ~50–100 ms** (kills flicker and
    cost together, at an imperceptible latency price), and/or **parse block-by-block** — everything
@@ -2051,8 +2060,17 @@ Cursor and Figma screens can shape them.
 | 7 | **Iterator → 2D → async** — the reported OpenAI fundamentals prompt | `openai-07-iterators` | 30 min | `Symbol.asyncIterator`, laziness, early-exit cleanup |
 
 **Reuse before you build.** Drills 1 and 3 start from
-`uie-practice/streaming-message-reference`; drill 4 starts from `combobox-reference`; drill 6's
-virtualization half is `UIE Components §13`. Only drills 2, 4, 5, and 6 contain genuinely new code.
+`uie-practice/streaming-message-reference`; drill 4 starts from `combobox-reference`. Only drills
+2, 4, 5, and 6 contain genuinely new code.
+
+**Drill 6, revised 8/23.** Its old reuse pointer was `UIE Components §13`, which has no exercise on
+disk — ignore it. The better starting point is `cursor-11-streaming-markdown`, built for the Cursor
+screen: an incremental **tokenizer**, chunk boundaries and all. That is a different layer from this
+drill, which is the **renderer** — and it changes what drill 6 is actually for. Problem #1 in
+`§08 I` (fences flickering) is *dissolved* by owning a tokenizer rather than solved by speculative
+closing, so drill 6's genuinely new content is the other three: reparse cost and block memoisation,
+sanitisation, and **scroll pinning**, which nothing in either repo covers. Budget the hour
+accordingly — 20 minutes on markdown, 40 on pinning.
 
 **What drill 1 takes, and what it deliberately does not.** It reuses the reference's `StreamStatus`
 enum, its two-layer `controllerRef` + `generationRef` guard, and its counter-intuitive a11y call

@@ -2,7 +2,7 @@
   "meta": {
     "title": "Morning Recall",
     "subtitle": "Produce the answer before you look.",
-    "version": 12,
+    "version": 13,
     "rule": "Attempt each prompt from memory first, out loud or on paper. A short answer is revealed only after you mark the card, so a blank is recoverable; the guides hold the full detail.",
     "dailyDeckSize": 12,
     "tracks": {
@@ -4067,6 +4067,106 @@
       "prompt": "It is minute 66. Give the close.",
       "answer": "Demonstrate first — restart, two clients, join, message, no self-echo, disconnect, survive. Then: where I got to and what I just ran · what I would do next in priority order, leading with the real bug (the unbounded buffer if a client never sends a newline) rather than a missing feature · then backpressure · then the assumption I made, which is everything in memory with no persistence because nothing in the requirements survived a restart.",
       "answerKey": "Discord Screen v1"
+    },
+    {
+      "id": "cursor-44",
+      "track": "cursor",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 5,
+      "prompt": "A Cursor coding prompt hands you a plain module, not a component — a streaming parser or a content hash. What changes about the rubric, and what changes about your first ten minutes?",
+      "answer": "The rubric does not change: code correctness, API design, test quality. Two things change. (1) 'The prop signature out loud' becomes 'the contract out loud' — the types, plus what the function refuses to do. (2) 'Skeleton renders in five minutes' becomes 'one end-to-end case green in five minutes', hardcoded and naive, then generalised. Never write the state machine before something runs.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-45",
+      "track": "cursor",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 5,
+      "prompt": "A streaming parser is fed chunks of arbitrary size and a delimiter can be split across the boundary. State the rule, and state what bounds the buffer.",
+      "answer": "A chunk that ends mid-delimiter has decided nothing: hold the ambiguous tail, emit everything before it, let the next chunk resolve it. Hold the run as a COUNT, not as text. The pending state is bounded by the DELIMITER, not the document — two characters, forever, no matter how big the stream. That last sentence is the answer to the guaranteed follow-up about unbounded buffering.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-46",
+      "track": "cursor",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 4,
+      "prompt": "Streaming Markdown tokenizer: what must finish() decide, and what are the two defensible answers?",
+      "answer": "End of stream is a real event. An unterminated fence CLOSES — a fence runs to end of document. An unterminated inline span DOWNGRADES to literal text with its opening backtick restored — an unmatched delimiter is just a character. Either is defensible if you say why; having no finish() is not.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-47",
+      "track": "cursor",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 4,
+      "prompt": "Why does a streaming Markdown tokenizer emit an inline code span whole but a fenced block as open / chunks / close?",
+      "answer": "Emit granularity is an API decision. An inline span is short, so emitting it whole costs nothing. A fence can be an entire file, so buffering it until it closes reintroduces the unbounded buffer you just eliminated — and open/chunk/close lets the renderer paint a half-arrived code block, which is the actual product requirement.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-48",
+      "track": "cursor",
+      "type": "fact",
+      "timeboxSec": 45,
+      "weight": 5,
+      "prompt": "Merkle hash over a repository: the two encoding rules, and the collision each one prevents.",
+      "answer": "(1) Domain separation — the type tag goes INSIDE the hash ('file\\0', 'dir\\0', 'link\\0'), so an empty file and an empty directory cannot be the same 32 bytes. (2) Length prefixes on every variable-length field, so the boundaries are recoverable: without them {'a','bc'} and {'ab','c'} serialise identically. That second one is the whole answer to 'why is concatenating raw child hashes insufficient?'",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-49",
+      "track": "cursor",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 4,
+      "prompt": "In a tree hash, where does a child's NAME belong, and what breaks if you put it in the wrong place?",
+      "answer": "In the PARENT's record, never in the child's own hash. Fold the name into the child and a subtree can never be recognised in a new position — no rename detection, no dedup, no content-addressed reuse. It is the difference between a hash that identifies content and one that identifies a path.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-50",
+      "track": "cursor",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 4,
+      "prompt": "You are caching computed subtree hashes for a repository that can change. What is the cache key, what is the unsafe key, and what happens if the repo mutates mid-traversal?",
+      "answer": "Key on (snapshot version, path). The unsafe key is mtime — timestamps are coarse and are preserved by copies and checkouts. If the snapshot moves mid-traversal you have hashed a state that never existed, so re-check the version at the end and throw rather than return it. Incremental updates invalidate the changed path and its ancestors, and nothing else.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-51",
+      "track": "cursor",
+      "type": "fact",
+      "timeboxSec": 40,
+      "weight": 4,
+      "prompt": "Symlinks in a repository hash: what is the safe default and what does it buy you?",
+      "answer": "Hash the link's target TEXT under its own LINK domain tag, and do not follow it. One sentence, and it buys cycle-freedom and no traversal outside the repository. If you do follow links you owe a visited-object-ID set and a defined cycle error.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-52",
+      "track": "cursor",
+      "type": "procedure",
+      "timeboxSec": 90,
+      "weight": 5,
+      "prompt": "Write the strongest single test for a chunk-fed parser, and the strongest single test for a repository hash. Say why each beats three hand-picked examples.",
+      "answer": "Parser: loop over EVERY split point — for i in 0..doc.length, feed [doc.slice(0,i), doc.slice(i)] and assert it equals the single-pass result. Hash: assert the same root hash under sorted, reversed and rotated listing order, and under chunk sizes 1 and Infinity. Both assert the INVARIANT — chunking and enumeration order must not be observable — instead of sampling three places it might have been broken.",
+      "answerKey": "Cursor Screen v1"
+    },
+    {
+      "id": "cursor-53",
+      "track": "cursor",
+      "type": "spoken",
+      "timeboxSec": 120,
+      "weight": 5,
+      "prompt": "Out loud, 90 seconds: you drew a Merkle tree over the repo in the design hour. The coding hour opens with 'implement get_hash(path)'. Give the opening four sentences.",
+      "answer": "\"The traversal is the easy half, so let me pin down the encoding first — that's the part that's actually possible to get wrong. A file is SHA-256 over a 'file' tag plus its bytes, streamed so a large file is never resident. A directory is a tag, the child count, and then one length-prefixed record per child — name length, name, kind, hash — sorted by raw name bytes, so enumeration order can't leak in and {'a','bc'} can't collide with {'ab','c'}. Before I write it: is the repo an immutable snapshot for one computation, and do you want symlinks hashed as links or followed?\"",
+      "answerKey": "Cursor Screen v1"
     }
   ]
 }

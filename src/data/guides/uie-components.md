@@ -5,8 +5,9 @@
 > implementations with the reasoning spelled out line by line.
 
 Fourteen components you will actually be asked to build, each with the API, the ARIA and
-keyboard contract, the full implementation, the traps, and the test plan. Then the thirteen
-underlying techniques, derived from scratch.
+keyboard contract, the full implementation, the traps, and the test plan. Then the fifteen
+underlying techniques, derived from scratch, plus two that are not about the DOM at all
+(§17 N–O) because the component round has started handing out modules.
 
 Every implementation here is real, runnable, and test-covered. They live in the practice app
 at `uie-practice/src/exercises/<name>-reference/`, and each ships a spec suite you can point
@@ -8825,6 +8826,11 @@ export function Form({ fields, onSubmit, submitLabel = 'Submit' }: FormProps) {
 
 The reusable primitives. Every component in §03–16 is an assembly of these.
 
+§N and §O are the exception: they are not DOM techniques at all. They are here because the
+component rounds at AI companies have started handing out **modules** — a streaming tokenizer, a
+content hash — graded on the same three axes, and both of those questions are won or lost on a
+primitive that no amount of React practice teaches.
+
 ### A. ROVING TABINDEX
 
 **Problem.** A composite widget (tablist, toolbar, tree, radio group) contains many focusable
@@ -9489,6 +9495,123 @@ if (event.nativeEvent.isComposing) return
 Nothing in this guide's specs covers it and jsdom won't reproduce it. Naming it unprompted while
 building a combobox is worth more than most of the code around it.
 
+### N. INCREMENTAL PARSING ACROSS A CHUNK BOUNDARY
+
+**Problem.** Data arrives in chunks you do not control — SSE frames, a `ReadableStream`, a
+WebSocket, a paste handler fed a megabyte at a time — and the thing you are looking for is longer
+than one character. A delimiter will eventually be split across the boundary, and the naive
+`chunk.split('```')` is wrong on exactly that chunk, intermittently, in production only.
+
+**The rule: a chunk that ends mid-delimiter has decided nothing.** Hold the ambiguous tail, emit
+everything before it, and let the next chunk resolve it. The tail is the *carry buffer*, and the
+whole technique is keeping it bounded.
+
+```ts
+// The state machine's entire state. Four scalars — which is also why it
+// serialises, which is the answer to "make it resumable after a restart".
+type State = 'text' | 'inline' | 'info' | 'fence'
+let state: State = 'text'
+let ticks = 0     // backticks seen but not yet interpretable — NEVER stored as text
+let buf = ''      // content of the token being accumulated
+
+function feed(chunk: string): Token[] {
+  out = []
+  for (const ch of chunk) consume(ch)
+  flush()         // emit what is now certain; keep `ticks` pending
+  return out
+}
+```
+
+Three properties to state out loud, because they are what separates this from a `split()`:
+
+1. **The pending state is bounded by the DELIMITER, not by the DOCUMENT.** Two characters, forever,
+   no matter how big the stream. *"How do you prevent unbounded buffering?"* is the follow-up in
+   every version of this question, and this sentence is the answer.
+2. **Hold the run as a count, not as a string.** A count cannot be accidentally emitted, and it is
+   what makes the resolution rules readable: reach three and it is a fence, stop short and it is
+   literal.
+3. **There must be a `finish()`.** End-of-stream is a real event with real decisions in it —
+   an unterminated fence closes (it runs to end of document), an unterminated span downgrades to
+   text (an unmatched delimiter is just a character). Pick, then say why.
+
+**Emit granularity is an API decision, so make it deliberately.** Short constructs — an inline code
+span — can be emitted whole. Long ones cannot: a fenced block may be an entire file, so it emits
+`open` / N × `chunk` / `close` and the renderer can paint a half-arrived code block. Buffering the
+fence until it closes is the easy version and it reintroduces the unbounded buffer you just
+eliminated.
+
+**Where it shows up.** Streaming Markdown in a chat panel (§14, and drill
+`cursor-11-streaming-markdown`); SSE frame reassembly, where the delimiter is `\n\n`; any
+`TextDecoder` over a byte stream, where a multi-byte UTF-8 character splits across chunks and
+`decoder.decode(chunk, { stream: true })` is the built-in that already does exactly this for you —
+naming that built-in is a cheap point.
+
+**This is a different layer from speculative rendering.** The tokenizer decides *what the bytes
+mean*; the renderer decides *what to paint before the construct is complete* — closing an open
+fence speculatively so a code block does not flicker into existence. Both are needed and they are
+not substitutes.
+
+**Testing it is the differentiator, and it is one loop.** Do not hand-pick three split points —
+assert the invariant directly: *chunking must not be observable*.
+
+```ts
+const doc = 'a `b` c\n```\nx`y\n``` z'
+const whole = run([doc])
+for (let i = 0; i <= doc.length; i++) {
+  expect(run([doc.slice(0, i), doc.slice(i)]), `split after ${i}`).toEqual(whole)
+}
+```
+
+### O. UNAMBIGUOUS ENCODING: DOMAIN SEPARATION AND LENGTH PREFIXES
+
+**Problem.** You are turning structured data into one string or one byte stream — a cache key, a
+`key` prop, an ETag, a content hash, a localStorage name, a dedupe set. Concatenation loses the
+boundaries, and two different inputs collide.
+
+```ts
+const key = `${userId}:${query}`          // user "1", query "2:3"  ==  user "1:2", query "3"
+const key = names.sort().join('')         // {"a","bc"}             ==  {"ab","c"}
+```
+
+Both are real bugs, both are invisible until the day two users see each other's cached results.
+There are exactly two rules.
+
+**1. Domain separation — the type goes inside the value.** An empty file and an empty directory are
+different things; if the tag is not in the hash, they are the same 32 bytes. Prefix each kind with
+its own tag: `file\0…`, `dir\0…`, `link\0…`.
+
+**2. Length prefixes — every variable-length field carries its own length.** Then the boundaries
+are recoverable from the encoding, which is the property you actually need. Fixed-length fields
+(a hex digest, a UUID) do not need one; anything a user can name does.
+
+```ts
+// A directory record: nothing here can be reparsed two ways.
+hash(
+  'dir\0', u32(children.length),
+  ...children                                    // sorted by raw NAME BYTES,
+    .sort(byUtf8Bytes)                           // not by JS `<`, which is UTF-16 order
+    .flatMap(c => [u32(c.name.length), c.name, KIND[c.kind], u32(c.hash.length), c.hash]),
+)
+```
+
+**The two-sentence version for an interview:** *"I'll domain-separate so a file and a directory
+can't collide, and length-prefix every variable-length field so the concatenation is unambiguous —
+otherwise `{'a','bc'}` and `{'ab','c'}` hash identically."* That is the entire answer to *"why is
+concatenating raw child hashes insufficient?"*, which is asked every time.
+
+**The third rule, for tree hashes specifically: the child's name belongs to the PARENT's record,
+never to the child's own hash.** Fold the name in and a subtree can never be recognised in a new
+position — no rename detection, no dedup, no content-addressed reuse. It is the difference between
+a hash that identifies *content* and one that identifies *a path*.
+
+**And cache the result on a version, not a timestamp.** `(snapshot id, path)` is sound;
+`(path, mtime)` is not, because timestamps are coarse and are preserved by copies and checkouts.
+
+**Where it shows up in a frontend round.** React `key` built by concatenating fields; a
+`useMemo`/SWR/React Query cache key built from an object (this is why those libraries hash a
+structured key rather than a template string); `localStorage` namespacing; deduping a request
+in-flight map. Drill `cursor-12-merkle-hash` is the version Cursor actually asks.
+
 ---
 
 ## Company signals
@@ -9499,7 +9622,7 @@ not to predict the prompt.
 | Company | What they test | Signature flavor |
 |---|---|---|
 | **Anthropic** | Streaming chat, async cancellation, refactor under changing requirements | `useStreamingChat` plus mid-stream abort; they change the spec partway through on purpose |
-| **Cursor** | Editor-adjacent surfaces: diffs, trees, palettes, inline review | Real product surface, and test quality graded as its own axis |
+| **Cursor** | Editor-adjacent surfaces: diffs, trees, palettes, inline review — and **non-component modules** on the same rubric: a streaming Markdown tokenizer, a Merkle hash over a repo | Real product surface, and test quality graded as its own axis |
 | **Ramp** | Bug-fix inside an existing React+TS codebase, data table with pagination, a DOM puzzle round | Navigating someone else's component; `runConcurrently` for batch fetches |
 | **Airbnb** | Booking-flow components — date picker, tabs, star rating — and deep JS fundamentals | `curry`, `LRUCache`, `deepEqual` all appear; heavy keyboard a11y emphasis |
 | **Meta** | Recursive UI (file explorer, comment tree), `EventEmitter`, `Promise.all` from scratch | DOM renderer from a JSON descriptor; `role="tree"` / `role="group"` hierarchy |

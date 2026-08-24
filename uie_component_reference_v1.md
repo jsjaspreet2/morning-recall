@@ -5,12 +5,15 @@
 > implementations with the reasoning spelled out line by line.
 
 Fourteen components you will actually be asked to build, each with the API, the ARIA and
-keyboard contract, the full implementation, the traps, and the test plan. Then the twelve
-underlying techniques, derived from scratch.
+keyboard contract, the full implementation, the traps, and the test plan. Then the fifteen
+underlying techniques, derived from scratch, plus two that are not about the DOM at all
+(§17 N–O) because the component round has started handing out modules.
 
 Every implementation here is real, runnable, and test-covered. They live in the practice app
 at `uie-practice/src/exercises/<name>-reference/`, and each ships a spec suite you can point
-at your own from-scratch build.
+at your own from-scratch build. Two exceptions: the command palette (§12) has no
+`-reference` exercise — its three runnables are the §H cut, the native `<dialog>` variant, and the
+drill it came from — and the virtualized list (§13) has no exercise on disk at all yet.
 
 ## 01 — How to use this guide
 
@@ -42,13 +45,14 @@ stopwatch. Several are larger than anything you would type in a timed round, and
 deliberate — you cannot decide what to leave out of something you have never seen whole.
 
 **§H (INTERVIEW SCOPE)** is the other half. For each component it gives the line budget, what is
-genuinely core, and what to drop — with the sentence to say when you drop it. Four components have
+genuinely core, and what to drop — with the sentence to say when you drop it. Five components have
 a complete pared implementation there, because their references are the ones that genuinely
 overrun a round:
 
 | Component | Reference | Interview cut | Runnable |
 |---|---:|---:|---|
 | Combobox | 208 | **117** | `combobox-interview` |
+| Command palette | 201 | **132** | `command-palette-interview` |
 | Data table | 193 | **111** | `data-table-interview` |
 | Menu | 178 | **125** | `menu-interview` |
 | Tree | 154 | **131** | `tree-interview` |
@@ -103,6 +107,7 @@ Everything in §03–16 follows the same shape. Learn the shape once.
 | **E. Implementation** | Annotated chunks, then the complete file in a collapsed block |
 | **F. Traps** | What breaks, and the symptom you'd see |
 | **G. Spec** | The test list, mirroring the runnable suite |
+| **H. Interview scope** | The line budget, what's core, and what to cut with the sentence for each |
 
 §E always ends with **THE WHOLE THING** — the entire component assembled, collapsed by default.
 The chunks teach; the full file shows how the pieces fit and is what you diff your own build
@@ -1801,7 +1806,7 @@ function ModalContent({
 | `offsetParent` used to filter focusables | Fixed-position elements silently drop out of the trap |
 | Backdrop close on `click` alone | Select text inside, release outside → dialog closes, work lost |
 | Scroll lock cleared instead of restored | Closing a nested dialog unlocks the page underneath |
-| Escape on a document listener | Two open dialogs both close |
+| Escape on a document listener | Two open dialogs both close — unless a layer stack picks the innermost (§17 M) |
 
 ### G. SPEC
 
@@ -2046,6 +2051,7 @@ function ModalContent({
 - "Build an autocomplete / typeahead / search-as-you-type"
 - "Build a country picker with search"
 - "Build a @-mention input" — same machinery, different trigger
+- "Build a ⌘K command palette" — this machinery inside a dialog (§12)
 
 ### B. API
 
@@ -2662,6 +2668,7 @@ export function Combobox({ label, fetchOptions, onSelect }: ComboboxProps) {
       <input
         id={`${baseId}-input`}
         className="cbi-input"
+        type="text"
         role="combobox"
         autoComplete="off"
         aria-expanded={showList}
@@ -5054,7 +5061,7 @@ export default function TreeInterview() {
 
 - "Build a sortable table" / "a users table with search and pagination"
 - "Add row selection with a select-all"
-- "Render 100,000 rows" — that's §13, not this
+- "Render 100,000 rows" — that's §13 (Virtualized list), not this
 
 ### B. API
 
@@ -5714,6 +5721,1518 @@ export default function DataTableInterview() {
 
 </details>
 
+## 12 — Command palette
+
+> Interview cut (§H): `uie-practice/src/exercises/command-palette-interview/` · Spec: 20 tests  
+> Native variant (§I): `uie-practice/src/exercises/command-palette-dialog/` · Spec: 15 tests  
+> Derive-it-cold drill: `uie-practice/src/exercises/cursor-06-command-palette/` · Spec: 15 tests  
+> The §E reference is guide-only — there is no `command-palette-reference` on disk. The three
+> runnables above are the cut, the same component on native `<dialog>`, and the blank-page drill
+> this section came out of.
+
+### A. ASKED AS
+
+- "Build a ⌘K command palette"
+- "Build quick-open / go-to-file"
+- "Build the Slack switcher" / "the Linear command menu"
+- After the streaming message (§14), the likeliest component at an editor company
+
+This is the most *composed* thing in the guide: a dialog (§05) containing a combobox (§06) over a
+command list (§07). None of the three arrives whole, and the interesting decisions are all at the
+seams. If you can only afford one derivation rep, make it this one.
+
+### B. API
+
+```tsx
+export interface Command {
+  id: string
+  label: string
+  /** Section heading in the list. Purely presentational. */
+  group?: string
+  /** Aliases, so "Toggle Theme" is findable by typing "dark". */
+  keywords?: string[]
+  run: () => void
+}
+
+export interface CommandPaletteProps {
+  open: boolean
+  onClose: () => void
+  commands: Command[]
+  /** Most recent first. */
+  recentIds?: string[]
+  placeholder?: string
+  emptyMessage?: string
+}
+```
+
+**Four calls worth stating out loud:**
+
+- **`open` is a prop, and the ⌘K listener is not this component's.** A palette that owns its own
+  global shortcut cannot be opened from a menu item or a button, and two on a page fight over the
+  key. The listener belongs to the app. Same reasoning as the Modal (§05) being controlled-only:
+  the parent is what decides a dialog should exist.
+- **Each command carries its own `run`.** The alternative — `onSelect(id)` plus a switch in the
+  parent — grows a switch statement inside every caller. Behaviour travels with the thing it
+  belongs to.
+- **`keywords` is a product decision, not a feature.** It is one `.some()`, and it is the
+  difference between a palette people use and one they abandon. Name it as such.
+- **`recentIds` is passed in rather than tracked.** Recency has to survive this component
+  unmounting, so it belongs to whatever owns the session.
+
+**And one non-prop, which is the more interesting half.** The query is not in the API at all — not
+`value`, not `defaultValue`, not a `key` for the caller to bump. Opening resets it, and that is the
+component's business. A palette that reopens onto last time's half-typed query is a bug, and no
+caller should have to know that. This is the Combobox call (§06) taken one step further: there the
+query merely isn't controlled; here it isn't persisted either.
+
+### C. ARIA + KEYBOARD CONTRACT
+
+| Element | Required |
+|---|---|
+| Dialog | `role="dialog"`, `aria-modal="true"`, accessible name |
+| Input | `role="combobox"`, `aria-expanded="true"`, `aria-controls` → listbox, `aria-autocomplete="list"`, `aria-activedescendant` |
+| Listbox | `role="listbox"`, `id`, accessible name — **rendered even when empty** |
+| Group | `role="group"` with `aria-label`; the visible heading is `aria-hidden` |
+| Option | `role="option"`, `aria-selected`, `id` derived from the **flat** index |
+
+`aria-expanded` is permanently `true`. The list is part of the surface rather than a popup over
+it — there is no closed state to describe, because closing the list means closing the palette.
+
+**Why this is a listbox and not a menu.** The two derivation tests give conflicting answers, and
+watching them resolve is the whole lesson. Question 1 (§02 B): interactions here fire and leave
+nothing behind, which says command widget — `menuitem`, no selection state, no `value`. Question 2:
+the input must stay typeable while the cursor moves, which forces `aria-activedescendant`. Those
+collide, because a combobox may only point `aria-activedescendant` into the popup it controls, and
+a combobox popup is a `listbox`, `grid`, `tree`, or `dialog` — never a `menu`.
+
+The focus model wins, because it is the one the user can feel. The command-ness does not disappear;
+it moves from markup into behaviour: `aria-selected` marks **the cursor**, not a selection, nothing
+is selected once the palette closes, and there is no `value` anywhere in the API. That sentence is
+the single highest-value thing you can say while building this component.
+
+| Key | Behavior |
+|---|---|
+| `↓` / `↑` | Move the virtual cursor over the flat result list. Wraps. |
+| `Home` / `End` | First / last result |
+| `Enter` | Run the cursor's command, then close. No-op on an empty list. |
+| `Esc` | Close. One stage, unlike the Combobox's two. |
+| `Tab` | Trapped. With one focusable node in the dialog, the trap is `preventDefault`. |
+| Typing | Refilters, and returns the cursor to the top |
+
+Escape being one-stage is worth a sentence, because §06 makes the opposite call. There, closing the
+list must not also wipe the query — the query is the user's work and the field survives. Here the
+whole surface goes away and the query goes with it either way, so a two-stage Escape would only
+mean pressing it twice.
+
+### D. DECISIONS THAT MATTER
+
+1. **Mounting is the state machine.** Closed renders nothing, so every opening is a fresh mount.
+   The query starts empty for free — no reset effect — and focus-in / focus-out become one effect
+   with a cleanup instead of four `if (open)` guards. → *"I render nothing when it's closed, so
+   opening is a mount. That's what resets the query, and it's why there's only one focus effect."*
+2. **An empty query is the recents view, not "no filter".** Two orderings of one derived list, and
+   nothing stored. Getting this wrong shows up as a recent command appearing twice, which is what
+   the dedupe `Set` is for. → *"Empty isn't unfiltered — it's the recents ordering."*
+3. **The cursor indexes the flat result list; groups are a rendering concern.** The moment the
+   index means "third row of the second group", every key handler has to understand grouping, and
+   Home/End and wrapping all acquire an off-by-one at every boundary. Render groups by walking the
+   flat list and carrying each row's flat index with it.
+4. **Close before you run.** `onClose()` first, then `command.run()`. A command that opens another
+   dialog must not have that dialog closed by this one unmounting afterwards.
+5. **`onMouseDown`, not `onClick`.** `blur` fires before `click`, and blur closes the palette, so an
+   `onClick` on an option never runs. `preventDefault()` on mousedown keeps the caret in the input.
+   Identical to §06, and it is the bug most people ship.
+
+### E. IMPLEMENTATION
+
+**1 — Two orderings, one derived list.**
+
+```tsx
+const results = useMemo<Row[]>(() => {
+  const q = query.trim().toLowerCase()
+  if (!q) {
+    const recents = recentIds
+      .map((id) => commands.find((c) => c.id === id))
+      .filter((c): c is Command => c !== undefined)
+    const promoted = new Set(recents.map((c) => c.id))
+    return [
+      ...recents.map((command) => ({ command, section: 'Recently used' })),
+      ...commands.filter((c) => !promoted.has(c.id)).map((command) => ({ command, section: command.group })),
+    ]
+  }
+  return commands
+    .filter(
+      (c) =>
+        c.label.toLowerCase().includes(q) ||
+        (c.keywords ?? []).some((k) => k.toLowerCase().includes(q)),
+    )
+    .map((command) => ({ command, section: command.group }))
+}, [commands, query, recentIds])
+```
+
+`recentIds` maps through `find` rather than the reverse, because the *order of `recentIds`* is the
+recency order — filtering `commands` would give you back the catalogue's order with the recents
+still scattered through it. The `promoted` set is what stops each recent command rendering twice.
+
+**2 — Clamp the cursor; don't store the clamp.**
+
+```tsx
+const activeIndex = results.length === 0 ? -1 : Math.min(cursor, results.length - 1)
+```
+
+`commands` is a prop, so the list can shrink under a cursor that is already parked past the new
+end. Left alone, `aria-activedescendant` then names an id that is no longer in the DOM — and a
+dangling IDREF fails silently, so nothing tells you. One derived line, and §02 B question 3 is
+exactly the instinct that produces it.
+
+**3 — Groups, without renumbering anything.**
+
+```tsx
+const sections = useMemo(() => {
+  const out: { label?: string; rows: Array<{ row: Row; index: number }> }[] = []
+  results.forEach((row, index) => {
+    const last = out[out.length - 1]
+    if (last && last.label === row.section) last.rows.push({ row, index })
+    else out.push({ label: row.section, rows: [{ row, index }] })
+  })
+  return out
+}, [results])
+```
+
+Adjacent runs, not a `groupBy`. The caller's ordering is the ordering — recents deliberately break
+their commands out of their usual sections, and a `groupBy` would silently put them back. Each row
+carries the **flat** index it had in `results`, which is what keeps decision 3 true.
+
+**4 — Focus in, focus back, and the reset you don't write.**
+
+```tsx
+useEffect(() => {
+  const previouslyFocused = document.activeElement as HTMLElement | null
+  inputRef.current?.focus()
+  return () => {
+    if (previouslyFocused?.isConnected) previouslyFocused.focus()
+  }
+}, [])
+```
+
+Empty deps, because this component only exists while open. The `isConnected` check is not
+decoration: `.focus()` on a detached node does nothing and throws nothing, so focus falls to
+`<body>` and a keyboard user restarts from the top of the page (§17 B). And note what isn't here —
+no "reset the query on open" effect, because there is no open-to-closed transition to react to.
+
+**5 — THE WHOLE THING.**
+
+<details>
+<summary>Complete implementation — Command palette</summary>
+
+```tsx
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import type { KeyboardEvent, MouseEvent, PointerEvent } from 'react'
+
+/**
+ * Three ideas carry this component:
+ *
+ * 1. IT IS A COMBOBOX IN A DIALOG, NOT A MENU. Commands fire and leave nothing
+ *    selected, which says `menuitem` — but the input has to stay typeable while
+ *    the cursor moves, which forces aria-activedescendant, and a combobox may
+ *    only point that at an `option` inside the listbox it controls. Behaviour
+ *    decides the popup role; "it's a list of commands" does not.
+ *
+ * 2. MOUNTING IS THE STATE MACHINE. Closed renders nothing, so every opening is
+ *    a fresh mount: the query starts empty for free, and focus-in / focus-out
+ *    are one effect with a cleanup instead of four `if (open)` guards.
+ *
+ * 3. THE CURSOR INDEXES THE FLAT RESULT LIST. Groups are a rendering
+ *    concern. The moment the index means "third item in the second group", every
+ *    key handler has to know about grouping, and it will get it wrong.
+ */
+
+export interface Command {
+  id: string
+  label: string
+  /** Section heading in the list. Purely presentational — it never affects indexing. */
+  group?: string
+  /** Aliases, so "Toggle Theme" is findable by typing "dark". */
+  keywords?: string[]
+  run: () => void
+}
+
+export interface CommandPaletteProps {
+  /** Controlled only. The ⌘K listener belongs to the app, not to this component. */
+  open: boolean
+  onClose: () => void
+  /** Must be referentially stable — filtering memoizes on it. */
+  commands: Command[]
+  /** Most recent first. Owned by the caller, because recency outlives this unmount. */
+  recentIds?: string[]
+  placeholder?: string
+  emptyMessage?: string
+}
+
+/**
+ * Hoisted so the default is one stable array. `recentIds = []` in the parameter
+ * list allocates a fresh array on every render, which invalidates the useMemo
+ * below on every render — the filter still works, and the memo does nothing.
+ */
+const NO_RECENTS: string[] = []
+
+/** One result row: the command, plus the section it renders under. */
+interface Row {
+  command: Command
+  section?: string
+}
+
+export function CommandPalette({ open, ...rest }: CommandPaletteProps) {
+  // Mount/unmount IS the state machine (see 2 above). It is also why there is no
+  // "reset the query on open" effect anywhere in this file.
+  if (!open) return null
+  // Portal for the same three reasons as the Modal: a transformed ancestor becomes
+  // the containing block for position:fixed, overflow clips, and z-index cannot
+  // escape a parent stacking context.
+  return createPortal(<Palette {...rest} />, document.body)
+}
+
+function Palette({
+  onClose,
+  commands,
+  recentIds = NO_RECENTS,
+  placeholder = 'Type a command…',
+  emptyMessage = 'No matching commands',
+}: Omit<CommandPaletteProps, 'open'>) {
+  const [query, setQuery] = useState('')
+  const [cursor, setCursor] = useState(0)
+
+  const baseId = useId()
+  const listboxId = `${baseId}-listbox`
+  const optionId = (index: number) => `${baseId}-option-${index}`
+
+  const inputRef = useRef<HTMLInputElement>(null)
+  const pointerDownTarget = useRef<EventTarget | null>(null)
+
+  // An empty query is not "no filter" — it is the recents view. Two different
+  // orderings of one derived list, and nothing is stored.
+  const results = useMemo<Row[]>(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) {
+      const recents = recentIds
+        .map((id) => commands.find((c) => c.id === id))
+        .filter((c): c is Command => c !== undefined)
+      const promoted = new Set(recents.map((c) => c.id))
+      return [
+        ...recents.map((command) => ({ command, section: 'Recently used' })),
+        // Filtering out the promoted ones is what stops a recent command appearing twice.
+        ...commands.filter((c) => !promoted.has(c.id)).map((command) => ({ command, section: command.group })),
+      ]
+    }
+    return commands
+      .filter(
+        (c) =>
+          c.label.toLowerCase().includes(q) ||
+          (c.keywords ?? []).some((k) => k.toLowerCase().includes(q)),
+      )
+      .map((command) => ({ command, section: command.group }))
+  }, [commands, query, recentIds])
+
+  // Derived, not stored. `commands` can shrink under a cursor that is already
+  // parked past the new end — and then aria-activedescendant names an id that no
+  // longer exists, which is a silent failure, not a visible one.
+  const activeIndex = results.length === 0 ? -1 : Math.min(cursor, results.length - 1)
+
+  // Adjacent runs, not a groupBy: the caller's ordering is the ordering, and
+  // recents deliberately break their commands out of their usual sections.
+  const sections = useMemo(() => {
+    const out: { label?: string; rows: Array<{ row: Row; index: number }> }[] = []
+    results.forEach((row, index) => {
+      const last = out[out.length - 1]
+      if (last && last.label === row.section) last.rows.push({ row, index })
+      else out.push({ label: row.section, rows: [{ row, index }] })
+    })
+    return out
+  }, [results])
+
+  // Focus in on mount, back out on unmount. `.focus()` on a detached node fails
+  // silently, so isConnected is the only way to know restore did not happen.
+  useEffect(() => {
+    const previouslyFocused = document.activeElement as HTMLElement | null
+    inputRef.current?.focus()
+    return () => {
+      if (previouslyFocused?.isConnected) previouslyFocused.focus()
+    }
+  }, [])
+
+  // Keep the cursor visible without moving focus. getElementById, not
+  // querySelector: React 18's useId emits ids like `:r3:`, and a colon is not a
+  // valid CSS identifier, so `#${id}` throws. React 19 emits `_R_3_`, which
+  // happens to be safe — an id you did not choose is not one to build selectors on.
+  useEffect(() => {
+    if (activeIndex < 0) return
+    // The template is inlined rather than calling optionId, so the dependency is
+    // baseId — which is stable — instead of a function rebuilt every render.
+    document.getElementById(`${baseId}-option-${activeIndex}`)?.scrollIntoView?.({ block: 'nearest' })
+  }, [activeIndex, baseId])
+
+  function run(row?: Row) {
+    if (!row) return
+    // Close BEFORE running. A command that opens another dialog must not have that
+    // dialog closed by this one unmounting after it.
+    onClose()
+    row.command.run()
+  }
+
+  function move(delta: number) {
+    if (results.length === 0) return
+    setCursor((i) => (Math.min(i, results.length - 1) + delta + results.length) % results.length)
+  }
+
+  function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    switch (event.key) {
+      case 'ArrowDown':
+        event.preventDefault() // else the caret jumps to the end of the input
+        move(1)
+        break
+      case 'ArrowUp':
+        event.preventDefault()
+        move(-1)
+        break
+      case 'Home':
+        event.preventDefault()
+        setCursor(0)
+        break
+      case 'End':
+        event.preventDefault()
+        setCursor(Math.max(0, results.length - 1))
+        break
+      case 'Enter':
+        event.preventDefault()
+        // No-op on an empty result set, rather than closing. Enter on "no matches"
+        // dismissing the palette reads as "it did something".
+        run(results[activeIndex])
+        break
+      case 'Escape':
+        // One stage, unlike the Combobox's two. There the query is the user's work
+        // and closing the list must not destroy it; here the whole surface goes
+        // away and the query goes with it either way.
+        event.preventDefault()
+        onClose()
+        break
+      case 'Tab':
+        // The trap, collapsed. The input is the only focusable node in this dialog,
+        // so "wrap at the edges" and "swallow Tab" are the same behaviour. Add a
+        // footer button and this has to become the real edge trap (§17 B).
+        event.preventDefault()
+        break
+      default:
+        break
+    }
+  }
+
+  const message =
+    results.length === 0
+      ? emptyMessage
+      : `${results.length} command${results.length === 1 ? '' : 's'}`
+
+  return (
+    <div
+      className="cp-backdrop"
+      onPointerDown={(event: PointerEvent<HTMLDivElement>) => {
+        pointerDownTarget.current = event.target
+      }}
+      onClick={(event: MouseEvent<HTMLDivElement>) => {
+        // Both halves of the gesture must land on the backdrop. Without the
+        // pointerdown half, selecting text in the input and releasing outside closes.
+        if (pointerDownTarget.current === event.currentTarget && event.target === event.currentTarget) {
+          onClose()
+        }
+      }}
+    >
+      <div role="dialog" aria-modal="true" aria-label="Command palette" className="cp-panel">
+        <input
+          ref={inputRef}
+          className="cp-input"
+          type="text"
+          role="combobox"
+          autoComplete="off"
+          // Always expanded: the list is part of the surface, not a popup on it.
+          aria-expanded
+          aria-controls={listboxId}
+          aria-autocomplete="list"
+          aria-activedescendant={activeIndex >= 0 ? optionId(activeIndex) : undefined}
+          aria-label="Search commands"
+          placeholder={placeholder}
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value)
+            setCursor(0) // a new filter invalidates the old position
+          }}
+          onKeyDown={handleKeyDown}
+        />
+
+        {/* Announced, not shown. The list appearing is visible; the count is not. */}
+        <div className="visually-hidden" role="status" aria-live="polite">
+          {message}
+        </div>
+
+        {/* Rendered even when empty, so aria-controls always resolves. A dangling
+            IDREF fails silently, which is exactly why it survives review. */}
+        <div id={listboxId} role="listbox" aria-label="Commands" className="cp-list">
+          {sections.map((section, i) => (
+            // listbox → group → option is the only legal nesting here; a bare
+            // heading element as a listbox child is not.
+            <div
+              key={section.label ?? `section-${i}`}
+              role="group"
+              aria-label={section.label ?? 'Other commands'}
+              className="cp-group"
+            >
+              {section.label && (
+                // aria-hidden because the group already carries this as its name;
+                // without it every option is announced with the heading prefixed.
+                <div className="cp-group-label" aria-hidden="true">
+                  {section.label}
+                </div>
+              )}
+              {section.rows.map(({ row, index }) => (
+                <div
+                  key={row.command.id}
+                  id={optionId(index)}
+                  role="option"
+                  // Marks the CURSOR, not a selection. Nothing stays selected after
+                  // this closes — that is what makes it a command widget.
+                  aria-selected={index === activeIndex}
+                  className="cp-option"
+                  // onMouseDown, not onClick: blur closes the palette before a
+                  // click would ever land on this element.
+                  onMouseDown={(e) => {
+                    e.preventDefault() // keep focus, and the caret, in the input
+                    run(row)
+                  }}
+                  onMouseEnter={() => setCursor(index)}
+                >
+                  {row.command.label}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+
+        {results.length === 0 && (
+          // Visual only — the live region above is what actually gets announced.
+          <p className="cp-empty" aria-hidden="true">
+            {emptyMessage}
+          </p>
+        )}
+      </div>
+    </div>
+  )
+}
+```
+
+</details>
+
+### F. TRAPS
+
+| Trap | Symptom |
+|---|---|
+| ⌘K listener inside the component | Nothing else can open it, and two on a page fight over the key |
+| Storing the filtered list in state | It disagrees with the query the moment `commands` changes |
+| Storing the cursor without clamping | `aria-activedescendant` names a removed id — silently |
+| Indexing options per group | Arrows skip or repeat a row at every group boundary |
+| `onClick` on options | Blur closes the palette first; the handler never fires |
+| Unmounting the listbox when empty | `aria-controls` dangles, and nothing reports it |
+| `run()` before `onClose()` | A command that opens another surface is closed by this one unmounting |
+| `recentIds = []` as a default parameter | New array identity every render; the memo never hits |
+| Recents left in the rest of the list | The same command renders twice |
+| `querySelector('#' + id)` from `useId` | React 18 emits `:r3:` — a colon is not a valid CSS identifier, so it throws |
+| `aria-live` on the option list | Every keystroke re-announces every row |
+| `onKeyDown` on the panel `<div>` | Dies the moment focus leaves the input — the panel can't hold focus, so `<body>` gets the keydown (§17 M) |
+| `type="search"` on the input | WebKit and Chromium add a mouse-only clear button and clear the field on Escape — UA behaviour you then have to suppress. `type="text"` has none of it |
+| Reset done by keying the component from the parent | Works, and pushes a bug the caller shouldn't know about onto every caller |
+
+### G. SPEC
+
+**Markup** — closed renders nothing · a labelled modal dialog · the input is the combobox, and
+`aria-controls` resolves to the listbox before anything is typed
+
+**Filtering** — an empty query lists everything · recents first, without duplicating them · the
+label matches case-insensitively · a keyword matches when the label does not
+
+**Cursor** — arrows move it and wrap at both ends · exactly one option is `aria-selected` · focus
+never leaves the input · typing returns the cursor to the top
+
+**Running** — Enter runs the cursor's command and closes · a click runs it despite blur · Escape
+closes and runs nothing · with no matches there is a message and Enter is a no-op
+
+**Lifecycle** — focus restores to the trigger on close · reopening starts from an empty query
+
+### H. INTERVIEW SCOPE
+
+**Reference: 201 lines of code — second only to the Combobox, and too big for a timed round.**
+The cut below is 132 and keeps everything that gets graded.
+
+Worth diffing against `cursor-06-command-palette/solution.jsx`, which solves the same prompt at 120
+lines and makes three different calls: one component with an `[open]` effect and an explicit reset
+rather than a split and a portal; Home/End kept; a group tag per row kept; no Tab trap. Neither is
+the right answer — the point of reading both is that a cut is a set of choices, not a fixed
+subset.
+
+Fifty minutes sounds generous for a palette, and it is not. The reference is three components'
+worth of contract, and there is a real risk of spending the hour on group headings and the backdrop
+while the cursor still doesn't wrap.
+
+**Core:**
+
+- The dialog: `role="dialog"`, `aria-modal="true"`, an accessible name
+- The combobox markup with `aria-activedescendant`, and focus that never leaves the input
+- The listbox rendered even when the result set is empty, so `aria-controls` resolves
+- Recents-when-empty and keyword matching — one expression each, and both are graded as product judgement
+- Arrows with wrapping, Enter runs and closes, Escape closes
+- `onMouseDown` not `onClick` on options
+- Focus in on mount, back out on unmount, with the `isConnected` check
+
+**Cut, and say so:**
+
+| Drop | Say |
+|---|---|
+| Group headings and `role="group"` | "The cursor already indexes the flat list, so grouping is a render-time regroup that doesn't touch the keyboard. It's the first thing I'd add back visually." |
+| `aria-live` result count | "Sighted users watch the list shrink; screen reader users need the count spoken. Four lines — the one I'd add back first." |
+| `scrollIntoView` on the cursor | "Needed the moment the list overflows." |
+| Home / End | "APG lists them; lowest value of the keys here." |
+| The pointerdown half of backdrop dismissal | "Right now a drag that starts inside and ends on the backdrop closes it and throws the query away." |
+| Fuzzy subsequence matching | "Substring over label plus keywords is the 80% case. Fuzzy is a scoring function, not a structural change." |
+| `placeholder` / `emptyMessage` props | "Hardcoded here; they'd be props in a library component." |
+
+Do **not** cut the mousedown ordering to save two characters, and do not cut focus restore. Those
+are the two the interviewer will test by hand.
+
+<details>
+<summary>The interview cut — Command palette</summary>
+
+```tsx
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import type { KeyboardEvent } from 'react'
+
+/**
+ * THE INTERVIEW CUT: 201 lines of code down to 132.
+ *
+ * Everything load-bearing is still here — the dialog, the combobox markup with a
+ * virtual cursor, recents-when-empty, keyword matching, arrows/Enter/Escape,
+ * mousedown-not-click, and focus in and back out. What went is listed at the
+ * bottom, with the sentence to say for each.
+ */
+
+export interface Command {
+  id: string
+  label: string
+  keywords?: string[]
+  run: () => void
+}
+
+interface CommandPaletteProps {
+  open: boolean
+  onClose: () => void
+  commands: Command[]
+  recentIds?: string[]
+}
+
+const NO_RECENTS: string[] = []
+
+export function CommandPalette({ open, ...rest }: CommandPaletteProps) {
+  // Mounting is the state machine: a fresh mount per opening is what makes the
+  // query start empty without a reset effect anywhere.
+  if (!open) return null
+  return createPortal(<Palette {...rest} />, document.body)
+}
+
+function Palette({
+  onClose,
+  commands,
+  recentIds = NO_RECENTS,
+}: Omit<CommandPaletteProps, 'open'>) {
+  const [query, setQuery] = useState('')
+  const [cursor, setCursor] = useState(0)
+
+  const baseId = useId()
+  const listboxId = `${baseId}-listbox`
+  const optionId = (i: number) => `${baseId}-option-${i}`
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // An empty query is the recents view, not "no filter". Two orderings of one
+  // derived list; nothing stored.
+  const results = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) {
+      const recents = recentIds
+        .map((id) => commands.find((c) => c.id === id))
+        .filter((c): c is Command => c !== undefined)
+      const promoted = new Set(recents.map((c) => c.id))
+      return [...recents, ...commands.filter((c) => !promoted.has(c.id))]
+    }
+    return commands.filter(
+      (c) =>
+        c.label.toLowerCase().includes(q) ||
+        (c.keywords ?? []).some((k) => k.toLowerCase().includes(q)),
+    )
+  }, [commands, query, recentIds])
+
+  // Derived: `commands` can shrink under a parked cursor, and then
+  // aria-activedescendant names an id that is no longer in the DOM.
+  const activeIndex = results.length === 0 ? -1 : Math.min(cursor, results.length - 1)
+
+  // Focus in on mount, back out on unmount. `.focus()` on a detached node fails
+  // silently, so isConnected is the only way to know restore did not happen.
+  useEffect(() => {
+    const previouslyFocused = document.activeElement as HTMLElement | null
+    inputRef.current?.focus()
+    return () => {
+      if (previouslyFocused?.isConnected) previouslyFocused.focus()
+    }
+  }, [])
+
+  function run(command?: Command) {
+    if (!command) return
+    onClose() // close first: a command that opens another surface must survive this
+    command.run()
+  }
+
+  function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    const move = (delta: number) =>
+      setCursor((i) => (Math.min(i, results.length - 1) + delta + results.length) % results.length)
+
+    switch (event.key) {
+      case 'ArrowDown':
+        event.preventDefault() // else the caret jumps to the end of the input
+        if (results.length > 0) move(1)
+        break
+      case 'ArrowUp':
+        event.preventDefault()
+        if (results.length > 0) move(-1)
+        break
+      case 'Enter':
+        event.preventDefault()
+        run(results[activeIndex]) // undefined on an empty list, so this is a no-op
+        break
+      case 'Escape':
+        event.preventDefault()
+        onClose()
+        break
+      case 'Tab':
+        // The input is the only focusable node in here, so the trap collapses to
+        // swallowing Tab. A footer button would need the real edge trap.
+        event.preventDefault()
+        break
+      default:
+        break
+    }
+  }
+
+  return (
+    <div className="cp-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div role="dialog" aria-modal="true" aria-label="Command palette" className="cp-panel">
+        <input
+          ref={inputRef}
+          className="cp-input"
+          type="text"
+          role="combobox"
+          autoComplete="off"
+          aria-expanded
+          aria-controls={listboxId}
+          aria-autocomplete="list"
+          // The virtual cursor: real focus never leaves the input.
+          aria-activedescendant={activeIndex >= 0 ? optionId(activeIndex) : undefined}
+          aria-label="Search commands"
+          placeholder="Type a command…"
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value)
+            setCursor(0) // a new filter invalidates the old position
+          }}
+          onKeyDown={handleKeyDown}
+        />
+
+        {/* Rendered even when empty so aria-controls always resolves. */}
+        <ul id={listboxId} role="listbox" aria-label="Commands" className="cp-list">
+          {results.map((command, index) => (
+            <li
+              key={command.id}
+              id={optionId(index)}
+              role="option"
+              // Marks the cursor, not a selection — nothing stays selected.
+              aria-selected={index === activeIndex}
+              className="cp-option"
+              // mousedown, not click: blur closes the palette first.
+              onMouseDown={(e) => {
+                e.preventDefault()
+                run(command)
+              }}
+              onMouseEnter={() => setCursor(index)}
+            >
+              {command.label}
+            </li>
+          ))}
+        </ul>
+
+        {results.length === 0 && (
+          <p role="status" className="cp-empty">
+            No matching commands
+          </p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ cut ----
+ * Dropped from the reference, and what to say if asked:
+ *
+ * - Group headings / role="group"    "The cursor indexes the flat list already,
+ *                                     so grouping is a render-time regroup that
+ *                                     doesn't touch the keyboard."
+ * - aria-live result count           "Sighted users watch the list shrink; screen
+ *                                     reader users need the count spoken. Four
+ *                                     lines, and the first thing I'd add back."
+ * - scrollIntoView on the cursor     "Needed the moment the list overflows."
+ * - Home / End                       "APG lists them; lowest value of the keys."
+ * - The pointerdown half of backdrop "A drag that starts inside and ends on the
+ *   dismissal                         backdrop currently closes it."
+ * - Fuzzy subsequence matching       "Substring over label plus keywords is the
+ *                                     80% case; fuzzy is a scoring function, not
+ *                                     a structural change."
+ * - placeholder / emptyMessage props "Hardcoded; they'd be props in a library."
+ *
+ * Of those, the live region is the one I'd actually spend time on if the
+ * interviewer signals accessibility matters.
+ * -------------------------------------------------------------------------- */
+```
+
+</details>
+
+### I. THE NATIVE `<dialog>` VARIANT
+
+> Runnable: `uie-practice/src/exercises/command-palette-dialog/` · Spec: 15 tests
+
+Everything above builds the dialog by hand, because that is what the round is testing. This is the
+same component on `showModal()`, so you can diff them — and so the sentence *"in production I'd use
+native `<dialog>`"* is backed by something you've actually written.
+
+**What they share:** the role. `<dialog>` has an implicit `role="dialog"`, so to assistive tech the
+two are identical. That is the *only* thing `role="dialog"` was buying. Everything below comes from
+the `showModal()` call, not from the element.
+
+| | `<div role="dialog">` | `<dialog>` + `showModal()` |
+|---|---|---|
+| Top layer | No — portal to `<body>` to escape ancestor `transform` / `overflow` / `z-index` | **Yes.** Renders above the document from wherever it sits |
+| Backdrop | An element you render | `::backdrop`, also in the top layer |
+| Outside content inert | **No.** `aria-modal="true"` is a declaration to AT; pointer and Tab ignore it | **Yes, enforced.** Unclickable, unfocusable, out of the a11y tree |
+| Focus trap | Yours to write (§17 B) | Free — a consequence of the inertness |
+| Focus in / restore | Your effect, plus the `isConnected` check | `showModal()` in, `close()` back |
+| Escape | Your keydown case | Fires `cancel`, then closes |
+
+Note the third row especially. §05 C says `aria-modal` is a declaration rather than enforcement,
+and this is the row where that stops being a footnote: a hand-rolled modal leaks to mouse users
+and to Tab unless you also put `inert` on every sibling yourself. `showModal()` is the only way to
+get real inertness without doing that.
+
+**But the API is imperative, and three things follow.** They are the whole substance of the diff:
+
+**1 — `<dialog open>` is not a modal.** The attribute gives you a *non-modal* dialog: no top layer,
+no inertness, no backdrop, no Escape. Same trap with `.show()` versus `.showModal()`. So the
+element renders closed and gets opened from an effect:
+
+```tsx
+useEffect(() => {
+  const el = dialogRef.current
+  el?.showModal()
+  return () => el?.close()
+}, [])
+```
+
+The cleanup is not tidiness. **`close()` is what restores focus**, and React runs effect cleanups
+before removing the host node — so that one line is the difference between focus returning to the
+trigger and falling to `<body>`. Note also what survived: mount/unmount is still the state machine,
+so the query reset is still free, and there is still no reset effect.
+
+**2 — Escape closes the DOM node behind React's back.** The browser fires `cancel` and then closes,
+which leaves your state saying open while the page shows nothing — and a second Escape does
+nothing at all, because the node is already closed. The fix is to refuse the browser's close and
+let React drive it:
+
+```tsx
+onCancel={(event) => {
+  event.preventDefault()
+  onClose()
+}}
+```
+
+One source of truth, and the unmount cleanup above does the actual closing.
+
+**3 — There is no backdrop element to put a handler on.** `::backdrop` is a pseudo-element. A click
+that lands on it is reported with *the dialog itself* as the target, so:
+
+```tsx
+onClick={(event) => {
+  if (event.target === dialogRef.current) onClose()
+}}
+```
+
+This is only reliable if the dialog has no padding or border of its own and the panel is a real
+child covering it — otherwise a click on the dialog's own padding reads as a backdrop click. The
+stylesheet does that work, which is a rare case of CSS being load-bearing for behaviour.
+
+**What you also drop:** `role="dialog"` and `aria-modal` are both redundant on a modal `<dialog>`
+and should not be re-added. You still supply `aria-label` yourself. And `onMouseDown` instead of
+`onClick` on the options stays exactly as it was — blur still fires before click, and none of the
+browser's focus handling touches that.
+
+**The cost, and it is a real one: `<dialog>` is not testable in jsdom.** jsdom 30 ships
+`HTMLDialogElement` with exactly one member on it — `open`. No `showModal`, no `close`, no `cancel`
+event, no top layer. The runnable spec for this variant carries a ~25-line shim, and the shim can
+only fake the bookkeeping:
+
+> **Everything `<dialog>` gave you for free is the part you cannot assert on.** Inertness, the
+> focus trap and the top layer are browser behaviours. They do not exist in jsdom, and no shim
+> invents them.
+
+So in a round where **test quality is a graded axis** — which is exactly the Cursor round — the
+hand-rolled version has an argument the native one doesn't: you can test the focus management,
+because you wrote it. That tension is worth saying out loud; it lands better than advocating for
+either one.
+
+**Which to reach for.**
+
+| | |
+|---|---|
+| **Hand-rolled** | The interview, when focus management is the thing being examined. Anywhere the behaviour must be assertable in jsdom. |
+| **`<dialog>`** | Production. Anywhere real inertness matters, which is every modal that isn't a toy. |
+
+And note the line counts: 155 for the native variant against 201 for the reference, with the native
+one also carrying Home/End and the live region. **The win is not brevity — it's correctness.** You
+delete the portal, the focus effect, the Tab trap and the Escape case, and you get inertness that
+the hand-rolled version cannot have at all. Say that rather than "it's shorter", which is the
+version that doesn't survive a follow-up.
+
+<details>
+<summary>Complete implementation — Command palette on `<dialog>`</summary>
+
+```tsx
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import type { KeyboardEvent, MouseEvent } from 'react'
+
+/**
+ * THE NATIVE VARIANT of the command palette. Same API, same behaviour, same
+ * markup below the dialog — and four whole concerns deleted, because the
+ * browser owns them once you call showModal():
+ *
+ *   TOP LAYER      No portal. The dialog renders above the document regardless
+ *                  of any ancestor's transform, overflow, or z-index.
+ *   INERTNESS      Everything outside is genuinely unreachable — by pointer, by
+ *                  Tab, and to assistive tech. `aria-modal` only *claimed* that.
+ *   FOCUS TRAP     Free, as a consequence of inertness. No focusable-node
+ *                  selector, no edge-wrapping Tab handler.
+ *   FOCUS RESTORE  close() puts focus back where it was.
+ *
+ * What you pay for it is that the API is imperative, and three things follow
+ * from that. They are marked (1) (2) (3) below, and they are the whole reason
+ * this file is worth reading next to the hand-rolled one.
+ */
+
+export interface Command {
+  id: string
+  label: string
+  group?: string
+  keywords?: string[]
+  run: () => void
+}
+
+export interface CommandPaletteProps {
+  open: boolean
+  onClose: () => void
+  commands: Command[]
+  recentIds?: string[]
+  placeholder?: string
+  emptyMessage?: string
+}
+
+const NO_RECENTS: string[] = []
+
+export function CommandPalette({ open, ...rest }: CommandPaletteProps) {
+  // Still mount/unmount as the state machine, exactly like the hand-rolled
+  // version — the query reset stays free. Note what ISN'T here: createPortal.
+  // showModal() promotes the element into the top layer from wherever it sits,
+  // so there is nothing left for a portal to solve.
+  if (!open) return null
+  return <Palette {...rest} />
+}
+
+function Palette({
+  onClose,
+  commands,
+  recentIds = NO_RECENTS,
+  placeholder = 'Type a command…',
+  emptyMessage = 'No matching commands',
+}: Omit<CommandPaletteProps, 'open'>) {
+  const [query, setQuery] = useState('')
+  const [cursor, setCursor] = useState(0)
+
+  const dialogRef = useRef<HTMLDialogElement>(null)
+  const baseId = useId()
+  const listboxId = `${baseId}-listbox`
+  const optionId = (index: number) => `${baseId}-option-${index}`
+
+  // (1) The declarative-to-imperative bridge. A <dialog> rendered with the
+  // `open` attribute is a NON-MODAL dialog: no top layer, no inertness, no
+  // backdrop, no Escape. Only the showModal() call gets you any of it, so the
+  // element is rendered closed and opened from an effect.
+  //
+  // The cleanup is not tidiness. close() is what restores focus, and React runs
+  // effect cleanups before it removes the host node — so calling it here is the
+  // difference between focus going back to the trigger and falling to <body>.
+  useEffect(() => {
+    const el = dialogRef.current
+    el?.showModal()
+    return () => el?.close()
+  }, [])
+
+  const results = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) {
+      const recents = recentIds
+        .map((id) => commands.find((c) => c.id === id))
+        .filter((c): c is Command => c !== undefined)
+      const promoted = new Set(recents.map((c) => c.id))
+      return [...recents, ...commands.filter((c) => !promoted.has(c.id))]
+    }
+    return commands.filter(
+      (c) =>
+        c.label.toLowerCase().includes(q) ||
+        (c.keywords ?? []).some((k) => k.toLowerCase().includes(q)),
+    )
+  }, [commands, query, recentIds])
+
+  const activeIndex = results.length === 0 ? -1 : Math.min(cursor, results.length - 1)
+
+  const run = useCallback(
+    (command?: Command) => {
+      if (!command) return
+      onClose()
+      command.run()
+    },
+    [onClose],
+  )
+
+  function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    const move = (delta: number) =>
+      setCursor((i) => (Math.min(i, results.length - 1) + delta + results.length) % results.length)
+
+    switch (event.key) {
+      case 'ArrowDown':
+        event.preventDefault()
+        if (results.length > 0) move(1)
+        break
+      case 'ArrowUp':
+        event.preventDefault()
+        if (results.length > 0) move(-1)
+        break
+      case 'Home':
+        event.preventDefault()
+        setCursor(0)
+        break
+      case 'End':
+        event.preventDefault()
+        setCursor(Math.max(0, results.length - 1))
+        break
+      case 'Enter':
+        event.preventDefault()
+        run(results[activeIndex])
+        break
+      // No Escape case, and no Tab case. The browser fires `cancel` for the
+      // first and traps the second. See (2).
+      default:
+        break
+    }
+  }
+
+  return (
+    <dialog
+      ref={dialogRef}
+      className="cpd-dialog"
+      aria-label="Command palette"
+      // (2) Escape is the browser's, so it closes the DOM node without telling
+      // React — and then state says open while the page shows nothing.
+      // preventDefault stops that close and lets React drive it instead, which
+      // keeps one source of truth. Drop this line and the palette "sticks" after
+      // the first Escape.
+      onCancel={(event) => {
+        event.preventDefault()
+        onClose()
+      }}
+      // (3) There is no backdrop element to hang a handler on — ::backdrop is a
+      // pseudo-element. A click that lands on the backdrop is reported with the
+      // dialog itself as the target, which only works because the dialog has no
+      // padding of its own and the panel below is a real child.
+      onClick={(event: MouseEvent<HTMLDialogElement>) => {
+        if (event.target === dialogRef.current) onClose()
+      }}
+    >
+      <div className="cpd-panel">
+        <input
+          className="cpd-input"
+          type="text"
+          role="combobox"
+          autoComplete="off"
+          aria-expanded
+          aria-controls={listboxId}
+          aria-autocomplete="list"
+          aria-activedescendant={activeIndex >= 0 ? optionId(activeIndex) : undefined}
+          aria-label="Search commands"
+          placeholder={placeholder}
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value)
+            setCursor(0)
+          }}
+          onKeyDown={handleKeyDown}
+        />
+
+        <div className="visually-hidden" role="status" aria-live="polite">
+          {results.length === 0
+            ? emptyMessage
+            : `${results.length} command${results.length === 1 ? '' : 's'}`}
+        </div>
+
+        <ul id={listboxId} role="listbox" aria-label="Commands" className="cpd-list">
+          {results.map((command, index) => (
+            <li
+              key={command.id}
+              id={optionId(index)}
+              role="option"
+              aria-selected={index === activeIndex}
+              className="cpd-option"
+              // Unchanged from the hand-rolled version: blur still fires before
+              // click, and the browser's focus handling does nothing about that.
+              onMouseDown={(e) => {
+                e.preventDefault()
+                run(command)
+              }}
+              onMouseEnter={() => setCursor(index)}
+            >
+              <span>{command.label}</span>
+              {command.group && <span className="cpd-group">{command.group}</span>}
+            </li>
+          ))}
+        </ul>
+
+        {results.length === 0 && (
+          <p className="cpd-empty" aria-hidden="true">
+            {emptyMessage}
+          </p>
+        )}
+      </div>
+    </dialog>
+  )
+}
+```
+
+</details>
+
+## 13 — Virtualized list
+
+> Runnable: none yet — the only section without an exercise on disk. The §E implementation is
+> self-contained and typechecked; build against §G and point your own spec at it.
+
+### A. ASKED AS
+
+- "How would you render a hundred thousand rows?"
+- "This list janks at five thousand items — fix it"
+- "Build a log viewer" / "a message list that scrolls back a million lines"
+- As the scale follow-up to §11 Data table, far more often than as its own prompt
+
+**Read that list again: three of the four are questions, not builds.** This is the component you
+are most likely to be asked to *describe* and least likely to be asked to write. §17 H gives the
+sentence; this section is so that the sentence is backed by something.
+
+### B. API
+
+```tsx
+export interface VirtualListProps<T> {
+  items: T[]
+  rowHeight: number
+  height: number
+  label: string
+  renderRow: (item: T, index: number) => ReactNode
+  getRowKey: (item: T, index: number) => string
+  overscan?: number
+  onVisibleRangeChange?: (start: number, end: number) => void
+}
+```
+
+**Four calls worth stating out loud:**
+
+- **`rowHeight` is required, fixed, and the whole component rests on it.** Every number here is
+  `index × rowHeight`. Say the constraint when you write the prop rather than when you're caught:
+  *"this assumes a fixed row height; variable heights need measured offsets and a prefix-sum
+  index, which is where I'd reach for a library."*
+- **`height` is a number, not "fill the parent".** The math needs the viewport height during
+  render, and getting it from the DOM means a layout read plus a `ResizeObserver` plus a first
+  paint with nothing in it. Taking it as a prop is the honest version; name the ResizeObserver as
+  what you'd add for a responsive container.
+- **`getRowKey`, not the array index.** This is not the usual React-key advice — see §F. In a
+  windowed list an index key is actively wrong, because rows are recycled.
+- **`onVisibleRangeChange` is the prefetch hook**, and it is the only thing separating this from a
+  toy. It's what a real list uses to fetch the pages it's about to scroll into. Like `fetchOptions`
+  in §06 it must be referentially stable — it's an effect dependency.
+
+Deliberately absent: a `scrollToIndex` imperative handle. It's the first thing a production list
+adds, it needs `useImperativeHandle` plus a ref to the viewport, and naming it is cheaper than
+building it.
+
+### C. SEMANTICS
+
+Windowing is the one technique in this guide that **removes information from the page**, so its
+accessibility story is not a wiring checklist — it's a set of things that genuinely stop working,
+and the grade is in whether you say so.
+
+| Element | Required |
+|---|---|
+| Viewport | `role="list"`, accessible name, **`tabIndex={0}`** |
+| Spacer and window wrappers | `role="presentation"` |
+| Row | `role="listitem"`, `aria-setsize` = the **real** count, `aria-posinset` = the **absolute** index |
+
+**`aria-setsize` / `aria-posinset` is the whole point.** Assistive tech counts what is in the DOM,
+so it will announce "row 3 of 20" about a hundred thousand rows — confidently, and wrongly. These
+two attributes are ARIA's mechanism for exactly this: *the DOM holds a window onto a larger set.*
+
+§17 H names the grid form of the same idea — `aria-rowcount` on the container and `aria-rowindex`
+per row. Both are correct; pick by what the thing is. A flat list gets set-size and position-in-set;
+a windowed **table** (§11 at scale) gets row-count and row-index.
+
+**`tabIndex={0}` on the viewport is not optional.** Firefox makes scrollable containers focusable
+on its own; Chrome does not. Without it there is no way for a keyboard user to scroll the list at
+all — and it's a scroll container, so once it can take focus the browser gives you Arrow keys,
+PageUp/PageDown, Home and End for free. That is the entire keyboard contract, which is why there
+is no key table in this section.
+
+**`role="presentation"` on the two wrappers.** `role="list"` requires its `listitem`s to be owned
+by it, and an intervening element with an implicit generic role breaks that ownership. The spacer
+and the translated window are pure geometry, so say so.
+
+**What windowing costs, in the order an interviewer cares:** Ctrl+F finds nothing outside the
+window; screen-reader browse mode can only walk what's rendered; the browser's scroll anchoring
+and `:target` navigation stop working; and printing produces one screen of rows. None of these
+have fixes — they are the price. Naming them is what separates *"I'd virtualize"* from *"I'd
+virtualize, and here's what it costs."*
+
+### D. DECISIONS THAT MATTER
+
+1. **The first decision is not to.** DOM nodes get expensive in the low thousands; below that,
+   windowing takes away find-in-page and buys nothing. And before reaching for it, `content-visibility:
+   auto` with `contain-intrinsic-size` skips rendering off-screen subtrees with no JavaScript at
+   all — and unlike windowing, the nodes are still there, so Ctrl+F still works. → *"First I'd check
+   whether it's the node count or a re-render problem, then try `content-visibility`, and only
+   window if the node count is genuinely the bottleneck."*
+2. **The scroll position is not state; the first visible index is.** Storing `scrollTop` re-renders
+   at scroll frequency to produce identical output — it reintroduces the exact cost windowing was
+   meant to remove. Store the row index, and only write it when it changes. That one `if` is the
+   optimization.
+3. **Spacer plus transform, not layout.** A full-height spacer makes the scrollbar honest; an
+   absolutely-positioned, translated window puts the rows in place without touching layout. A
+   `margin-top` or a `top` value would reflow on every row boundary.
+4. **Focus dies when a row scrolls out, and this component does not fix it.** Window a list of
+   buttons, Tab into row 4, scroll — the focused node unmounts, focus falls to `<body>`, and the
+   keyboard user is back at the top of the page. Real fixes are keeping the focused row rendered
+   outside the window, or restoring focus by key on the way back. → *"Interactive rows plus
+   windowing is a focus problem, not a rendering one. I'd pin the focused row into the render
+   window."* Saying this unprompted is the single strongest thing available in this section.
+5. **Keys come from the data.** Covered in §F because it's a trap, but it is decided here.
+
+### E. IMPLEMENTATION
+
+**1 — The window is four lines of arithmetic, and none of it is stored.**
+
+```tsx
+const visibleCount = Math.ceil(height / rowHeight) + 1
+const maxStart = Math.max(0, items.length - visibleCount)
+const start = Math.min(firstVisible, maxStart)
+const from = Math.max(0, start - overscan)
+const to = Math.min(items.length, start + visibleCount + overscan)
+```
+
+The `+ 1` is for the row the viewport is showing half of; without it, `overscan={0}` leaves a blank
+strip at the bottom edge. The `maxStart` clamp is there because `items` is a prop and can shrink
+under a scroll position already past the new end — the browser clamps `scrollTop` itself and fires
+a scroll event, but the render in between would slice past the array. Same instinct as the cursor
+clamp in §12 E: if it can be computed, compute it.
+
+**2 — The guard is the optimization.**
+
+```tsx
+function handleScroll(event: UIEvent<HTMLDivElement>) {
+  const next = Math.floor(event.currentTarget.scrollTop / rowHeight)
+  if (next !== firstVisible) setFirstVisible(next)
+}
+```
+
+Scroll fires at frame rate. The rendered window only changes when you cross a row boundary, so
+that's the only time to write state. Drop the `if` and you re-render sixty times a second to
+produce byte-identical output — and you will have written a virtualized list that is slower than
+the naive one it replaced.
+
+Note also what's *not* here: no `scrollHeight` or `getBoundingClientRect` read. Both force layout,
+and a forced layout inside a scroll handler is the classic way to make scrolling jank.
+
+**3 — Spacer, then a translated window.**
+
+```tsx
+<div role="presentation" style={{ position: 'relative', height: items.length * rowHeight }}>
+  <div
+    role="presentation"
+    style={{ position: 'absolute', top: 0, left: 0, right: 0,
+             transform: `translateY(${from * rowHeight}px)` }}
+  >
+    {/* rows */}
+  </div>
+</div>
+```
+
+The spacer's height is the *whole* list, which is what makes the scrollbar the right size and the
+scroll distance real. The window is out of flow and translated into place, so moving it composites
+instead of reflowing.
+
+One thing worth checking rather than assuming: a transform can extend an element's scrollable
+overflow area. It doesn't here, because the translated block's bottom edge is `to * rowHeight`, and
+`to` is clamped to `items.length` — so it is never below the spacer's own bottom.
+
+**4 — THE WHOLE THING.**
+
+<details>
+<summary>Complete implementation — Virtualized list</summary>
+
+```tsx
+import { useEffect, useState } from 'react'
+import type { ReactNode, UIEvent } from 'react'
+
+/**
+ * Three things carry this component, and the first is the one that gets graded:
+ *
+ * 1. KNOW WHEN NOT TO REACH FOR IT. Windowing costs find-in-page, Ctrl+F,
+ *    scroll anchoring, and screen-reader browse mode. Below a few thousand rows
+ *    it buys nothing and takes all of that away.
+ *
+ * 2. THE WINDOW IS DERIVED, THE SCROLL POSITION IS NOT STATE. What lives in
+ *    state is one integer — the first visible index — and it is only written
+ *    when it actually changes. Storing scrollTop re-renders at scroll frequency,
+ *    which is the exact cost windowing was supposed to remove.
+ *
+ * 3. THE DOM NO LONGER HOLDS THE LIST. Assistive tech is counting what it can
+ *    see, so it will say "3 of 12" about a hundred thousand rows unless you tell
+ *    it otherwise. That is what aria-setsize and aria-posinset are for.
+ */
+
+export interface VirtualListProps<T> {
+  items: T[]
+  /** Fixed, and required. Variable heights need measurement — see the note in §D. */
+  rowHeight: number
+  /** Viewport height. A number, not "fill the parent" — see §B. */
+  height: number
+  /** Accessible name for the list. */
+  label: string
+  renderRow: (item: T, index: number) => ReactNode
+  /** Never the array index — see §F. */
+  getRowKey: (item: T, index: number) => string
+  /** Rows rendered beyond each edge, so a fast scroll doesn't show blank. */
+  overscan?: number
+  /** Fires when the window moves. The hook a real list prefetches from. */
+  onVisibleRangeChange?: (start: number, end: number) => void
+}
+
+export function VirtualList<T>({
+  items,
+  rowHeight,
+  height,
+  label,
+  renderRow,
+  getRowKey,
+  overscan = 3,
+  onVisibleRangeChange,
+}: VirtualListProps<T>) {
+  // The only state in the component: the first visible row's index. Not scrollTop —
+  // that would re-render on every scroll event rather than every row boundary.
+  const [firstVisible, setFirstVisible] = useState(0)
+
+  // +1 because a viewport scrolled to a fraction of a row shows part of one more.
+  // Without it, overscan={0} leaves a blank strip at the bottom edge.
+  const visibleCount = Math.ceil(height / rowHeight) + 1
+
+  // Derived, not corrected in an effect. `items` is a prop and can shrink under a
+  // scroll position that is already past the new end — the browser clamps scrollTop
+  // itself and fires a scroll event, but the render in between would slice past the
+  // array and render nothing. Same instinct as the cursor clamp in §12 E.
+  const maxStart = Math.max(0, items.length - visibleCount)
+  const start = Math.min(firstVisible, maxStart)
+
+  const from = Math.max(0, start - overscan)
+  const to = Math.min(items.length, start + visibleCount + overscan)
+
+  function handleScroll(event: UIEvent<HTMLDivElement>) {
+    const next = Math.floor(event.currentTarget.scrollTop / rowHeight)
+    // The guard IS the optimization. Scroll fires at frame rate; the rendered window
+    // only changes when you cross a row boundary, so that is the only time to write
+    // state. Drop this line and you re-render 60 times a second to produce identical
+    // output.
+    if (next !== firstVisible) setFirstVisible(next)
+  }
+
+  useEffect(() => {
+    onVisibleRangeChange?.(from, to)
+  }, [from, to, onVisibleRangeChange])
+
+  return (
+    <div
+      className="vlist-viewport"
+      style={{ height, overflowY: 'auto' }}
+      onScroll={handleScroll}
+      // A scrollable div is NOT keyboard-scrollable in Chrome unless it can take
+      // focus. Firefox does it for you; Chrome does not, and the result is a list
+      // a keyboard user cannot move at all. One attribute, and it is a real bug.
+      tabIndex={0}
+      role="list"
+      aria-label={label}
+    >
+      {/* The spacer. Its height is the WHOLE list, which is what makes the scrollbar
+          the right size and the scroll distance real. */}
+      <div
+        role="presentation"
+        className="vlist-spacer"
+        style={{ position: 'relative', height: items.length * rowHeight }}
+      >
+        {/* Out of flow and translated into place. Absolute + transform rather than a
+            margin or a `top` value: both of those are layout, and this runs on every
+            row boundary. The translated block's bottom edge is `to * rowHeight`,
+            which is <= the spacer height by construction, so it never extends the
+            scrollable area.
+
+            role="presentation" on both wrappers is not decoration. role="list"
+            requires its listitems to be owned by it, and an intervening element with
+            an implicit generic role breaks that ownership. */}
+        <div
+          role="presentation"
+          className="vlist-window"
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            transform: `translateY(${from * rowHeight}px)`,
+          }}
+        >
+          {items.slice(from, to).map((item, i) => {
+            const index = from + i
+            return (
+              <div
+                // Never the array index. Rows are recycled as you scroll, so an index
+                // key makes React reuse row 0's DOM node for whatever is now at the
+                // top — carrying its focus, its scroll position, and any uncontrolled
+                // input state to a different item.
+                key={getRowKey(item, index)}
+                role="listitem"
+                className="vlist-row"
+                // The DOM holds a window; these two say how big the real set is and
+                // where this row sits in it. Without them AT announces "1 of 20" for
+                // a hundred thousand rows, which is worse than saying nothing.
+                aria-setsize={items.length}
+                aria-posinset={index + 1}
+                style={{ height: rowHeight }}
+              >
+                {renderRow(item, index)}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+```
+
+</details>
+
+### F. TRAPS
+
+| Trap | Symptom |
+|---|---|
+| `key={index}` | Rows are recycled, so row 0's DOM node is reused for a different item — its focus, its caret, and any uncontrolled input state go with it |
+| `scrollTop` in state | A re-render per scroll event; slower than the unvirtualized list |
+| No spacer | The scrollbar reflects one screen; you can't scroll to the end |
+| Offsetting with `margin-top` or `top` | Reflow on every row boundary instead of a composited transform |
+| Reading `scrollHeight` in the scroll handler | Forced layout per event — the jank you were removing |
+| Viewport without `tabIndex={0}` | Chrome gives keyboard users no way to scroll it |
+| Generic `div`s between list and listitems | The list/listitem ownership breaks; AT stops reporting it as a list |
+| `aria-setsize` from the rendered slice | "Row 3 of 20" for a hundred thousand rows — confident and wrong |
+| `overscan={0}` | A blank strip at the leading edge on fast scroll |
+| Fixed `rowHeight` against variable content | Rows overlap or leave gaps, and the gaps grow with scroll distance |
+| Interactive rows | Focus falls to `<body>` the moment the focused row scrolls out (§D 4) |
+| Windowing a list of 300 rows | You paid the whole accessibility cost for nothing measurable |
+
+### G. SPEC
+
+**Windowing** — renders the window plus overscan, never all of `items` · scrolling swaps which
+items are rendered · the spacer's height is `items.length × rowHeight` · the rendered block's
+offset matches the first rendered index · `overscan` renders beyond both edges
+
+**Edges** — an empty list renders nothing and does not throw · a list shorter than the viewport
+renders every row · shrinking `items` under a scrolled window clamps instead of rendering blank ·
+scrolling to the very end shows the last row flush with the bottom
+
+**Semantics** — `aria-setsize` is the full count, not the rendered count · `aria-posinset` is the
+absolute index · the viewport is focusable · rows keep their identity across a scroll (assert on a
+row's DOM node, not its text)
+
+**Cheap and worth writing:** render 10,000 items and assert the DOM node count is under 50. That
+single test is the whole component's reason to exist, and it reads as someone who tests outcomes
+rather than internals.
+
+### H. INTERVIEW SCOPE
+
+**Reference: 78 lines of code — second only to the Tooltip's 62, and comfortably a round's worth
+of typing.** There is no separate cut, and that is not because it's easy.
+
+This section's §H is different from every other one, because the highest-scoring answer here is
+usually not to build it at all:
+
+> *"Past a few thousand rows I'd virtualize — render only the visible window plus a small overscan,
+> with a spacer preserving the scroll height. It costs find-in-page and screen-reader browse mode,
+> so I'd check first whether the bottleneck is really the node count. In production I'd use
+> TanStack Virtual rather than hand-rolling it."*
+
+That is thirty seconds, it demonstrates everything §D 1 is about, and it is very often the whole
+expected answer. Reaching for the keyboard when that sentence was what was wanted is a way to lose
+ten minutes and look like you can't judge scope.
+
+**Build it when:** you're asked to explicitly, the prompt *is* the log viewer, or you've named the
+sentence above and the interviewer says "go on".
+
+**Then the core is:**
+
+- The five lines of arithmetic, including the clamp
+- The `if (next !== firstVisible)` guard — mention that this is the optimization
+- Spacer at full height, window absolutely positioned and translated
+- `getRowKey` from the data
+- `aria-setsize` / `aria-posinset`, and `tabIndex={0}` on the viewport
+
+**Cut, and say so:**
+
+| Drop | Say |
+|---|---|
+| `overscan` | "Render one extra row past each edge, or you get a blank strip on a fast scroll. One line, and I'd hardcode it to 3." |
+| `onVisibleRangeChange` | "This is where a real list hangs prefetching for the pages it's about to reach." |
+| `role="presentation"` on the wrappers | "Needed, or the list/listitem ownership breaks. Two attributes." |
+| Generic `<T>` | "Concrete row type here; I'd make it generic in a library." |
+| A `scrollToIndex` handle | "useImperativeHandle plus a viewport ref — first thing a production list adds." |
+
+**Do not cut** the clamp or the scroll guard. Without the guard the component is slower than doing
+nothing, which is the one outcome worse than not attempting it.
+
 ## 14 — Streaming message
 
 > Runnable: `uie-practice/src/exercises/streaming-message-reference/` · Spec: 12 tests
@@ -5776,6 +7295,12 @@ reads the finished answer at their own pace.
    network died". Same rejected promise, completely different UI.
 4. **Retry re-sends the stored prompt.** Keep the sent value separately from the input, or retry
    sends whatever the user has since typed.
+5. **Key the Stop/Send swap.** Both branches render a `<button>` in the same slot, so React reuses
+   the DOM node and rewrites `type="button"` into `type="submit"` in place. Click is a discrete
+   event, so that re-render flushes *during* the click, and activation behavior — evaluated after
+   dispatch — reads the new type and submits the form. Stop aborts and instantly re-sends.
+   Distinct `key`s force a fresh node. `type="button"` alone does not save you, and jsdom does not
+   reproduce it, so the test suite stays green while the page is broken.
 
 ### E. IMPLEMENTATION
 
@@ -5946,12 +7471,17 @@ export function StreamingMessage({ stream, placeholder }: StreamingMessageProps)
           placeholder={placeholder}
           onChange={(e) => setPrompt(e.target.value)}
         />
+        {/* The keys are load-bearing. Without them React sees <button> in the same
+            slot both times and REUSES the DOM node, rewriting type="button" into
+            type="submit" while the browser is still mid-click. Activation behavior
+            runs after dispatch, so the browser reads the new type and submits the
+            form — Stop aborts and instantly re-sends. */}
         {busy ? (
-          <button type="button" className="stream-stop" onClick={stop}>
+          <button key="stop" type="button" className="stream-stop" onClick={stop}>
             Stop
           </button>
         ) : (
-          <button type="submit" className="stream-send" disabled={!prompt.trim()}>
+          <button key="send" type="submit" className="stream-send" disabled={!prompt.trim()}>
             Send
           </button>
         )}
@@ -6008,6 +7538,7 @@ export function StreamingMessage({ stream, placeholder }: StreamingMessageProps)
 | `setText(text + token)` | Dropped tokens — renders lag the stream |
 | Retry reads the live input | Retries whatever the user typed since, not what failed |
 | No stale guard in `onToken` | Two answers spliced together after a fast retry |
+| Unkeyed Stop/Send swap in a form | Stop aborts, then the form submits and it re-sends immediately |
 | Blinking caret with no reduced-motion guard | Persistent motion for users who asked for none |
 
 ### G. SPEC
@@ -6166,12 +7697,17 @@ export function StreamingMessage({ stream, placeholder }: StreamingMessageProps)
           placeholder={placeholder}
           onChange={(e) => setPrompt(e.target.value)}
         />
+        {/* The keys are load-bearing. Without them React sees <button> in the same
+            slot both times and REUSES the DOM node, rewriting type="button" into
+            type="submit" while the browser is still mid-click. Activation behavior
+            runs after dispatch, so the browser reads the new type and submits the
+            form — Stop aborts and instantly re-sends. */}
         {busy ? (
-          <button type="button" className="stream-stop" onClick={stop}>
+          <button key="stop" type="button" className="stream-stop" onClick={stop}>
             Stop
           </button>
         ) : (
-          <button type="submit" className="stream-send" disabled={!prompt.trim()}>
+          <button key="send" type="submit" className="stream-send" disabled={!prompt.trim()}>
             Send
           </button>
         )}
@@ -7290,6 +8826,11 @@ export function Form({ fields, onSubmit, submitLabel = 'Submit' }: FormProps) {
 
 The reusable primitives. Every component in §03–16 is an assembly of these.
 
+§N and §O are the exception: they are not DOM techniques at all. They are here because the
+component rounds at AI companies have started handing out **modules** — a streaming tokenizer, a
+content hash — graded on the same three axes, and both of those questions are won or lost on a
+primitive that no amount of React practice teaches.
+
 ### A. ROVING TABINDEX
 
 **Problem.** A composite widget (tablist, toolbar, tree, radio group) contains many focusable
@@ -7320,6 +8861,76 @@ function move(next: number) {
   refs.current[next]?.focus()   // moving the 0 and moving focus must happen together
 }
 ```
+
+**The handler.** This is the reusable half — the same twelve lines serve a tablist, a toolbar, a
+radio group and a carousel, and they are what the four components in this guide differ *around*
+rather than differ *in*.
+
+```tsx
+// Derive the key names from orientation, and feed aria-orientation from the same
+// variable — then the announced orientation cannot disagree with the actual keys.
+const nextKey = orientation === 'horizontal' ? 'ArrowRight' : 'ArrowDown'
+const prevKey = orientation === 'horizontal' ? 'ArrowLeft' : 'ArrowUp'
+
+function handleKeyDown(event: KeyboardEvent<HTMLElement>) {
+  const current = items.findIndex((item) => item.value === active)
+  let next: number
+
+  switch (event.key) {
+    case nextKey: next = (current + 1) % items.length; break
+    case prevKey: next = (current - 1 + items.length) % items.length; break
+    case 'Home':  next = 0; break
+    case 'End':   next = items.length - 1; break
+    default: return                     // everything else must reach the browser
+  }
+
+  event.preventDefault()
+  move(next)                            // moves the 0 and calls .focus() together
+}
+```
+
+**`default: return` before any `preventDefault()`.** This is the line that decides whether the
+widget is usable. Calling `preventDefault()` once at the top of the handler — which is what
+happens when you write the arrow cases first and tidy up later — swallows Tab, first-letter
+typeahead, and every browser and screen-reader shortcut that reaches this element. The handler
+must be transparent to every key it does not implement.
+
+**`preventDefault()` on the keys you did handle, though.** Arrows scroll the page, and Home/End
+jump to the top and bottom of the document. Without it the widget works *and* the page moves
+underneath it.
+
+**`+ items.length` before the modulo,** because `-1 % 3` is `-1` in JavaScript, not `2`. The
+version without it silently fails only at the first item, which is exactly the case nobody
+demos.
+
+**`event.key`, not `event.code`.** `code` is the physical key position, so the numpad arrows
+arrive as `Numpad4` / `Numpad8` and fall through to `default`.
+
+**Compute `current` from your own state, not from `document.activeElement`.** The state is what
+renders `tabIndex={0}`, so reading anything else lets the two drift — and `activeElement` may be
+a child of the item rather than the item itself.
+
+**The four axes it varies on.** Everything above is fixed; this is the part you re-derive per
+widget, and it is worth having the table in your head because interviewers probe exactly here:
+
+| Axis | Tabs (§03), toolbar, radio group | Menu (§07) | Tree (§10) |
+|---|---|---|---|
+| Wrap at the ends? | Yes | Yes | **No** — clamp with `Math.min`/`Math.max` |
+| What do Left/Right do? | The navigation axis itself | Close / open a submenu | Collapse / expand, then step out / in |
+| Does selection follow focus? | Yes | No — Enter commits | No — Enter activates |
+| Extra keys | — | First-letter typeahead (§07 E), Escape | Enter/Space toggles a folder, selects a leaf |
+
+**"Selection follows focus" is a spec question, not a taste one.** For tabs and radio groups APG
+says arrowing should select as it moves — that's *automatic activation*, and it's what makes a
+radio group behave the way users expect. The exception is when showing the new panel is expensive
+(a fetch, a heavy render): then switch to *manual activation*, where arrows move focus only and
+Enter or Space selects. Name which one you picked and why — *"automatic activation, since these
+panels are already rendered; I'd switch to manual if selecting one triggered a fetch."*
+
+**Packaging.** This generalizes cleanly into a `useRovingTabIndex({ count, orientation, wrap })`
+returning `{ activeIndex, getItemProps, onKeyDown }`. Worth *naming* in a round — it shows you see
+the pattern rather than the instance — but not worth building unless you're asked for a library,
+because the per-widget axes above end up as options anyway and the indirection stops paying.
 
 **Where it applies:** Tabs (§03), Menu (§07), Tree (§10), Carousel (§15), toolbars, radio groups.
 
@@ -7568,8 +9179,9 @@ a hard accessibility failure — there's no way to reach the footer.
 
 ### H. WINDOWING MATH
 
-**What this is for.** One component (§13 Virtualized list) and one interview question:
-*"how would you render a hundred thousand rows?"* Nothing else in this guide uses it.
+**What this is for.** One component (§13 Virtualized list, which assembles all of this) and one
+interview question: *"how would you render a hundred thousand rows?"* Nothing else in this guide
+uses it.
 
 **When you actually need it.** When the number of DOM nodes is itself the bottleneck — roughly
 low thousands of rows and up. Below that, don't: windowing costs you find-in-page, Ctrl+F,
@@ -7766,3 +9378,257 @@ handlers.
 **Bonus for the round:** a reducer is a pure function, so it's testable without rendering
 anything — `expect(reducer({status:'idle'}, {type:'RESOLVE'})).toEqual(...)`. Naming that is a
 cheap point on the test-quality axis.
+
+### M. KEY HANDLERS: WHERE TO ATTACH THEM
+
+**The rule.** Attach a key handler to whatever *owns* the behaviour, and there are exactly three
+scopes:
+
+| Scope | Attach to | Example |
+|---|---|---|
+| The widget's own keys | the focused element itself | Arrows and Enter on a combobox input (§06, §12) |
+| The layer's keys | `document` | Escape to dismiss a modal or palette |
+| The app's keys | `window` | ⌘K to open the palette |
+
+Getting this wrong doesn't usually produce a bug you can see. It produces keys that work until they
+don't.
+
+**The pitfall: a handler on a non-focusable container only fires while a descendant has focus.**
+
+```tsx
+<div className="panel" onKeyDown={handleKeyDown}>   {/* ← the bug */}
+  <input />                                          {/* the only focusable node */}
+</div>
+```
+
+Keydown is delivered to `document.activeElement` and bubbles from there. A `<div>` can't hold
+focus, so this handler is alive exactly as long as the input is focused. Click any dead space
+inside the panel — the gap between rows, a `<span>`, the panel itself — and focus falls to
+`<body>`, which is **not** a descendant of the panel. Every key silently stops working. No error,
+no warning; the shortcuts just cease to exist.
+
+This is not a theoretical failure. Headless UI moved its Dialog's Escape handler from a global
+listener onto the Dialog element to fix nested dialogs, shipped it, and reverted:
+
+> *"escape would not close if you click on a non-focusable element like a span in the Dialog … this
+> PR reverts to the 'global' window event listener so that we can still catch all of the escape
+> keydown events."*
+
+Radix reaches the same place from the other direction: `useEscapeKeydown` attaches to the
+document, and `DismissableLayer` is a separate concern from the widget inside it. `cmdk` handles
+list navigation on its own root but explicitly does **not** own escape-to-close — you wrap it in a
+dialog primitive for that.
+
+**Two ways out, and the choice is a real trade — §05 and §12 make it differently on purpose:**
+
+1. **Guarantee focus can't leave, and keep the handler on the container.** `tabIndex={-1}` makes
+   the container focusable *by click and script* while keeping it out of the Tab order, so a click
+   on dead space focuses the container — still inside the handler's subtree. Pair it with
+   `onMouseDown` + `preventDefault()` on the rows so clicking one doesn't drop the caret either.
+   **Nesting then works for free:** the innermost dialog's handler runs first and
+   `stopPropagation()` keeps the outer one out of it. This is §05's Modal, and it is only safe
+   because that component also has a real focus trap.
+2. **Move dismissal to the document.** Focus-independent, and correct even when the surface has no
+   reliable focus story. The cost is that **every open layer hears the same Escape** — §05 F lists
+   exactly this as a trap — so past one dialog you need a layer stack to decide which acts. That's
+   what Radix built `DismissableLayer` for.
+
+**The rule that reconciles them:** a container handler is correct *if and only if* you guarantee
+focus stays inside it. §05 does, with `tabIndex={-1}` plus a trap. A palette built without either
+does not, which is why §12's Escape belongs on the document until it grows a trap of its own.
+
+Native `<dialog>` sidesteps the whole question: the browser fires `cancel` **at the element**, so
+nothing depends on the propagation path (§12 I).
+
+**`window` vs `document`.** Keydown bubbles `target → … → document → window`, so a `window`
+listener sees everything a `document` listener does. Three things separate them:
+
+- **A synthetic event dispatched *directly* on `window` never passes through `document`.** Its
+  propagation path is just `window`. This bites in tests: `fireEvent.keyDown(window, …)` will not
+  reach a `document` listener. Dispatch on `document.body` if you want the test to be agnostic.
+- **Use `ownerDocument`, not the global `document`,** when the element may be portalled into
+  another window. Radix changed `DismissableLayer` for exactly this.
+- **Capture phase wins over `stopPropagation`.** Radix listens with `{ capture: true }` so a
+  dismissal still fires even when something inside swallowed the event on the way up. It also
+  means every open layer hears the same Escape, which is why they keep a layer stack so only the
+  innermost acts — and it has caused real compatibility complaints. At one dialog you don't care;
+  know the failure mode exists before you add a second.
+
+**Modifier keys, and the cross-platform shape.**
+
+```tsx
+useEffect(() => {
+  function onKeyDown(e: globalThis.KeyboardEvent) {
+    if (e.key.toLowerCase() !== 'k') return
+    if (!e.metaKey && !e.ctrlKey) return       // ⌘ on macOS, Ctrl everywhere else
+    e.preventDefault()                          // Chrome's Ctrl-K focuses the omnibox
+    onTrigger()
+  }
+  window.addEventListener('keydown', onKeyDown)
+  return () => window.removeEventListener('keydown', onKeyDown)
+}, [onTrigger])
+```
+
+Five things in nine lines, and each is a question you can be asked:
+
+| | |
+|---|---|
+| `metaKey \|\| ctrlKey` | Accept both rather than sniffing the platform. `metaKey` is ⌘ on macOS and the Windows key elsewhere; `ctrlKey` is Ctrl everywhere. Checking both is one condition instead of a `navigator` branch that goes stale. |
+| `.toLowerCase()` | `e.key` is the **character produced**, so Shift changes it — ⇧⌘K arrives as `'K'`. Without this, the shortcut silently misses whenever Shift is held. |
+| `preventDefault()` | Browsers already own a lot of combos. Skip it and the palette opens *and* focus jumps to the address bar. |
+| The cleanup | Without it every unmount leaves a listener holding a stale closure, and they accumulate. |
+| `globalThis.KeyboardEvent` | If the file also does `import type { KeyboardEvent } from 'react'`, that shadows the DOM type for the whole module — and React's synthetic event is a different type. Reach past the shadow, or alias the React import. |
+
+**`e.key` or `e.code`?** `key` is the character produced — layout- and modifier-dependent, and what
+you want for shortcuts and for text. `code` is the physical key position, unaffected by layout,
+which is what you want for WASD-style controls and what you must *not* use for a combobox, since
+the numpad arrows arrive as `Numpad4` / `Numpad8` (§17 A).
+
+**One more, for any key handler on a text input: don't act while an IME is composing.** Typing
+Japanese, Chinese or Korean routes Enter to the candidate picker, not to you. Handle it anyway and
+you run a command when the user was only confirming a character:
+
+```tsx
+if (event.nativeEvent.isComposing) return
+```
+
+Nothing in this guide's specs covers it and jsdom won't reproduce it. Naming it unprompted while
+building a combobox is worth more than most of the code around it.
+
+### N. INCREMENTAL PARSING ACROSS A CHUNK BOUNDARY
+
+**Problem.** Data arrives in chunks you do not control — SSE frames, a `ReadableStream`, a
+WebSocket, a paste handler fed a megabyte at a time — and the thing you are looking for is longer
+than one character. A delimiter will eventually be split across the boundary, and the naive
+`chunk.split('```')` is wrong on exactly that chunk, intermittently, in production only.
+
+**The rule: a chunk that ends mid-delimiter has decided nothing.** Hold the ambiguous tail, emit
+everything before it, and let the next chunk resolve it. The tail is the *carry buffer*, and the
+whole technique is keeping it bounded.
+
+```ts
+// The state machine's entire state. Four scalars — which is also why it
+// serialises, which is the answer to "make it resumable after a restart".
+type State = 'text' | 'inline' | 'info' | 'fence'
+let state: State = 'text'
+let ticks = 0     // backticks seen but not yet interpretable — NEVER stored as text
+let buf = ''      // content of the token being accumulated
+
+function feed(chunk: string): Token[] {
+  out = []
+  for (const ch of chunk) consume(ch)
+  flush()         // emit what is now certain; keep `ticks` pending
+  return out
+}
+```
+
+Three properties to state out loud, because they are what separates this from a `split()`:
+
+1. **The pending state is bounded by the DELIMITER, not by the DOCUMENT.** Two characters, forever,
+   no matter how big the stream. *"How do you prevent unbounded buffering?"* is the follow-up in
+   every version of this question, and this sentence is the answer.
+2. **Hold the run as a count, not as a string.** A count cannot be accidentally emitted, and it is
+   what makes the resolution rules readable: reach three and it is a fence, stop short and it is
+   literal.
+3. **There must be a `finish()`.** End-of-stream is a real event with real decisions in it —
+   an unterminated fence closes (it runs to end of document), an unterminated span downgrades to
+   text (an unmatched delimiter is just a character). Pick, then say why.
+
+**Emit granularity is an API decision, so make it deliberately.** Short constructs — an inline code
+span — can be emitted whole. Long ones cannot: a fenced block may be an entire file, so it emits
+`open` / N × `chunk` / `close` and the renderer can paint a half-arrived code block. Buffering the
+fence until it closes is the easy version and it reintroduces the unbounded buffer you just
+eliminated.
+
+**Where it shows up.** Streaming Markdown in a chat panel (§14, and drill
+`cursor-11-streaming-markdown`); SSE frame reassembly, where the delimiter is `\n\n`; any
+`TextDecoder` over a byte stream, where a multi-byte UTF-8 character splits across chunks and
+`decoder.decode(chunk, { stream: true })` is the built-in that already does exactly this for you —
+naming that built-in is a cheap point.
+
+**This is a different layer from speculative rendering.** The tokenizer decides *what the bytes
+mean*; the renderer decides *what to paint before the construct is complete* — closing an open
+fence speculatively so a code block does not flicker into existence. Both are needed and they are
+not substitutes.
+
+**Testing it is the differentiator, and it is one loop.** Do not hand-pick three split points —
+assert the invariant directly: *chunking must not be observable*.
+
+```ts
+const doc = 'a `b` c\n```\nx`y\n``` z'
+const whole = run([doc])
+for (let i = 0; i <= doc.length; i++) {
+  expect(run([doc.slice(0, i), doc.slice(i)]), `split after ${i}`).toEqual(whole)
+}
+```
+
+### O. UNAMBIGUOUS ENCODING: DOMAIN SEPARATION AND LENGTH PREFIXES
+
+**Problem.** You are turning structured data into one string or one byte stream — a cache key, a
+`key` prop, an ETag, a content hash, a localStorage name, a dedupe set. Concatenation loses the
+boundaries, and two different inputs collide.
+
+```ts
+const key = `${userId}:${query}`          // user "1", query "2:3"  ==  user "1:2", query "3"
+const key = names.sort().join('')         // {"a","bc"}             ==  {"ab","c"}
+```
+
+Both are real bugs, both are invisible until the day two users see each other's cached results.
+There are exactly two rules.
+
+**1. Domain separation — the type goes inside the value.** An empty file and an empty directory are
+different things; if the tag is not in the hash, they are the same 32 bytes. Prefix each kind with
+its own tag: `file\0…`, `dir\0…`, `link\0…`.
+
+**2. Length prefixes — every variable-length field carries its own length.** Then the boundaries
+are recoverable from the encoding, which is the property you actually need. Fixed-length fields
+(a hex digest, a UUID) do not need one; anything a user can name does.
+
+```ts
+// A directory record: nothing here can be reparsed two ways.
+hash(
+  'dir\0', u32(children.length),
+  ...children                                    // sorted by raw NAME BYTES,
+    .sort(byUtf8Bytes)                           // not by JS `<`, which is UTF-16 order
+    .flatMap(c => [u32(c.name.length), c.name, KIND[c.kind], u32(c.hash.length), c.hash]),
+)
+```
+
+**The two-sentence version for an interview:** *"I'll domain-separate so a file and a directory
+can't collide, and length-prefix every variable-length field so the concatenation is unambiguous —
+otherwise `{'a','bc'}` and `{'ab','c'}` hash identically."* That is the entire answer to *"why is
+concatenating raw child hashes insufficient?"*, which is asked every time.
+
+**The third rule, for tree hashes specifically: the child's name belongs to the PARENT's record,
+never to the child's own hash.** Fold the name in and a subtree can never be recognised in a new
+position — no rename detection, no dedup, no content-addressed reuse. It is the difference between
+a hash that identifies *content* and one that identifies *a path*.
+
+**And cache the result on a version, not a timestamp.** `(snapshot id, path)` is sound;
+`(path, mtime)` is not, because timestamps are coarse and are preserved by copies and checkouts.
+
+**Where it shows up in a frontend round.** React `key` built by concatenating fields; a
+`useMemo`/SWR/React Query cache key built from an object (this is why those libraries hash a
+structured key rather than a template string); `localStorage` namespacing; deduping a request
+in-flight map. Drill `cursor-12-merkle-hash` is the version Cursor actually asks.
+
+---
+
+## Company signals
+
+What each company emphasises at staff level, based on reported patterns. Use it to order practice,
+not to predict the prompt.
+
+| Company | What they test | Signature flavor |
+|---|---|---|
+| **Anthropic** | Streaming chat, async cancellation, refactor under changing requirements | `useStreamingChat` plus mid-stream abort; they change the spec partway through on purpose |
+| **Cursor** | Editor-adjacent surfaces: diffs, trees, palettes, inline review — and **non-component modules** on the same rubric: a streaming Markdown tokenizer, a Merkle hash over a repo | Real product surface, and test quality graded as its own axis |
+| **Ramp** | Bug-fix inside an existing React+TS codebase, data table with pagination, a DOM puzzle round | Navigating someone else's component; `runConcurrently` for batch fetches |
+| **Airbnb** | Booking-flow components — date picker, tabs, star rating — and deep JS fundamentals | `curry`, `LRUCache`, `deepEqual` all appear; heavy keyboard a11y emphasis |
+| **Meta** | Recursive UI (file explorer, comment tree), `EventEmitter`, `Promise.all` from scratch | DOM renderer from a JSON descriptor; `role="tree"` / `role="group"` hierarchy |
+| **OpenAI** | Team-dependent; take-home or CoderPad on real product problems | Autocomplete with proper cancellation; chat UI patterns |
+| **Google** | Performance-heavy: virtualization, throttle, `memoize`; utility re-implementation | May ask for `Promise.all` / `Promise.race` from scratch |
+
+**The staff-level delta is the same everywhere.** Not "does it work" — correct roles and keyboard
+contract, stale-closure safety, cancellation of async work, component API design, and an
+articulated tradeoff on every decision you make.

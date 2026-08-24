@@ -18,7 +18,7 @@ a client that carries as much complexity as the server, and a component whose *i
 | **Round** | Systems Design | Technical Coding |
 | **With** | An engineer, collaborative | Pairing with an engineer |
 | **Tool** | Excalidraw or equivalent, your choice | CoderPad, link dropped in chat |
-| **Deliverable** | A design you talked through | A React component |
+| **Deliverable** | A design you talked through | A React component — or, on reported evidence, a plain module: a streaming parser, a content hash (§06 G) |
 | **Named criteria** | requirements gathered diligently, follow-up questions, thought process shared, **clear technology decisions, POV, systems depth** | **code correctness · component API design · test quality** |
 | **Explicitly de-emphasised** | — | **styling, component structure** |
 
@@ -135,7 +135,8 @@ Twelve days is short enough that resource choice matters. In order:
    spine you find easier to hold, but hold one.
 3. **Your `Accessibility` and `Technology Choices` guides.** The first is load-bearing rather than
    optional here, because for an interactive component the ARIA contract *is* part of the
-   interface being graded. The second directly serves "clear technology decisions, POV."
+   interface being graded. The second directly serves "clear technology decisions, POV" — and
+   since v6 its second half is the browser, so §17–28 there back most of §04 here.
 4. **Four posts from cursor.com/blog** — two evenings, and only these four. The blog is mostly
    product and company announcements; the engineering posts are the minority and they are the ones
    the design round rhymes with.
@@ -145,7 +146,7 @@ Twelve days is short enough that resource choice matters. In order:
    | `/blog/tab-rl` — Improving Tab with online RL | The single most usable idea on the blog: *when to suggest* is part of the learned policy, not a heuristic | §05 A |
    | `/blog/tab-update` — the Fusion Tab model | Real production numbers to anchor a latency budget against | §05 A, §04 J |
    | `/blog/instant-apply` — Editing at 1000 tokens/second | Their best pure systems post; the plan-with-the-big-model, apply-with-the-fast-one split | §05 B |
-   | `/blog/how-cursor-router-works` | A documented production model cascade, with real cost deltas | §05 A, §12 C |
+   | `/blog/how-cursor-router-works` | A documented production model cascade, with real cost deltas | §05 A, §03 C |
 
    Read `tab-rl` and `tab-update` together — they're one story. If you have a third evening,
    `/blog/cloud-agent-environment` and `/blog/builds` cover §05 D, though the first is more about
@@ -164,7 +165,7 @@ Twelve days is short enough that resource choice matters. In order:
    Two consequences for you. Your "why Cursor" needs a version that survives it — answering as
    though this is still an independent startup will land badly two weeks after the announcement.
    And cost-per-request, already their obsession, is now the acquisition thesis, which raises the
-   value of every cost-and-latency argument in §04 J and §12 C.
+   value of every cost-and-latency argument in §04 J and §03 C.
 6. **Hello Interview** for server-side depth only. Don't lead with its templates — a pure
    distributed-systems opening reads as pattern-matching against a prompt that explicitly asked for
    both halves.
@@ -203,12 +204,18 @@ The reps are what move the number; reading this guide is not a rep.
 | Thu 8/20 · D-8 | Background agents — §05 D | `cursor-07-undo-redo`, then finish `combobox-practice-8-13` cold | §07 |
 | **Fri 8/21 · D-7** | **Full mock #1 — 10:00–12:00, real clock, both hours back to back, no breaks** | | §10 the night before |
 | Sat 8/22 · D-6 | Re-rep whatever the mock scored lowest. Only that. | | Re-read the relevant section |
-| Sun 8/23 · D-5 | Collaborative review comments — §05 E (non-Cursor on purpose) | `cursor-08-chip-multiselect` + `cursor-04-file-tree` | §06 |
+| Sun 8/23 · D-5 | Collaborative review comments — §05 E (non-Cursor on purpose) | **`cursor-11-streaming-markdown`** (reported question, 40 min) + `cursor-08-chip-multiselect` | §06, and §06 G |
 | Mon 8/24 · D-4 | Three requirements-gathering openings, 10 min each, no design | **Speed:** three 25-min mini-builds, AI off | §01 G |
 | **Tue 8/25 · D-3** | **Full mock #2 — different problems, same clock** | | — |
-| Wed 8/26 · D-2 | Weak-spot surgery | `cursor-09-inline-diff-review` | Whatever mock #2 exposed |
+| Wed 8/26 · D-2 | Weak-spot surgery | **`cursor-12-merkle-hash`** (reported question, 45 min), then `cursor-09-inline-diff-review` if time | Whatever mock #2 exposed |
 | Thu 8/27 · D-1 | **Taper.** One light rep, nothing new. Set up Excalidraw, a clean browser profile, and your notes. | | §03, §06, §10 only |
 | **Fri 8/28 · D-0** | Runbook — §10 | | |
+
+**Amended 8/23**, on two coding prompts reported from actual Cursor screens: a streaming Markdown
+parser and a Merkle hash over a repository. Neither is a React component. They displace
+`cursor-04-file-tree` (whose keyboard model you have now built three times) and half of D-2's
+re-rep, because a reported prompt outranks a repeat of a shape you already own. §06 G is the new
+build order for a round that hands you a module instead of a component.
 
 **Rules for the twelve days.**
 
@@ -413,6 +420,10 @@ Worth knowing so you don't get caught: `EventSource` cannot set headers, so auth
 query param — mention it, or use `fetch` with a `ReadableStream` and parse the event framing
 yourself, which is what most production LLM clients actually do.
 
+The ladder above is the decision. What each rung actually is at the socket level — the `101`
+upgrade, ping/pong, `Last-Event-ID`, the missed-event window a long poll leaves — is
+`Technology Choices` §22–25.
+
 ### D. STREAMING, BACKPRESSURE, AND RESUMABILITY
 
 Streaming is where a client design gets interesting and where the deep dive usually lands.
@@ -444,6 +455,18 @@ function onChunk(chunk) {
 
 Say why: *"Arrival is network-paced, paint is display-paced. Coalescing on `requestAnimationFrame`
 means a 500-token-per-second stream still costs 60 renders a second, not 500."*
+
+Be precise about what it saves, because an interviewer may push: it saves **renders**, not paints.
+The browser already coalesces DOM mutations to one paint per vsync, so the visual output was
+frame-synchronized before you touched anything. The win is main-thread time, and it only matters
+when `render cost × cross-task arrival rate` is large — true for streamed markdown or a syntax-
+highlighted diff, not for appending to a text node. Volunteering that distinction reads better than
+reaching for the buffer reflexively.
+
+Two footguns in the pattern above. `requestAnimationFrame` **does not fire in a background tab**, so
+a buffered stream freezes mid-answer until the user returns — pair it with a `visibilitychange`
+fallback or a timer if the tab can lose focus. And `cancelAnimationFrame` on unmount, or flush the
+tail when the stream ends, or the last partial buffer is dropped on the floor.
 
 **3. Cancellation.** Every stream needs a stop that is instant *in the UI* and eventually
 propagates to the server. Abort the request, stop consuming, and — importantly — **keep the text
@@ -509,6 +532,10 @@ offline because ___"* and move on — that also scores.
 | **IndexedDB** | Large, quota-based | async | The real answer: documents, outbox, cached queries |
 | Cache API | Large | async | HTTP responses, via a service worker |
 | OPFS | Large, fast | async (+ sync in a worker) | Genuinely file-like workloads; SQLite-in-WASM |
+
+This table is the pick; the mechanism behind each row — IndexedDB's transactions and its
+auto-close, the single origin quota all three async stores share, and the fact that eviction is
+all-or-nothing per origin rather than per record — is `Technology Choices` §17–21.
 
 **Conflict resolution ladder**, cheapest first — pick the lowest rung that satisfies the
 requirement, and say why the next rung up is unnecessary:
@@ -858,6 +885,12 @@ editor, then recently changed by git, then imports of those, then breadth-first 
 make the index **queryable while incomplete**, reporting coverage. Show progress. Merkle-tree the
 directory structure so a re-open only walks subtrees whose hash changed.
 
+**That Merkle tree is a reported coding prompt in its own right** — see §06 G and
+`cursor-12-merkle-hash`. If you draw it here, be ready to be asked for `getHash(path)` in the next
+hour. The one sentence that earns in both rounds: *"domain-separated and length-prefixed, so an
+empty file and an empty directory can't collide and two directories can't serialise to the same
+bytes."*
+
 **Storage and retrieval.** Vector index with an ANN structure (HNSW or IVF-PQ); exact search is
 fine up to ~10⁴ vectors and stops being fine well before a million. Metadata filters (path glob,
 language, git-tracked) applied as pre-filters, which is a real constraint on which ANN index you
@@ -1186,6 +1219,48 @@ Silently omitting it demonstrates nothing.
 assert implementation details · went silent for minutes · ran out of time with no summary ·
 used a library the pad doesn't have without checking.
 
+### G. WHEN THE PROMPT ISN'T A COMPONENT
+
+Two reported Cursor coding prompts are **not React at all** — a streaming Markdown parser fed
+arbitrary chunks, and a deterministic Merkle hash over a repository. Both are `.ts` modules with a
+function signature and no DOM. Assume the same rubric, because the rubric doesn't mention React:
+*code correctness · API design · test quality.* What changes is the build order, and walking in
+with the component one is how you lose ten minutes.
+
+| Minutes | Component round | Module round |
+|---|---|---|
+| 0–2 | Test runner, restate the problem | Same |
+| 2–7 | The prop signature, out loud | **The contract, out loud** — types, and what the function refuses to do |
+| 7–12 | Skeleton renders with hardcoded data | **One end-to-end case passing**, however naively |
+| 12–35 | Core behaviour | Core behaviour, generalised from that case |
+| 35–38 | Checkpoint | Same |
+| 38–50 | Tests | Tests |
+
+The substitutions that matter:
+
+1. **"Controlled or uncontrolled?" becomes "what does one call decide, and what does it defer?"**
+   For a streaming parser: *"`feed` returns what became unambiguous during this chunk, and it may
+   return nothing."* That single sentence is the API. For a hash: *"`getHash` is pure over a
+   snapshot; if the snapshot moves under me I throw rather than return a hash of a state that
+   never existed."*
+2. **"Skeleton renders" becomes "one case green."** You still need something running inside five
+   minutes; it just isn't pixels. Hardcode the simplest input, get the simplest output, then
+   generalise. Do not write the state machine before anything runs.
+3. **State the encoding or the state set before the loop.** Both of these problems are won in the
+   four lines you write before the traversal — the token union, or the record layout. Write them
+   as a comment block and read them out. That is the module round's version of typing the props.
+4. **The edge cases are the question, not a bonus.** A chunk boundary inside a delimiter; two
+   different directories that serialise to the same bytes. In a component round the edge cases are
+   polish; here they are the entire reason the question was chosen. Name them in the first five
+   minutes, out loud, before you can be asked.
+5. **Tests get easier, so there is no excuse.** No jsdom, no `act`, no fake timers — a pure module
+   is the most testable thing in the round, and the strongest test is usually a loop over an
+   invariant rather than three hand-picked cases: *the same tokens at every chunk boundary*, *the
+   same hash under every listing order.* Write one of those and say why it beats examples.
+
+Drills `cursor-11-streaming-markdown` and `cursor-12-merkle-hash` are these two prompts, with
+their specs. `UIE Components` §17 N–O are the two underlying techniques written out.
+
 ## 07 — Component API design
 
 They defined this axis inline in the invitation — *"the props and interface your component
@@ -1482,7 +1557,17 @@ Non-negotiable, or the reps measure the wrong thing:
 5. **Grade with §06 F before looking at anything.**
 6. **Only then** open the reference and diff.
 
-### B. THE ELEVEN
+For the smaller kit pieces — a CSS primitive, a utility function, a component skeleton — the mode is
+different: don't re-solve them, **retype them cold on a stopwatch**. Type from memory, diff, note
+only what you got wrong, redo tomorrow. Two clean reps in a row and it's kitted; stop drilling it.
+
+**Rep targets:** CSS primitive ≤ 60s · utility function ≤ 90s · component skeleton ≤ 5 min.
+
+The point of the timed retype is that layout and boilerplate stop consuming working memory. That is
+the specific capacity AI autocomplete has been renting from you, and it's the capacity the round
+needs for reasoning out loud.
+
+### B. THE THIRTEEN
 
 | Slug | Min | What it drills | Why it's on the list |
 |---|---:|---|---|
@@ -1493,9 +1578,11 @@ Non-negotiable, or the reps measure the wrong thing:
 | `cursor-05-write-the-tests` | 30 | **Test quality**, against a finished `Toast` | The graded axis, isolated |
 | `cursor-06-command-palette` | 50 | ⌘K: filter, keyboard, portal, recents, focus restore | **Unseen.** Forces derivation, not recall |
 | `cursor-07-undo-redo` | 45 | A `useHistory` hook — past/present/future, coalescing | **Pure API design**, and trivially testable |
-| `cursor-08-chip-multiselect` | 50 | Two focus models in one widget; Backspace-removes-last | The §02 B worked example, now runnable |
+| `cursor-08-chip-multiselect` | 50 | Two focus models in one widget; Backspace-removes-last | The `UIE Components` §02 B worked example, now runnable |
 | `cursor-09-inline-diff-review` | 45 | Accept/reject hunks, staged vs committed, keyboard | Closest thing to real Cursor surface |
 | `cursor-10-write-the-tests-ii` | 30 | **Test quality** against an async hook — races, cleanup | Second rep on the thinnest axis |
+| `cursor-11-streaming-markdown` | 40 | A chunk-boundary state machine; carry buffer; `finish()` | **Reported Cursor question.** Not a component — see §06 G |
+| `cursor-12-merkle-hash` | 45 | Domain separation, length prefixes, cache on a snapshot | **Reported Cursor question**, and §05 C's index in code |
 | `combobox-practice-8-13` | 45 | The full combobox, cold, from the given API | Already in progress; finish it AI-off |
 
 ### C. THE THREE-MINI-BUILD DAY (D-4)
