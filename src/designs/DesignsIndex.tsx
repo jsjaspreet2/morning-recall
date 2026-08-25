@@ -4,7 +4,13 @@ import type { Design } from '../data/designs'
 import { accent } from '../lib/accents'
 
 /** The archetype is already the group heading, so a card only carries a chip
- *  when it sits outside a group — i.e. the pinned mechanics page. */
+ *  when it sits outside a group — i.e. the pinned mechanics page.
+ *
+ *  Cards are always one per row. Most archetypes hold a single problem, so a
+ *  two-up grid left a dead half-width beside almost every card; and where a
+ *  group does hold two, pairing them made the row read as one unit rather than
+ *  two problems. Full width also gives the tension line room to stay on one or
+ *  two lines instead of wrapping to four. */
 function Card({ design, chip }: { design: Design; chip?: string }) {
   const ac = accent(design.accent)
   return (
@@ -28,18 +34,6 @@ function Card({ design, chip }: { design: Design; chip?: string }) {
   )
 }
 
-/**
- * Two-up only when there's something to pair with.
- *
- * Nine of the ten archetypes hold exactly one problem — the grouping exists to
- * name the shape, not to fill a row — so an unconditional `sm:grid-cols-2` left
- * a dead half-width beside almost every card on desktop. Learn never showed this
- * because its two sections have four and eight guides.
- */
-function gridCols(count: number): string {
-  return count > 1 ? 'sm:grid-cols-2' : ''
-}
-
 export default function DesignsIndex() {
   const { pinned, groups } = designsByArchetype()
 
@@ -52,7 +46,7 @@ export default function DesignsIndex() {
       </p>
 
       {pinned.length > 0 && (
-        <ul className={`mt-6 grid gap-3 ${gridCols(pinned.length)}`}>
+        <ul className="mt-6 grid gap-3">
           {pinned.map((d) => (
             <li key={d.slug}>
               <Card design={d} chip="start here" />
@@ -66,7 +60,7 @@ export default function DesignsIndex() {
           <h2 className="text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-600 dark:text-zinc-500">
             {group.archetype}
           </h2>
-          <ul className={`mt-3 grid gap-3 ${gridCols(group.problems.length)}`}>
+          <ul className="mt-3 grid gap-3">
             {group.problems.map((d) => (
               <li key={d.slug}>
                 <Card design={d} />
