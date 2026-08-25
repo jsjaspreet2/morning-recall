@@ -169,6 +169,32 @@ can't actually justify.
 **Bold the sentence, not the noun.** Emphasis goes on the reasoning worth saying out loud, not on
 product names. If a bolded phrase would sound good spoken in an interview, it's bolded correctly.
 
+**Show the loser, not just the winner.** Naming the right technology scores nothing on its own —
+what's graded is watching you *choose*. Every storage-table row and every dive that lands on a
+product carries the alternative you rejected and the sentence that rejected it, in the voice you'd
+say it: *"Postgres models this perfectly and I'd use it at a tenth of this scale — but at petabytes
+I'd be committing my team to hand-managed sharding forever, so DynamoDB, and I'm giving up joins I
+don't have on this path."* A choice with no visible loser reads as recall.
+
+**"Eventually" is not a target — every consistency claim carries a duration.** Milliseconds,
+seconds, minutes, or hours, plus which reads are exempt. "Eventually consistent is fine here" is an
+adjective wearing a technical hat; "≤1s replica lag for the sidebar, read-your-writes for the
+author's own message" is a requirement. Same rule for freshness, lag, and staleness anywhere.
+
+**Fault tolerance is a required §2 row, not a §13 afterthought.** Name the specific component whose
+death the system survives, and — harder and better — the one whose death it *doesn't*, with the
+policy for that case. A page where nothing is allowed to fail hasn't been designed under load.
+
+**Every append-only entity needs a lifecycle row in §12.** What happens in year three. Hot / warm /
+cold with the ages and the read latency of each, what the archive unit is, and the user-visible cost
+of restoring one. Unbounded growth with no tiering is a real finding, and stating the trade beats
+hoping nobody multiplies the daily volume by 365.
+
+**Tie choices back to §2 by name.** A dive that ends with a decision should say which non-functional
+requirement bought it — `**→ ties to the TTFT NFR**`. Do this two or three times a page, at the
+decisions that would otherwise look like taste. It's the cheapest way to show the requirements
+section wasn't a warm-up.
+
 **Never restate the mechanics page.** No "remember to scope first" in a problem page.
 
 **Variants need an axis.** "Similar problems" as an unstructured list is low value. Find the one
@@ -192,7 +218,7 @@ label from this table — the index groups by it.
 | **Real-time collaborative editing** | Convergence on a shared mutable document; the data model picks the algorithm | Figma |
 | **Layered configuration & sync** | Precedence between layers is a product decision, not a merge algorithm; delivery is a hint and versions are the truth | IDE settings sync |
 | **Read-heavy content & fanout** | Fanout-on-write vs fanout-on-read | Twitter feed |
-| **LLM application** | Non-determinism, latency, cost, and eval | LLM knowledge assistant |
+| **LLM application** | A slow, expensive, capacity-bounded generation that outlives the request that started it | ChatGPT |
 | **Low-latency inference in a loop** | Latency budget forbids the standard pipeline | Cursor Tab |
 | **Write-heavy telemetry / analytics** | Ingest volume vs query flexibility | *(pending)* |
 | **Coordination / uniqueness** | Global invariant across partitions | *(pending)* |
@@ -245,6 +271,10 @@ Run this against the finished page. Each line maps to a standing rule above.
 - [ ] §0 is a script you could read aloud, and it pre-commits a deep dive
 - [ ] Exactly three functional requirements, with explicit out-of-scope
 - [ ] Every NFR row has a number and a justification; no adjectives
+- [ ] Every consistency/freshness claim carries a duration, and §2 has a fault-tolerance row
+- [ ] Every named product shows the alternative it beat, in one spoken sentence
+- [ ] §12 has a data-lifecycle row for every append-only entity
+- [ ] Two or three decisions tie back to a §2 requirement by name
 - [ ] Every figure in §3 changes a decision; assumptions labelled as assumptions
 - [ ] §6 was written last and references dives by number rather than restating them
 - [ ] **Every flow ends in a failure path**

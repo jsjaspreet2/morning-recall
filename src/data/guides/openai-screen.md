@@ -13,8 +13,9 @@ frontend**, and the coding round is a real product surface — a chat transcript
 editor — not a component in isolation.
 
 **What this guide deliberately does not repeat.** The general design loop lives in
-`System Design` and `Designs → Interview mechanics`. Retrieval, evals, cost, and TTFT mechanics
-live in `Designs → LLM knowledge assistant`. Inference serving under a latency ceiling lives in
+`System Design` and `Designs → Interview mechanics`. The run lifecycle, resumable streaming, GPU
+scheduling, and context cost live in `Designs → ChatGPT`. Retrieval and evals live in
+`System Design §11–§12`. Inference serving under a latency ceiling lives in
 `Designs → Cursor Tab`. Component ARIA contracts live in `UIE Components`. This guide is the
 OpenAI-shaped delta on top of those, plus the coverage map in `§03 F` telling you exactly which
 existing pages to reread and which material is new.
@@ -173,7 +174,7 @@ be to treat this as a fresh subject. It is mostly a **re-index** of what you hav
 | Streaming component, full implementation | `UIE Components §14` | **Reread first. Highest-value page in the repo for 9/17** |
 | Client-side design: transport ladder, backpressure, resumability, cache, failure pass | `Cursor Screen §04` | Transfers wholesale. Reread before 9/16 |
 | Streaming multi-part edits, agent chat design | `Cursor Screen §05 B` | Closest existing worked design to the OpenAI prompt |
-| TTFT, prefill vs decode, prompt-cache ordering, evals, cost | `Designs → LLM knowledge assistant §9–§11` | The backend depth for 9/16 |
+| Run lifecycle, resumable SSE, TTFT, prefill vs decode, prompt-cache ordering, cost | `Designs → ChatGPT §7–§11` | The backend depth for 9/16 |
 | Inference serving, GPU scheduling, cancellation reaching the GPU | `Designs → Cursor Tab §9–§10` | Reuse for the queue/GPU half |
 | Undo/redo, inverse ops, batching, coalescing | `Figma Screen §06` | The document-model half of `§09` |
 | Command/inverse pattern, document invariants | `Figma Screen §04` | Same |
@@ -428,7 +429,7 @@ Useful because it tells you where *not* to spend September.
 | Test quality under clock | ✅ **Fully** | `Cursor Screen §08` · `uie-practice/cursor-05-write-the-tests`, `cursor-10-write-the-tests-ii` |
 | Client design: transport, backpressure, resumability | ✅ **Fully** | `Cursor Screen §04 C–D` |
 | Agent chat / streaming multi-file edits design | ✅ **Fully** | `Cursor Screen §05 B` |
-| TTFT, prefill/decode, prompt cache, evals, cost | ✅ **Fully** | `Designs → LLM knowledge assistant §9–§11` |
+| Run lifecycle, resumable SSE, TTFT, prefill/decode, prompt cache, cost | ✅ **Fully** | `Designs → ChatGPT §7–§11` |
 | GPU serving, cancellation to the GPU | ✅ **Fully** | `Designs → Cursor Tab §9–§10` |
 | Fanout / connection scale (the Slack prompt) | ✅ **Fully** | `Designs → Discord` |
 | Refactor nested code, keep tests green | ⚠️ **Partly** | No dedicated drill. `Cursor Screen §08` covers reading tests. Low priority |
@@ -677,7 +678,7 @@ Two numbers, two entirely different fixes. Confusing them is the most common dep
 **The prompt-cache line, which is free depth:** *"System prompt first, then conversation history,
 then the new turn — stable prefix first, so the cache hits. If you interleave anything volatile
 early, like a timestamp, you invalidate the whole prefix and pay full prefill every turn."*
-`Designs → LLM knowledge assistant §9` has the full version.
+`Designs → ChatGPT §11` has the full version.
 
 ### E. RESUMABILITY: THE DEEP DIVE WORTH VOLUNTEERING
 
@@ -974,7 +975,8 @@ scheduler, webhook delivery, payments — you already have those pages. The mapp
 | A job scheduler / GPU scheduler under overload | `Designs → Cursor Tab §9`, plus `§04 D` here for the ladder |
 | Anything with exactly-once / idempotency / contention | `Designs → Ticketmaster` |
 | A read-heavy feed | `Designs → Twitter feed` |
-| RAG, evals, retrieval quality | `Designs → LLM knowledge assistant` |
+| A chat product at consumer scale | `Designs → ChatGPT` |
+| RAG, evals, retrieval quality | `System Design §11–§12`, plus `Designs → ChatGPT §15` |
 
 **And the universal fallback**, which works on any prompt including one you have never seen:
 requirements → two numbers → wireframe → entities → API → two flows → name the bottleneck →

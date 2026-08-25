@@ -155,7 +155,7 @@ requests with byte lengths matching the feed, unique GUIDs, ascending past `pubD
 | `design-cursor.md` | 4 | **complete** |
 | `design-figma.md` | 1 of 5 | only the §7–8 data-model dive |
 | `design-airbnb.md` | 0 of 5 | not started |
-| `design-uber.md`, `design-feed.md`, `design-messaging.md`, `design-llm-app.md`, `00-interview-mechanics.md` | 0 of 21 | not started |
+| `design-uber.md`, `design-feed.md`, `design-messaging.md`, `design-chatgpt.md`, `00-interview-mechanics.md` | 0 of 21 | not started |
 
 Full design-page corpus is **46 episodes / ~6.2 hours**. Remaining: ~30 episodes.
 

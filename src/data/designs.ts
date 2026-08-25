@@ -110,10 +110,11 @@ const META: Record<string, Meta> = {
     tension: 'Fanout-on-write against fanout-on-read, over a skewed follower graph.',
     accent: 'indigo',
   },
-  'llm-app': {
-    label: 'LLM knowledge assistant',
+  chatgpt: {
+    label: 'ChatGPT',
     archetype: 'LLM application',
-    tension: 'Non-determinism, latency, cost, and how you prove it works.',
+    tension:
+      'The generation is a resource with a lifecycle, not an HTTP response — it outlives the request, costs real money, and runs on a pool you cannot autoscale.',
     accent: 'violet',
   },
   cursor: {
