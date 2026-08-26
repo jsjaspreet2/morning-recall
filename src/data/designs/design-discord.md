@@ -272,7 +272,7 @@ PUT  /channels/{channel_id}/read        { last_message_id }       -> 204
 **Design traps.**
 
 1. **Designing the message table for twenty minutes.** It is the easy half, the numbers say so, and it is the single most common way this round goes shallow. Get to fanout.
-2. **Reaching for per-user inbox fanout-on-write.** It is the right answer for feeds and for WhatsApp and it is wrong here, for the reason in `§8`. Reciting it unprompted signals a memorised pattern rather than a read of the constraints.
+2. **Reaching for per-user inbox fanout-on-write.** It is the right answer for feeds, and it is what end-to-end encryption forces on WhatsApp — per-device ciphertext leaves nothing to share — but it is wrong here, for the reason in `§8`: the content is server-readable and the fanout is three orders of magnitude wider. Reciting it unprompted signals a memorised pattern rather than a read of the constraints.
 3. **Scoping presence out.** It is the highest-volume event stream in the system. Scoping it out removes the most interesting part of the design and, worse, makes the connection look stateless when its statefulness is the whole point.
 4. **Treating a deploy as an exotic failure.** Reconnect storms are the routine load. A design with no answer for "you just restarted a node holding 30 000 sockets" has not thought about operating the thing.
 5. **A uniform design across guild sizes.** The skew is three orders of magnitude. Either the median guild pays for machinery it does not need, or the largest guild falls over. Name the tier.

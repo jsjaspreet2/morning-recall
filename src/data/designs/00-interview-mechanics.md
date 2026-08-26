@@ -113,7 +113,7 @@ Per problem, over about a week — this is a retrieval schedule, not a reading l
 1. **Day 1 — read fully**, slowly, including the "why the obvious answer fails" blocks. ~30 min.
    **Reading order within a page matters, because §6 references dives that come after it.** Read §6 straight through and *don't chase the forward references* — you're building a map, so it's fine that step 8 tells you where exactly-one-winner is enforced without yet telling you how. Then read the dives, each of which answers a question the flow raised. **Then return to §6 and try to reproduce the steps before re-reading them.** It's the only section you read twice, which mirrors the fact that it's written last, and the second pass turns it from reference material into recall material. Anything you can't reproduce points straight at a dive that didn't land.
 2. **Day 2 — draw §14 (the five-minute skeleton) cold**, on paper, no reference. Diff against the page. Note *only* what you missed.
-3. **Day 3 — answer §16 (recall prompts) out loud**, in full sentences, as though someone asked. Out loud matters: fluent-in-your-head and fluent-out-loud are different skills, and only one of them is graded.
+3. **Day 3 — answer the recall prompts out loud**, in full sentences, as though someone asked. Older pages carry them as a §16; newer ones don't, and for those the practice deck is the source. Out loud matters: fluent-in-your-head and fluent-out-loud are different skills, and only one of them is graded.
 4. **Day 5 — pick one deep dive and explain it to a wall for five minutes**, unprompted, including its cost.
 5. **Day 7 — one full 45-minute mock** on the problem or a §15 variant.
 

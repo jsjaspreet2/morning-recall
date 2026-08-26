@@ -180,7 +180,7 @@ Two consequences that catch people out:
 7. Client swaps its optimistic entry for the acked one, reorders locally if the assigned `seq` disagrees with its provisional placement, and marks it `SENT`.
 8. Message Service loads the member list, expands to devices, and looks up `device → gateway` in the registry. Devices are **grouped by gateway** so a 500-member group is a few dozen batched RPCs, not 500 individual ones.
 9. Each gateway pushes to its connected sockets. **Any device with no registry entry is offline** → enqueue a push notification (APNs/FCM) carrying only a wake-up hint, not the message body.
-10. Receiving client appends by `seq`. **If `seq > local_max + 1`, it has detected a gap** and pulls the missing range over HTTP rather than assuming it received everything.
+10. Receiving client appends by `seq`. **If `seq > local_max + 1`, it has detected a gap** and pulls the missing range over HTTP rather than assuming it received everything. **If that pull returns empty, retry briefly** — the message may still be in flight — **then declare the range permanently absent and advance past it.** A gap can mean burned, in-flight, or missed, and those are indistinguishable on sight; without a terminal step, one hole wedges the client forever.
 11. **Receipts travel the same machinery, in reverse.** The receiving client sends `cursor { conversationId, deliveredSeq }` over its own socket. The server persists it to that device's `Cursor` row, then fans it out as a `cursorUpdate` to the *other* members' devices — the identical registry lookup and per-gateway batching from step 8, just carrying an integer instead of a message body. The sender's client receives that frame **on the socket it already holds** and renders the tick.
     - **Everyone in a conversation is simultaneously a sender and a receiver on one bidirectional socket.** There is no separate "sender connection" — the roles are per-message, not per-connection, and the same gateway push path serves both directions.
     - **This fanout is subject to the same amplification as the message itself**, and worse: every member emits a cursor update for every message. That's the §11 trap in its natural habitat — a 100-member group turns one message into ~100 receipts, each fanning out to ~100 devices.
@@ -237,17 +237,19 @@ A retry hits the constraint and returns the original `messageId` and `seq` — *
 
 ---
 
-## 8 · Deep dive — ordering, and why timestamps can't do it
+## 8 · Deep dive — ordering, and what timestamps can't give you
 
-### Why timestamps fail
+### Why unsynchronized timestamps fail
 
 - **Client clocks are adversarial.** Wrong by minutes, user-settable, and a client that sets its clock forward pins its messages to the top of every thread forever.
 - **Server clocks are merely bad.** NTP-synced hosts still drift by milliseconds; two messages hitting different servers can be assigned timestamps in the wrong order.
 - **Ties are common.** At millisecond resolution and millions of messages/sec, collisions happen constantly, and tie-breaking by id is arbitrary — meaning **two clients can render the same two messages in different orders**, which users notice and report as a bug.
 
+**But be precise about what that rules out**, because §12 lands somewhere this bullet list would seem to forbid. Every objection above is to a timestamp minted by *many* writers. **A timestamp minted by the single shard that owns the conversation, made unique within it, is subject to none of them** — no client clock, no cross-server skew, no ties — and it is a perfectly good sort key. It's the sparse option in §12, and it's what Slack actually ships. What no timestamp of any kind gives you is **density**, and §12 is the argument about whether you need that.
+
 ### What to build: per-conversation sequence numbers
 
-Every message gets a monotonic integer, assigned atomically by the shard that owns the conversation (Flow A step 4). Because a conversation lives on exactly one shard, that shard is a **single writer**, and single writers produce total order for free — no consensus protocol, no vector clocks. **Where that atomic increment physically happens is a real decision, not a detail** — an LSM store can't give you one cheaply, and §12 works through the three options.
+Every message gets a monotonic integer, assigned atomically by the shard that owns the conversation (Flow A step 4). Because a conversation lives on exactly one shard, that shard is a **single writer**, and single writers produce total order for free — no consensus protocol, no vector clocks. **Where that integer comes from is a real decision, not a detail** — and the prior question is whether you need it to be *dense* at all, since ordering alone needs no coordination. §12 works through both.
 
 Four properties from one integer:
 - **Total order per conversation**, identical for every participant.
@@ -289,6 +291,22 @@ Why it wins here and loses for feeds:
 - **Storage is O(messages)**, not O(messages × recipients).
 
 **The hybrid that's actually right:** fan out **notifications** on write, keep **content** on read. The delivery push (Flow A steps 8–9) is a lightweight fanout telling each device that its cursor moved; the message body lives once in the log. **You get the latency of push with the storage of pull.**
+
+### The condition this whole answer rests on — say it before the interviewer finds it
+
+Everything above assumes **one stored copy that every recipient can read**. Under end-to-end encryption that copy doesn't exist: §10 notes each device is a separate cryptographic identity, so the sender encrypts **N times for one recipient**, and what the server holds is N per-device ciphertexts. There is nothing to share, so **per-device queues aren't a design choice on that branch — the crypto forces them**, and it's why the real WhatsApp looks like store-and-forward rather than a shared log.
+
+That doesn't reverse the dive, it scopes it, and the scoping is the §12 retention fork arriving early:
+
+| | Server can read the content (Slack, Teams, Discord) | End-to-end encrypted (WhatsApp, Signal) |
+|---|---|---|
+| Content storage | **One conversation log, cursors per device** ✓ — the answer above | **Per-device ciphertext queues.** Forced, not chosen |
+| The duplication objection | Avoided — content is stored once | Not avoided, **paid for by the TTL** (§12): the queue drains on delivery, so O(messages × devices) is transient rather than permanent |
+| Ordering | From the shared log's `seq` (§8) | `seq` is assigned once at send and *carried* into each device's queue — one order, N copies of it |
+
+**And notice the fanout numbers do the rest of the work.** The "100,000 writes for one message" objection above is a *wide-channel* number — Discord's regime, not this one. At WhatsApp's fanout of one to ten devices, per-device ciphertext writes are cheap, which is exactly why the design that would destroy a 100k-member channel is fine for a family group chat. **Fanout breadth and server-readability are two independent axes, and you need both to say which answer is right.**
+
+→ ties to the **Delivery guarantee** and **Durability** rows in §2, and it is the same decision §12 makes you commit to in the first two minutes.
 
 ### Why not pub/sub per conversation?
 
@@ -346,11 +364,11 @@ That last point generalizes: **monotonic state is cheap to sync and safe to drop
 
 **Shard by `conversation_id`.** Every message, sequence counter, and membership row for a conversation lives on one shard.
 
-This gives you the single writer that §8 depends on, keeps message reads single-shard, and keeps hot-*write* partitions mild — a conversation's write rate is bounded by group size, so there's no equivalent of Ticketmaster's unsplittable hot event.
+This gives you the single writer a *dense* `seq` depends on (the fork below), keeps message reads single-shard, and keeps hot-*write* partitions mild — a conversation's write rate is bounded by group size, so there's no equivalent of Ticketmaster's unsplittable hot event.
 
-**Be precise about what the choice is for.** The store is partitioned regardless; a partition key is mandatory in Cassandra. What's being decided is *which* key, and `conversation_id` wins on ordering and read locality, not on throughput. At ~120 writes/sec per shard (§3), throughput constrains nothing — if it were the driver you'd pick something with better distribution, like a hash of `message_id`, and lose the single writer that §8 is built on. **The small write volume is why you can afford this key, not the reason you picked it.**
+**Be precise about what the choice is for.** The store is partitioned regardless; a partition key is mandatory in Cassandra. What's being decided is *which* key, and `conversation_id` wins on ordering and read locality, not on throughput. At ~120 writes/sec per shard (§3), throughput constrains nothing — if it were the driver you'd pick something with better distribution, like a hash of `message_id`, and lose both halves of what §8 needs — the single point that mints the ordering value, and the single-partition range read that serves a thread. **The small write volume is why you can afford this key, not the reason you picked it.**
 
-**The real partitioning risk here is size, not rate.** A conversation's write *rate* is bounded, but its total row count isn't — a years-old group chat accumulates millions of messages in one partition, and Cassandra degrades badly past roughly 100MB or ~100k rows per partition (compaction cost, repair time, and a single wide row that can't be split across nodes). So bucket the key: `PK: (conversation_id, bucket)` where `bucket` is a coarse time window or a `seq` range, clustering on `seq DESC` within it. **Time windows are right here specifically because the read is newest-first** — you walk buckets backwards and stop as soon as you have enough. (Full mechanics, including why the scheme depends on the read pattern, are in the feed page's §10, which has the extreme version of this problem.) Reads start at the newest bucket and walk backwards, which matches how people actually scroll. Sequence assignment is unaffected — the counter stays per conversation, independent of which bucket a message lands in. **Naming the size limit unprompted is a strong signal, because it's the failure that shows up in year three rather than at launch.**
+**The real partitioning risk here is size, not rate — and it bites on both branches of the fork below, differently.** A conversation's write *rate* is bounded, but its total row count isn't: a years-old group chat accumulates millions of messages in one partition. **On the Cassandra branch** that's the sharper limit, because Cassandra degrades badly past roughly 100MB or ~100k rows per partition (compaction cost, repair time, and a single wide row that can't be split across nodes). So bucket the key: `PK: (conversation_id, bucket)` where `bucket` is a coarse time window or a `seq` range, clustering on `seq DESC` within it. **Time windows are right here specifically because the read is newest-first** — you walk buckets backwards and stop as soon as you have enough. (Full mechanics, including why the scheme depends on the read pattern, are in the feed page's §10, which has the extreme version of this problem.) Reads start at the newest bucket and walk backwards, which matches how people actually scroll. Sequence assignment is unaffected — the counter stays per conversation, independent of which bucket a message lands in. **On the Postgres branch** the same problem arrives as a multi-hundred-GB table with an index that no longer fits in cache: same fix, native declarative partitioning by `seq` range, and the same newest-first read walking partitions backwards. **Naming the size limit unprompted is a strong signal, because it's the failure that shows up in year three rather than at launch.**
 
 The one genuinely awkward query is "list my conversations, most recent first," which is inherently cross-shard. Solve it with a per-user conversation index — a denormalized `(user_id, conversation_id, last_activity_ts)` updated on the outbox path. Eventually consistent by a second, which is unnoticeable on a conversation list.
 
@@ -362,9 +380,9 @@ Most of these are 15-second items in an interview. **That doesn't mean skipping 
 
 | Component | Access pattern | Durability | Choice | What you say |
 |---|---|---|---|---|
-| **Message log** | Append-only, never mutated, range scan by `seq` desc | Absolute | **Cassandra** (or ScyllaDB — same data model, better tail latency), `PK: conversation_id`, clustering `seq DESC` | "Write-once with range reads is the ideal LSM workload — the usual LSM read penalty comes from mutation, and here there is none" |
+| **Message log** | Append-only, never mutated, range scan by `seq` desc | Absolute | **Follows the density fork above.** Dense `seq` → **Postgres**, same instance as the counter, sharded by `conversation_id`. Sortable-only → **Cassandra/ScyllaDB**, `PK: (conversation_id, bucket)`, clustering `seq DESC` | "Write-once with range reads is the ideal LSM workload — but if I want a dense sequence, the counter and the log have to commit together, and 120 writes/sec/shard doesn't need an LSM store anyway" |
 | **Connection registry** | `device_id → gateway_id`, ~1B keys, extreme churn, TTL-native | **None — rebuilt by reconnects** | Redis Cluster, heartbeat TTL | "Ephemeral, tiny values, needs TTL semantics. ~1B keys × ~100B ≈ 100GB sharded. Losing a node means those devices are briefly unreachable until they heartbeat — acceptable, because delivery is best-effort anyway" |
-| **Cursors** (delivered/read) | Point write per device+conversation; read *all* members' cursors on sync | Low — a lost update is superseded | **Cassandra, co-partitioned with the log** (`PK: conversation_id`, clustering `device_id`) | "Same partition as the messages, so a sync reads both in one hit. I'd write with `USING TIMESTAMP = seq` so Cassandra's own last-write-wins resolves by sequence number instead of wall clock — otherwise a delayed write carrying an older `seq` but a newer clock timestamp regresses the cursor" |
+| **Cursors** (delivered/read) | Point write per device+conversation; read *all* members' cursors on sync | Low — a lost update is superseded | **Co-partitioned with the log, whichever store that is** — Cassandra `PK: conversation_id` clustering `device_id`, or the same Postgres shard on the dense branch | "Co-located with the messages either way, so a sync reads both in one hit — that's the property I'm buying, not the product. On Cassandra I'd write with `USING TIMESTAMP = seq` so its last-write-wins resolves by sequence number instead of wall clock; otherwise a delayed write carrying an older `seq` but a newer clock timestamp regresses the cursor. On Postgres that's a `WHERE seq > cursor` guard on the update — same invariant, different spelling" |
 | **Conversation list index** | Per-user, read on app open, inherently cross-shard | Rebuildable from the log | **Redis sorted set**, key `convs:{user_id}`, member = `conversation_id`, score = `last_activity_ts` (see key schema below). Cassandra as the cold rebuild source | "~20 members per user and only needed for *online* users, so the hot set is small. The score has to be a timestamp — `seq` isn't comparable across conversations" |
 | **Outbox / event stream** | Ordered, replayable, multi-consumer | High, bounded retention | Kafka | "Fans one commit out to receipts, search indexing, and analytics without coupling them to the write path" |
 | **Push queue** | Fire-and-forget to APNs/FCM, retryable | Low | **Kafka topic per platform** + consumer group, failures re-queued to a delay topic (SQS is equally fine if you're not already running Kafka) | "Carries a wake-up hint, never the body — the body is not the notification's job" |
@@ -384,25 +402,83 @@ Every Redis structure has a key, a member, and sometimes a score, and leaving an
 
 **Why not a second Redis cluster with AOF for cursors?** Reasonable instinct — it's exactly right for the connection registry — but cursors are the opposite workload. Roughly 1B devices × ~20 conversations is **~20B rows, multiple TB of RAM**, for data that's read only when a conversation is opened or a device syncs. Redis earns its cost when data is hot, small, and ephemeral; cursors are warm, large, and semi-durable. Co-partitioning them with the message log makes the sync read single-partition and adds no new system to operate. **The general test: reach for Redis when the working set is genuinely hot and losing it is survivable — not merely because the writes are frequent.**
 
-### The sequence-assignment tension (say this before you're asked)
+### Where sequence numbers come from (say this before you're asked)
 
-§8 depends on an atomic per-conversation increment, and **an LSM store doesn't give you one.** Cassandra's counter columns aren't safe under retry, and lightweight transactions cost several round trips per message. So naming Cassandra for the log and then waving at "assigned atomically" is a contradiction. Three resolutions:
+**First, the distinction that reframes the whole problem — two properties get conflated and only one needs a single writer:**
 
-| Approach | How | Cost |
+| Property | Means | Needs coordination? |
 |---|---|---|
-| **Relational shard** | `UPDATE conv SET seq = seq+1 RETURNING seq`, then insert, one transaction | Simplest and honestly fine — §3 says ~120 writes/sec per shard. You give up the LSM append profile |
-| **Single-writer service** ✓ | The process owning the conversation's shard holds the counter in memory and assigns serially; recovery reads `MAX(seq)` from the log on startup | Stateful, partitioned service — same primitive as the Uber matcher. You own membership and rebalancing |
-| **LWT / Paxos per message** | Compare-and-set on the counter row | Correct but tens of ms per send. Rejected on latency |
+| **Sortable** | A stable total order exists | **No.** Snowflake ids, hybrid logical clocks, or server timestamps give this free |
+| **Dense** (gap-free) | Values are consecutive, so 41 → 43 *proves* something was missed | **Yes.** Only a real counter incremented by exactly one writer produces this |
 
-The middle one is the production shape, and it's worth noticing that **it's the same "partition ownership instead of coordination" move** that removes the distributed lock from the Uber page. Two very different problems, one primitive: *when you need a serialization point, own it rather than lock it.*
+§8 gives `seq` four jobs. **Three of them work fine sparse:**
 
-**Cost, volunteered:** an in-memory counter means a conversation is briefly unavailable during failover while the new owner reads `MAX(seq)`. Sends queue client-side and retry with the same `clientMessageId` (§7), so nothing is lost — the dedupe mechanism is what makes the failover safe.
+| Job | Needs density? |
+|---|---|
+| Ordering | No — sortable is sufficient, and it's all users perceive |
+| Cursors | No — a watermark doesn't care about gaps |
+| Dedupe | No — `seq ≤ local_max` still holds |
+| **Gap detection** | **Yes** — and only in the specific sense below |
+
+**So sortable is the default and density is an optimization**, not the other way round. Drop density and the single-writer problem disappears entirely.
+
+**The subtlety that decides how much density is worth.** "Just use sync to catch missed messages" is *almost* right, but comparing your max against the server's `latestSeq` **does not catch middle holes.** A client holding `[40, 41, 43]` against a server latest of 43 has a matching max and is told it's current — while missing 42. Max-comparison detects only *trailing* loss.
+
+So the real tradeoff is how you check completeness:
+
+| | Dense | Sparse |
+|---|---|---|
+| Completeness check | **One integer comparison.** O(1) | **Re-fetch a recent window (~50 ids) and diff.** O(window) |
+| Detection latency for a dropped push | Immediate, on the next message arrival | Next sync |
+| Render order | Can hold an out-of-order arrival and insert correctly | Renders 43, then 42 pops in above it later |
+| Cost | Counter and log must commit in **one transaction in one store** | None |
+
+**At this scale the window refetch is cheap**, which is why Slack ships sparse (`ts` is a microsecond timestamp — unique per channel, sortable, not dense) and it works fine. **Density buys an O(1) completeness check and cleaner render ordering, at the price of coupling your counter to your log.** Decide it deliberately; both answers are defensible and saying which one you're picking *and why* is the entire point of this section.
+
+**If you want dense, here's where the counter can live:**
+
+| Where | Mechanism | Cost |
+|---|---|---|
+| **Relational row** ✓ | `UPDATE conversations SET seq = seq+1 WHERE id=? RETURNING seq`, in the same transaction as the insert. The row lock serializes writers | ~1ms, fully durable, **no ownership problem at all.** At ~10 msgs/sec per conversation this is entirely adequate — **the sane default** |
+| **In-memory single writer** | The process owning the conversation holds the counter; recovery reads `MAX(seq)` from the log | Fastest, no round trip. Inherits the ownership problem *and* a recovery race (below) |
+| **Redis `INCR seq:{conv_id}`** | Atomic, ~0.1ms | **A failover rewind issues a duplicate `seq`** — far worse than a duplicate queue position, because it corrupts the ordering primitive itself |
+| **Cassandra LWT** | Paxos compare-and-set | Correct, tens of ms per message. Rejected on latency |
+| **HLC / Snowflake** | No counter at all | Sortable but **not dense.** You've traded gap detection away — which may be the right trade |
+
+**The failure that decides this: a burned sequence number.** Suppose the counter lives in Postgres and the log in Cassandra. You take `seq = 42`, the Cassandra write fails, the client retries and gets 43. **42 is now a permanent hole** — and a hole is not a cosmetic gap, it breaks the one job density exists for. A receiver sees 41 then 43, pulls `[42,42]`, gets nothing, and cannot distinguish *burned* from *still in flight*.
+
+**There is no shared transaction across two stores**, so this isn't a bug to fix — it's the dual-write problem, and it's structural. Which means:
+
+> **Density picks the store.** A dense `seq` requires the counter and the log to commit in **one transaction in one system.** At ~120 writes/sec per shard (§3), Postgres does both comfortably. Choosing Cassandra for its write profile *and* wanting a dense counter is the incoherent combination.
+
+So the honest fork:
+
+| If you want | Then | And you get |
+|---|---|---|
+| **Dense `seq`** | **Postgres for the counter *and* the log**, one transaction | Rollback on failure, **no hole is possible**, gap detection works |
+| **Cassandra log** | **Snowflake or HLC**, no counter | Sortable but not dense. Gap detection is replaced by sync cursors — **Slack's actual answer** |
+
+**The in-memory owner is better here than I'd credited**, and it's worth knowing why: being the *sole* writer, it can **retry the same `seq` until the write lands** rather than burning it, and crash recovery via `MAX(seq)` reclaims unused values automatically. A shared counter can't easily un-take a number, because a concurrent writer may already have taken the next one.
+
+**And the reader needs a gap-resolution path regardless.** A gap means burned, in-flight, or genuinely missed, and those are indistinguishable at the moment you see it. So: pull the range; if it returns empty, retry briefly (it may still be in flight); then **declare it permanently absent and advance past it.** Without that terminal step, one hole wedges a client forever — which is the same failure shape as the unbounded sync in §10, arriving from a different direction.
+
+**And note there's no throughput problem here.** A busy conversation does ~10 messages/sec, so the per-conversation counter is never hot. That's the difference from Ticketmaster's *single global* queue counter, and it's why the boring relational option wins by default — the elaborate options need a justification this workload doesn't supply.
+
+**Two subtleties worth having ready:**
+
+**The in-memory recovery race.** Owner assigns seq 100, then crashes before the write lands. The new owner reads `MAX(seq)` = 99 and assigns 100 to the next message. The old write then arrives — **two messages with seq 100.** Close it with a unique constraint on `(conversation_id, seq)` so the late write fails. **That's the Uber page's move exactly** — partition ownership to make conflicts rare, then let the database make them impossible, because consistent-hash ownership is not a consensus protocol and the old owner doesn't know it's been replaced.
+
+**Block reservation is *wrong* here, and the contrast is instructive.** Ticketmaster fixed a hot counter with Hi-Lo block reservation, because gaps in queue positions are unobservable. **Gaps in `seq` destroy gap detection** — a receiver seeing 41 then 43 pulls a range that doesn't exist and concludes it lost a message forever. **Same mechanism, opposite verdict, because the counter's purpose differs.** Reserve blocks when a counter only needs to be *increasing*; never when it needs to be *dense*.
+
+**If you take the in-memory option**, notice it's the same "partition ownership instead of coordination" move as the Uber matcher — *when you need a serialization point, own it rather than lock it* — and the same cost applies: a conversation is briefly unavailable during failover. Sends queue client-side and retry with the same `clientMessageId` (§7), so nothing is lost. **The dedupe mechanism is what makes the failover safe.**
 
 ### The retention fork — name it explicitly
 
 **Start by saying what *doesn't* change**, because it's most of the system and volunteering that shows you know where the fork actually bites:
 
-> Identical on both sides: the message store and its partition key, sequence assignment, dedupe, the connection registry and gateway fanout, cursors, the sync protocol, and the Kafka outbox. **Messages are written durably to the same store either way** — WhatsApp is not skipping the database, it's setting a TTL on it. And Kafka is present in both; in the archive case it simply has one more consumer.
+> Identical on both sides: sequence assignment, dedupe, the connection registry and gateway fanout, cursors, the sync protocol, and the Kafka outbox. **Messages are written durably to the same store either way** — WhatsApp is not skipping the database, it's setting a TTL on it. And Kafka is present in both; in the archive case it simply has one more consumer.
+
+**The one thing that *isn't* shared is what a row holds**, and it's worth pre-empting because it's the first thing a sharp interviewer pushes on: the archive side stores one readable message per conversation and every member reads it; the E2E side stores one ciphertext *per recipient device*, because there is no key the server could use to make one copy serve everyone (§9). Same partition key, same `seq`, different row count — and it's the reason the transient side needs a TTL rather than merely benefiting from one.
 
 What actually differs is a retention policy **plus three subsystems that exist on only one side**:
 
@@ -428,7 +504,7 @@ What actually differs is a retention policy **plus three subsystems that exist o
 **Design traps**
 
 1. **Claiming exactly-once delivery.** It doesn't exist. At-least-once plus idempotent dedupe is the answer, and saying so early is worth more than anything else on this page.
-2. **Ordering by timestamp.** Clock skew and ties mean two clients render the same thread differently. Per-conversation `seq`.
+2. **Ordering by a timestamp many writers can mint.** Clock skew and ties mean two clients render the same thread differently. The order must come from *one* writer per conversation — whether that's a dense counter or a shard-local unique timestamp is the §12 fork, but "whatever clock the server that took the write happened to read" is wrong either way.
 3. **Fanout-on-write.** Right for feeds, wrong here. Fan out notifications, not content.
 4. **Per-message read receipts.** Amplifies by group size twice — storage *and* events. Cursors.
 5. **Pub/sub subscriptions per conversation on gateways.** The subscription set dwarfs the connection set and churns constantly.
@@ -440,7 +516,7 @@ What actually differs is a retention policy **plus three subsystems that exist o
 11. **No gap detection.** Without checking `seq > local_max + 1`, clients render incomplete threads and never notice.
 12. **Reconnect without jitter.** A gateway restart becomes a coordinated stampede.
 13. **Not naming the retention fork.** Designing an archive while describing a transient queue is a contradiction that sits in your design all round.
-14. **Justifying the partition key by write throughput.** The store is partitioned either way — Cassandra requires a partition key, so "unpartitioned" isn't an option. The trap is the *reasoning*: at ~120 writes/sec per shard, throughput doesn't constrain anything, and if it were your driver you'd choose a key with better distribution (hash of `message_id`, say) and destroy the single-writer ordering §8 depends on. **`conversation_id` is chosen for ordering and read locality; the write volume is an argument for why you can afford that choice, not the reason for it.**
+14. **Justifying the partition key by write throughput.** The store is partitioned either way — Cassandra requires a partition key, so "unpartitioned" isn't an option. The trap is the *reasoning*: at ~120 writes/sec per shard, throughput doesn't constrain anything, and if it were your driver you'd choose a key with better distribution (hash of `message_id`, say) and destroy both the ordering §8 depends on and the single-partition thread read. **`conversation_id` is chosen for ordering and read locality; the write volume is an argument for why you can afford that choice, not the reason for it.**
 
 **Interview-performance traps** → `00-interview-mechanics.md` §6. The one specific to this page:
 
@@ -453,7 +529,7 @@ What actually differs is a retention policy **plus three subsystems that exist o
 1. Not a throughput problem, not a contention problem. **Fanout + guarantees.**
 2. **Exactly-once is impossible** → at-least-once + idempotent dedupe at both ends.
 3. `clientMessageId` at compose time; unique index `(conv_id, client_msg_id)`; violation returns the original.
-4. Per-conversation `seq`, assigned by the single-writer shard. Gives order, gaps, cursors, dedupe — one integer, four jobs.
+4. Per-conversation `seq`, assigned by the single-writer shard. Gives order, gaps, cursors, dedupe — one integer, four jobs. **Name the density fork:** sortable is free and does three of those jobs; only gap detection needs *dense*, and dense forces the counter and the log into one transaction in one store.
 5. **Durability before delivery.** Ack on store, then attempt delivery; delivery is best-effort because sync is authoritative.
 6. Connection registry `device → gateway`, ~10k gateway nodes, batch pushes per gateway. **Not pub/sub per conversation.**
 7. Fanout-on-**read** for content (inverse of feeds), fanout-on-write for notifications only.
@@ -478,47 +554,3 @@ What actually differs is a retention policy **plus three subsystems that exist o
 | **~10, convergent** | Google Docs / collab editing | Ordering becomes *convergence*: concurrent edits must merge, not just sequence. OT or CRDTs. A `seq` is insufficient because operations conflict |
 
 **The general lesson:** ordering, durability, and fanout are three independent knobs. Messaging needs all three, which is why it's the richest page in the family — Twitch chat drops durability, email drops real-time, feeds invert fanout, and each removal makes the problem dramatically easier.
-
----
-
-## 16 · Active recall — answer these cold, no scrolling
-
-**Protocol:** out loud, in full sentences. Check the pointer only after attempting. Schedule in `00-interview-mechanics.md` §8.
-
-| # | Prompt | Check |
-|---|---|---|
-| 1 | Why is exactly-once delivery impossible, and what do you build instead? | §7 |
-| 2 | The server stores a message and the ack is lost. What are the client's two options and why is one clearly better? | §7 |
-| 3 | Where must `clientMessageId` be generated, and what breaks if it's generated later? | §5, §7 |
-| 4 | A unique constraint fires on `(conv_id, client_msg_id)`. What's the correct server behavior? | §7 |
-| 5 | Give three reasons timestamps can't order a conversation. | §8 |
-| 6 | Name the four separate jobs a per-conversation `seq` does. | §8 |
-| 7 | Why don't you need global ordering across conversations? State the general principle. | §8 |
-| 8 | What's the cost of assigning `seq` on the conversation's shard? | §8, §12 |
-| 9 | Why is fanout-on-read right for messaging and wrong for a news feed? | §9 |
-| 10 | What's the hybrid, and what does each half buy? | §9 |
-| 11 | Why does pub/sub-per-conversation collapse on the gateway tier? | §9 |
-| 12 | A device is offline for six months. Trace the naive sync and how it takes down your service. | §10 |
-| 13 | Why must reconnect backoff have jitter? What correlates the failure? | §6, §10 |
-| 14 | Read receipts as per-message rows: quantify the amplification and say where it hits twice. | §11 |
-| 15 | Why are receipts safe to drop? State the property that makes that true. | §11 |
-| 16 | Name the retention fork and three things that change depending on which side you pick. | §12 |
-| 17 | Why ack on durability rather than on delivery? What fails if you invert it? | §6, §7 |
-| 18 | What does a client do when it receives `seq > local_max + 1`, and why does that matter? | §6, §8 |
-| 19 | Twitch chat has 1M-fanout. Which requirement disappears, and what does removing it let you drop? | §15 |
-| 20 | Name the three position-tracking values in the API, their scope, and why the sync token isn't a `seq`. | §5 |
-| 21 | Receiver marks a message delivered. Trace exactly how the sender's tick appears — and what happens if the sender is offline. | §6, §11 |
-| 22 | Dedupe has a client half and a server half. Which is which, and which one actually enforces correctness? | §7 |
-| 23 | Why is the unique index scoped to `(conversation_id, client_message_id)` rather than globally unique? | §7, §12 |
-| 24 | Name the storage choice for the connection registry and derive it in one sentence. What breaks if a node dies? | §12 |
-| 25 | Why can't a Cassandra-family store assign `seq`? Give three resolutions and pick one with its cost. | §12 |
-| 26 | Why are cursors safe to merge with last-write-wins when most state isn't? | §11, §12 |
-| 27 | Why do cursors live in Cassandra rather than a second Redis cluster? Give the number that decides it. | §12 |
-| 28 | What does `USING TIMESTAMP = seq` fix, and what goes wrong without it? | §12 |
-| 29 | Why can't `seq` be the score on the conversation-list sorted set? What does sorting by it actually produce? | §12 |
-| 30 | Give the key, member, and score for each Redis structure, and why the registry TTL is ~3× the heartbeat. | §12 |
-| 31 | The store is partitioned no matter what. So what is choosing `conversation_id` actually buying, and what would a throughput-driven key cost you? | §12 |
-| 32 | A conversation's write rate is bounded but something else isn't. What, why does it matter, and what's the fix? | §12 |
-| 33 | Between transient queue and durable archive, name what's shared and the three subsystems that aren't. | §12 |
-| 34 | Why is the retention fork forced by encryption rather than by storage cost? | §12 |
-| 35 | "Delete once all devices have delivered." What's the flaw, and what's the actual deletion mechanism? | §12 |

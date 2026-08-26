@@ -94,7 +94,7 @@ The distribution is what makes it interesting. A typical person follows a couple
 
 **Load-bearing details:**
 
-- **Snowflake IDs are time-sortable 64-bit integers** (timestamp | machine | sequence). That single property means the tweet id *is* the sort key — no separate timestamp column, no clock-skew tie-breaking, and the timeline sorted set can score by id directly. **Compare the messaging page, which needed a per-conversation `seq` because order only had to hold within a thread. Here order is global, so a globally sortable id is the right primitive.** Two problems, two different ordering strategies, for a reason you can state.
+- **Snowflake IDs are time-sortable 64-bit integers** (timestamp | machine | sequence). That single property means the tweet id *is* the sort key — no separate timestamp column, no clock-skew tie-breaking, and the timeline sorted set can score by id directly. **Compare the messaging page, which agonizes over whether its per-conversation `seq` needs to be *dense*. Here that question doesn't arise: a timeline reader can't detect a hole, so sortable is all you could ever use.** A thread reader can — `seq > local_max + 1` means something was missed — which is the one job that costs you a single writer. Same primitive, and the difference is what the reader can notice.
 - **`follower_count` on the user row** is what routes an author down the normal or celebrity path (§8). It has to be cheap to read on every post, so it's denormalized and allowed to be slightly stale.
 - **`last_active_at`** decides whether this user gets a materialized timeline at all.
 
