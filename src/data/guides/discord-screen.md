@@ -881,15 +881,23 @@ socket.on('error', (err) => { /* log and let 'close' clean up */ })
 ```
 
 **An `'error'` event with no listener is thrown**, and a thrown error on an EventEmitter takes down
-the entire Node process. So a client that hits `Ctrl-C` at the wrong moment produces an ECONNRESET
-that kills your server, in front of the interviewer, while another client is connected. It looks
-like a crash caused by nothing. It is the highest-frequency way this exercise goes visibly wrong,
-and it is one line.
+the entire Node process. **The trigger is not the client leaving — it is your next write to a client
+that has already gone.** A clean `Ctrl-C` sends FIN and you get `'end'` then `'close'` with no error
+at all; but a peer that dies with bytes still unread, or that resets, turns the very next
+`socket.write()` into an ECONNRESET or EPIPE. A broadcast server is always writing to everyone,
+which makes this routine rather than exotic: one client leaves mid-broadcast and the process dies in
+front of the interviewer, looking like a crash caused by nothing. It is the highest-frequency way
+this exercise goes visibly wrong, and it is one line.
+
+**If you try to reproduce it, you need two clients.** A lone idle `nc` drains its socket the instant
+anything arrives, so you can `Ctrl-C` it all day and never see an error — there is nothing in flight
+to fail on. Connect two, keep one talking, and kill the other.
 
 **Put cleanup on `'close'`, not `'end'`,** because `'close'` is the only event that fires on every
-path — clean FIN, reset, error, and your own `destroy()`. Cleanup on `'end'` means a client killed
-with `Ctrl-C` leaves a stale entry in the registry, and the symptom is a ghost: `/who` lists someone
-who left, and broadcasting to them throws later, somewhere else entirely.
+path — clean FIN, reset, error, and your own `destroy()`. Cleanup on `'end'` means a client that
+vanishes *without* a clean FIN — a reset, a dropped link, a `destroy()` with unread data — leaves a
+stale entry in the registry, and the symptom is a ghost: `/who` lists someone who left, and
+broadcasting to them throws later, somewhere else entirely.
 
 ```ts
 socket.on('close', () => {
@@ -1075,7 +1083,7 @@ export function createServer(): net.Server {
       () => { client.send('error line too long'); socket.destroy() },
     ))
 
-    socket.on('error', () => {})                        // WITHOUT THIS, A RESET KILLS THE PROCESS
+    socket.on('error', () => {})                        // WITHOUT THIS, A WRITE TO A DEAD PEER KILLS IT
     socket.on('close', () => {                          // the only cleanup path (§04 F)
       clients.delete(client)
       if (client.name !== null) {
@@ -1091,8 +1099,8 @@ export function createServer(): net.Server {
 
 1. **The framing loop is a `while`.** Everything else in the file is ordinary; this is the line that
    separates people who have written a socket server from people who have written an HTTP handler.
-2. **`socket.on('error', …)` exists.** Without it a client pressing `Ctrl-C` at the wrong moment
-   takes the whole process down, live, on the shared screen.
+2. **`socket.on('error', …)` exists.** Without it, the next broadcast to a client that has already
+   left takes the whole process down, live, on the shared screen.
 3. **Cleanup is on `'close'` and nowhere else.** On `'end'` instead, a hard reset leaves a ghost in
    the registry and `/who` lists someone who left.
 4. **`broadcast` takes an `except`.** The no-self-echo requirement is enforced by the signature

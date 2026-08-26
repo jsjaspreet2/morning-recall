@@ -3825,7 +3825,7 @@
       "timeboxSec": 45,
       "weight": 5,
       "prompt": "What is the single most important line in the program, and what happens without it?",
-      "answer": "`socket.on('error', () => {})`. An 'error' event with no listener is thrown, and a thrown EventEmitter error takes down the whole Node process — so a client hitting Ctrl-C produces an ECONNRESET that kills your server live on the shared screen, looking like a crash caused by nothing.",
+      "answer": "`socket.on('error', () => {})`. An 'error' event with no listener is thrown, and a thrown EventEmitter error takes down the whole Node process. The trigger is not a client leaving but your next write to a client that already left — a clean Ctrl-C just fires 'end' then 'close' — so in a broadcast server, one client dying mid-broadcast kills the server live on the shared screen, looking like a crash caused by nothing.",
       "answerKey": "Discord Screen v1"
     },
     {
