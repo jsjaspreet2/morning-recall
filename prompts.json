@@ -3815,7 +3815,7 @@
       "timeboxSec": 45,
       "weight": 5,
       "prompt": "Which socket event carries the cleanup, and what specifically goes wrong if you pick a different one?",
-      "answer": "'close', because it is the only event that fires on every path — clean FIN, reset, error, and your own destroy(). Cleanup on 'end' means a client killed with Ctrl-C leaves a ghost in the registry: /who lists someone who left, and broadcasting to them throws later, somewhere else entirely.",
+      "answer": "'close', because it is the only event that fires on every path — clean FIN, reset, error, and your own destroy(). Cleanup on 'end' means any client that vanishes WITHOUT a clean FIN — a reset, a dropped link, a destroy() with unread data — leaves a ghost in the registry: /who lists someone who left, and broadcasting to them throws later, somewhere else entirely. The one exception to \"only 'close'\" is deliberate eviction: socket.end() is async, so a kick or an idle timeout has to remove from the registry immediately and make 'close' idempotent.",
       "answerKey": "Discord Screen v1"
     },
     {
@@ -3935,7 +3935,7 @@
       "timeboxSec": 40,
       "weight": 4,
       "prompt": "Why write the dispatch `switch` in part 1 when there is only one case, and how do you defend it if challenged?",
-      "answer": "\"I know there's one case. The reason it's a table is that I expect to add rows, and a table absorbs rows without being restructured.\" It is the difference between part 2 costing ninety seconds and costing eight minutes.",
+      "answer": "\"I know there's one case. The reason it's a table is that I expect to add rows, and a table absorbs rows without being restructured.\" It is the difference between part 2 costing ninety seconds and costing eight minutes. Two things stay ABOVE the table: the handshake, because an unnamed client's line is a name rather than a command, and the leading-/ check, because that is what separates chat from commands. Without that guard the switch's default swallows every chat message and answers 'error unknown command' to \"hello\".",
       "answerKey": "Discord Screen v1"
     },
     {
@@ -3965,7 +3965,7 @@
       "timeboxSec": 45,
       "weight": 5,
       "prompt": "Rank the edge cases they probe, and say which one is categorically different from the rest.",
-      "answer": "Hard disconnect (Ctrl-C) · duplicate names · empty lines at every stage · a message before joining · an over-long or never-terminated line · a client that connects and says nothing · odd characters in a name · the last member leaving a room. The first is categorically different: everything else is a missing feature, and that one is a crash.",
+      "answer": "A client that disappears while you are writing to it (the crash — everything else is a missing feature) · duplicate names · empty lines at every stage · a message before joining · an over-long or never-terminated line · a client that connects and says nothing · odd characters in a name · the last member leaving a room. The first is categorically different because it takes the process down rather than leaving a feature unbuilt.",
       "answerKey": "Discord Screen v1"
     },
     {
@@ -3985,7 +3985,7 @@
       "timeboxSec": 50,
       "weight": 5,
       "prompt": "Ctrl-C versus Ctrl-D in nc: what does each produce server-side, and why does the answer matter?",
-      "answer": "Ctrl-D sends EOF, so a FIN: you get 'end' then 'close'. Ctrl-C kills nc, so a reset: you get 'error' then 'close'. That is precisely why cleanup lives on 'close' and the 'error' handler does nothing but exist — and saying it out loud is a cheap, specific signal.",
+      "answer": "Less than folklore says. Ctrl-D sends EOF, so a FIN. Ctrl-C kills nc, and the OS still usually sends FIN too — you get 'end' then 'close' either way, with no error at all. A reset only happens when the peer goes away with data still unread. So the thing that produces an 'error' is not the disconnect, it is your next write to a departed socket — which in a broadcast server happens constantly. That is why cleanup lives on 'close', which fires on every path, and the 'error' handler does nothing but exist.",
       "answerKey": "Discord Screen v1"
     },
     {

@@ -358,9 +358,9 @@ costs ninety seconds and it buys the rest of the hour — every subsequent bug i
 is a bug you can reason about, rather than an environment bug, which is a bug that eats ten
 minutes and your composure.
 
-**Have `nc` in your fingers.** `nc localhost 8080` connects. `Ctrl-C` kills the client hard,
-`Ctrl-D` sends EOF, and they produce different events on the server — `§07 E` has the table, and
-knowing the difference out loud is a cheap signal.
+**Have `nc` in your fingers.** `nc localhost 8080` connects. `Ctrl-D` sends EOF; `Ctrl-C` kills the
+client. Both usually reach the server as a clean FIN — `§07 E` has the table and the case where they
+diverge — and knowing the difference out loud is a cheap signal.
 
 **Rehearse the whole sequence cold** — `mkdir` to `echo: hello`, no reference open — twice: once
 today and once on D-1. It is item 5 in `§08 B`, and it is the only failure mode in this round you
@@ -559,10 +559,16 @@ the handler that calls them.
 about chat. It is written once in part 1 and is untouched for the rest of the hour. If part 2 makes
 you edit your framing code, the layering was wrong.
 
-**3. Dispatch is a table, not an `if` chain.** Even in part 1, when there is exactly one command
-and it is "say this to everyone", route it through a `handleLine(client, line)` that switches. Part
-2 is then *adding rows*, which takes ninety seconds and reads as design, rather than *restructuring
-a conditional*, which takes eight minutes and reads as rescue.
+**3. Dispatch is a table, not an `if` chain.** Even in part 1, when there is exactly one command,
+route every line through a single `handleLine(client, line)` laid out as verb → action. Part 2 is
+then *adding rows*, which takes ninety seconds and reads as design, rather than *restructuring a
+conditional*, which takes eight minutes and reads as rescue.
+
+**Two things sit above the table rather than in it, and keeping them out is what makes the table
+work.** The handshake is a *state* branch — an unnamed client's line is a name, not a command — and
+the `/` check is what separates chat from commands. Part 1 can get away with `if (text === '/quit')`
+because there is one command and no ambiguity; the moment there are several, both guards go in
+first and the switch below them handles verbs only.
 
 **Then, when part 2 lands, spend ten seconds on this before typing:**
 
@@ -773,14 +779,14 @@ to those functions rather than to the connection handler.
 
 ```ts
 interface Client {
-  id: number
   name: string | null                    // null until the first line names them
   room: string | null                    // null until /join. Part 1 can leave this unused
   socket: net.Socket
   send(line: string): void               // the only way anything writes to a socket
 }
 
-const clients = new Map<number, Client>()          // every connection, named or not
+const clients = new Set<Client>()                  // every connection, named or not
+const byName = new Map<string, Client>()           // names are unique; see below
 const rooms = new Map<string, Set<Client>>()       // the index that keeps broadcast cheap
 ```
 
@@ -800,11 +806,12 @@ function join(c: Client, room: string) {
   let members = rooms.get(room)
   if (!members) rooms.set(room, (members = new Set()))
   members.add(c)
+  c.send(`you joined ${room}`)                    // the joiner is told directly, not via broadcast
   broadcast(room, `* ${c.name} joined ${room}`, c)
 }
 
 function leave(c: Client) {
-  if (!c.room) return
+  if (c.room === null) return
   const members = rooms.get(c.room)
   members?.delete(c)
   if (members && members.size === 0) rooms.delete(c.room)   // empty rooms don't linger
@@ -902,14 +909,21 @@ broadcasting to them throws later, somewhere else entirely.
 ```ts
 socket.on('close', () => {
   leave(client)                                   // removes from the room, notifies, GCs the room
-  clients.delete(client.id)
-  if (client.name) byName.delete(client.name)
+  clients.delete(client)
+  if (client.name !== null) byName.delete(client.name)
 })
 ```
 
 **Say the invariant out loud when you write it:** *"Every way this socket can die routes through
 `'close'`, and `'close'` is the only place I remove from the registry. That way there's one cleanup
-path rather than four."* That is *code quality — well abstracted such that it could be tested*,
+path rather than four."*
+
+**The one exception, if a part ever makes you evict somebody** — an idle timeout, a kick, a ban.
+`socket.end()` is asynchronous: `'close'` lands on a later tick, so an eviction that only calls
+`end()` leaves the client in the registry for the rest of the current one, and they still appear in
+the very listing that triggered the eviction. Deliberate removal has to happen immediately, which
+means it is the one path that does not wait for `'close'` — so mark the client and make `'close'`
+idempotent rather than letting it announce the same departure twice. That is *code quality — well abstracted such that it could be tested*,
 which is a named axis, expressed as a sentence.
 
 **Half-open connections, if they ask.** By default Node closes the writable side when it receives
@@ -1050,7 +1064,7 @@ export function createServer(): net.Server {
     }
   }
 
-  // ---- dispatch: a switch even with one case, so part 2 is new rows -------
+  // ---- dispatch: one entry point, so part 2 adds rows rather than reshaping
   function handleLine(c: Client, raw: string) {
     const text = raw.trim()
     if (text === '') return
@@ -1183,9 +1197,17 @@ function join(c: Client, room: string) {
 }
 ```
 
-Dispatch becomes a table. Note that the *shape* of `handleLine` did not change — only its rows:
+Dispatch becomes a table. **One thing above it does change, and it is the line people drop:** a
+plain message is no longer everything that is not `/quit`, so the `/`-check has to become explicit
+*before* the switch. Once it is there, everything inside the table is a command by construction and
+`default` can mean exactly one thing.
 
 ```ts
+if (!line.startsWith('/')) {                        // chat, not a command — this is the guard
+  if (c.room === null) return c.send('error you are not in a room')
+  return broadcast(c.room, `${c.name}: ${line}`, c)
+}
+
 const sp = line.indexOf(' ')
 const verb = sp === -1 ? line : line.slice(0, sp)
 const rest = sp === -1 ? '' : line.slice(sp + 1).trim()
@@ -1226,8 +1248,12 @@ socket.on('close', () => {
    and one that runs for a month. Say the word "unbounded" out loud when you write it.
 3. **`/who` answers only the asker.** Broadcasting the answer is the sort of thing that works and is
    still wrong, and it is a one-word difference in the code.
-4. **The `default` case exists.** `/dance` producing silence is indistinguishable from a broken
-   server; producing `error unknown command` is a protocol.
+4. **The `default` case exists, and the guard above the switch is what makes it safe.** With the
+   `startsWith('/')` fork in place, `default` means "a slash command I don't have" and nothing else.
+   Drop that guard and `default` swallows every chat message — the server answers `error unknown
+   command` to "hello", which passes a one-client demo and fails the moment anybody talks. Given the
+   guard, `/dance` producing silence is indistinguishable from a broken server, and producing
+   `error unknown command` is a protocol.
 
 </details>
 
@@ -1442,13 +1468,18 @@ switch (verb) {
     store.set(rest.slice(0, gap), { value: rest.slice(gap + 1), expiresAt: null })
     return send('OK')
   }
-  case 'GET':    { const v = read(rest); return send(v === null ? 'NIL' : `VALUE ${v}`) }
-  case 'DEL':    { const had = read(rest) !== null; store.delete(rest)
-                   return send(`DELETED ${had ? 1 : 0}`) }
-  case 'EXPIRE': { const ms = Number(rest.slice(rest.indexOf(' ') + 1))
+  case 'GET':    { if (rest === '') return send('ERR wrong number of arguments')
+                   const v = read(rest); return send(v === null ? 'NIL' : `VALUE ${v}`) }
+  case 'DEL':    { if (rest === '') return send('ERR wrong number of arguments')
+                   const had = read(rest) !== null   // read() also clears an expired entry
+                   store.delete(rest); return send(`DELETED ${had ? 1 : 0}`) }
+  case 'EXPIRE': { const gap = rest.indexOf(' ')
+                   if (gap === -1) return send('ERR wrong number of arguments')
+                   const key = rest.slice(0, gap)
+                   const ms = Number(rest.slice(gap + 1))
                    if (!Number.isInteger(ms)) return send('ERR value is not an integer')
-                   if (read(rest.slice(0, rest.indexOf(' '))) === null) return send('NIL')
-                   store.get(rest.slice(0, rest.indexOf(' ')))!.expiresAt = now() + ms
+                   if (read(key) === null) return send('NIL')
+                   store.get(key)!.expiresAt = now() + ms
                    return send('OK') }
   case 'KEYS':   { const live = [...store.keys()].filter((k) => read(k) !== null).sort()
                    return send(live.length ? `KEYS ${live.join(',')}` : 'KEYS (empty)') }
@@ -1462,7 +1493,9 @@ switch (verb) {
    That's O(1) per read and it means a key nobody touches occupies memory forever — I'd add a
    low-frequency background sweep when dead keys start outnumbering live ones."*
 2. **An error taxonomy.** Wrong arity, bad integer, and unknown verb are three different replies. A
-   single `ERR` for all of them is the thing that reads as unfinished.
+   single `ERR` for all of them is the thing that reads as unfinished — and note the arity check has
+   to come *first* in each case, before anything slices the rest of the line, or a missing argument
+   silently becomes an empty key instead of an error.
 3. **`SET` takes the rest of the line.** Splitting on whitespace and taking `parts[1]` silently
    truncates any value with a space in it, and the bug will not show up in your own testing because
    you will type single words.
@@ -1599,9 +1632,10 @@ before you write the handler is thirty seconds well spent:
 
 Ranked by how often reports mention them, and each is one or two lines to handle.
 
-1. **A client disconnects hard.** `Ctrl-C`, not `Ctrl-D`. Needs the `'error'` listener and cleanup
-   on `'close'`. **If only one thing on this list is handled, make it this one** — everything else
-   is a missing feature, and this one is a crash.
+1. **A client disappears while you are writing to it.** Needs the `'error'` listener and cleanup on
+   `'close'` (`§04 F`). **If only one thing on this list is handled, make it this one** — everything
+   else is a missing feature, and this one is a crash. Note it is the *write* that kills you, not
+   the disconnect: a client that leaves quietly is a clean FIN and harmless.
 2. **Two clients pick the same name.** A `Map` makes it a lookup; the client must stay usable.
 3. **An empty line, at every stage.** Before naming, after naming, and as a message.
 4. **A message before joining a room.** An explicit error, not silence.
@@ -1650,14 +1684,14 @@ export function createServer(): net.Server {
     const line = raw.trim()
     if (line === '') return
     if (c.name === null) { /* handshake */ return }
+    if (!line.startsWith('/')) return broadcast(`${c.name}: ${line}`, c)
     const sp = line.indexOf(' ')
     const verb = sp === -1 ? line : line.slice(0, sp)
     const rest = sp === -1 ? '' : line.slice(sp + 1)
     switch (verb) {
       case '/quit': c.send('bye'); return void c.socket.end()
-      default:      if (verb.startsWith('/')) return c.send('error unknown command')
+      default:      return c.send('error unknown command')
     }
-    broadcast(`${c.name}: ${line}`, c)
   }
 
   return net.createServer((socket) => {
@@ -1775,11 +1809,12 @@ Every one of these has cost somebody ten minutes.
 | Garbage bytes on the very first line, only with `telnet` | Telnet sends option negotiation — `0xFF` command sequences — before any data | Ignore lines containing `\xff`, or ask the interviewer to use `nc`. Worth knowing exists; not worth implementing |
 | The server dies when a client quits | No `'error'` listener on the socket | `§04 F`. One line |
 | A message from a fast client arrives glued to the next | You are not framing | `§04 C` |
-| `Ctrl-C` and `Ctrl-D` behave differently | They are different: `Ctrl-C` kills `nc` (reset), `Ctrl-D` sends EOF (FIN) | Handle both. `'close'` covers both, which is why cleanup lives there |
+| `Ctrl-C` and `Ctrl-D` behave differently | Less than folklore says. `Ctrl-D` sends EOF; `Ctrl-C` kills `nc`, and the OS still usually sends FIN. You get a reset only if the peer went away with data unread | Handle both. `'close'` covers every case, which is why cleanup lives there |
 
-**Knowing the last row out loud is a cheap, specific signal:** *"`Ctrl-D` sends a FIN so I get
-`'end'` then `'close'`; `Ctrl-C` kills the client so I get a reset — `'error'` then `'close'`. That's
-why the cleanup is on `'close'` and the `'error'` handler does nothing but exist."*
+**Knowing the last row out loud is a cheap, specific signal:** *"Both usually give me a clean FIN —
+`'end'` then `'close'`. What produces an `'error'` isn't the disconnect, it's my next write to a
+socket whose peer has gone, which in a broadcast server happens constantly. That's why cleanup is on
+`'close'`, which fires on every path, and the `'error'` handler does nothing but exist."*
 
 ## 08 — Typing fluency with AI off
 
@@ -2075,7 +2110,7 @@ when it arrived, every follow-up question, and the two places you lost time. Tha
 than anything else you could do that afternoon — and Cursor is on Friday, so the next thing after
 writing it is to close this guide and open `Cursor Screen`.
 
-Good luck. The preparation is real: seven drills with seventy-nine tests behind them, a framing
+Good luck. The preparation is real: seven drills with eighty tests behind them, a framing
 helper you can type in sixty seconds, and a mock on the real clock in the real slot. Walk in and do
 the thing you have practised — get it listening, ask before you build, decide out loud, and leave
 time to show it working.
