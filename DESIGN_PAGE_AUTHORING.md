@@ -220,6 +220,7 @@ label from this table — the index groups by it.
 | **Read-heavy content & fanout** | Fanout-on-write vs fanout-on-read | Twitter feed |
 | **LLM application** | A slow, expensive, capacity-bounded generation that outlives the request that started it | ChatGPT |
 | **Low-latency inference in a loop** | Latency budget forbids the standard pipeline | Cursor Tab |
+| **Usage metering & billing** | Lossy, high-volume telemetry must converge on an exact amount of money, settled through a third party you don't control | LLM API billing |
 | **Write-heavy telemetry / analytics** | Ingest volume vs query flexibility | *(pending)* |
 | **Coordination / uniqueness** | Global invariant across partitions | *(pending)* |
 

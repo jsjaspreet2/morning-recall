@@ -117,6 +117,13 @@ const META: Record<string, Meta> = {
       'The generation is a resource with a lifecycle, not an HTTP response — it outlives the request, costs real money, and runs on a pool you cannot autoscale.',
     accent: 'violet',
   },
+  billing: {
+    label: 'LLM API billing',
+    archetype: 'Usage metering & billing',
+    tension:
+      'Lossy, at-least-once usage events have to converge on an exact number of dollars — and the money leaves through a third party you do not control. The inverse of ChatGPT: the same two token counts, but dropping one is revenue rather than a metric.',
+    accent: 'emerald',
+  },
   cursor: {
     label: 'Cursor Tab',
     archetype: 'Low-latency inference in a loop',
