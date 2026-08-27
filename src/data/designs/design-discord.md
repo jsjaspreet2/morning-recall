@@ -118,28 +118,84 @@ PUT  /channels/{channel_id}/read        { last_message_id }       -> 204
 
 ## 6 · High-level design — flows
 
-```text
-                    ┌───────────────┐
-  HTTP send ───────►│  API service  │──── write ───►  Message store (ScyllaDB)
-                    └───────┬───────┘
-                            │ publish(channel_id)
-                            ▼
-                  ┌─────────────────────┐
-                  │  Guild/channel      │   one owner per guild; holds the
-                  │  process (BEAM)     │   subscriber list for its channels
-                  └──────────┬──────────┘
-                             │ fanout to sessions
-              ┌──────────────┼──────────────┐
-              ▼              ▼              ▼
-        ┌──────────┐   ┌──────────┐   ┌──────────┐
-        │ Gateway  │   │ Gateway  │   │ Gateway  │  ~15M sockets total
-        │  node    │   │  node    │   │  node    │
-        └────┬─────┘   └────┬─────┘   └────┬─────┘
-             │ WebSocket    │              │
-           clients        clients        clients
+<div class="diagram">
+<svg viewBox="0 0 1000 605" role="img" aria-label="Discord high-level design. A write path over HTTP: client to API service, which evaluates permissions once, mints a Snowflake id and writes to ScyllaDB before publishing. The guild process owns one guild, resolves online members and groups them by gateway node, sending one message per node rather than one per session. Three gateway nodes fan out to roughly fifteen million WebSocket clients. A Redis session registry with heartbeat TTL drives routing and presence.">
+  <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
+  <text class="dg-banner-t dg-c" x="500" y="33.5">Ingest is trivial; fanout is not. Tens of thousands of writes a second become ~15 M sockets and millions of deliveries.</text>
+  <text class="dg-lane" x="30" y="76">WRITE PATH — OVER HTTP, NOT OVER THE SOCKET</text>
+  <rect class="dg-box" x="30" y="90" width="110" height="72" rx="8"></rect>
+  <text class="dg-t dg-c" x="85" y="122.5">Client</text>
+  <text class="dg-s dg-c" x="85" y="138.5">POST + nonce</text>
+  <rect class="dg-box" x="180" y="90" width="190" height="72" rx="8"></rect>
+  <text class="dg-t dg-c" x="275" y="114.5">API service</text>
+  <text class="dg-s dg-c" x="275" y="130.5">permissions once, here</text>
+  <text class="dg-s dg-c" x="275" y="146.5">Snowflake id</text>
+  <rect class="dg-box" x="420" y="90" width="240" height="72" rx="8"></rect>
+  <text class="dg-t dg-c" x="540" y="114.5">Message store</text>
+  <text class="dg-s dg-c" x="540" y="130.5">ScyllaDB</text>
+  <text class="dg-s dg-c" x="540" y="146.5">(channel_id, bucket)</text>
+  <path class="dg-line" d="M 140,126 L 172,126"></path>
+  <path class="dg-head" d="M 172,131 L 172,121 L 180,126 Z"></path>
+  <path class="dg-line" d="M 370,126 L 412,126"></path>
+  <path class="dg-head" d="M 412,131 L 412,121 L 420,126 Z"></path>
+  <rect class="dg-warn" x="690" y="90" width="270" height="72" rx="8"></rect>
+  <text class="dg-warn-t dg-c" x="825" y="114.5">Order is not negotiable</text>
+  <text class="dg-s dg-c" x="825" y="130.5">store write, then publish —</text>
+  <text class="dg-s dg-c" x="825" y="146.5">the inverse is unrecoverable</text>
+  <path class="dg-line" d="M 275,162 L 275,196 L 430,196 L 430,212"></path>
+  <path class="dg-head" d="M 425,212 L 435,212 L 430,220 Z"></path>
+  <text class="dg-lbl" x="300" y="190">publish(channel_id)</text>
+  <rect class="dg-good" x="280" y="220" width="380" height="92" rx="8"></rect>
+  <text class="dg-t dg-c" x="470" y="246.5">Guild / channel process (BEAM)</text>
+  <text class="dg-s dg-c" x="470" y="262.5">one owner per guild → per-channel total order</text>
+  <text class="dg-s dg-c" x="470" y="278.5">resolves ONLINE members, groups by gateway node</text>
+  <text class="dg-s dg-c" x="470" y="294.5">one message per node, not per session — the 100× win</text>
+  <path class="dg-line" d="M 450,312 L 450,344"></path>
+  <path class="dg-line" d="M 190,344 L 630,344"></path>
+  <path class="dg-line" d="M 190,344 L 190,372"></path>
+  <path class="dg-head" d="M 185,372 L 195,372 L 190,380 Z"></path>
+  <path class="dg-line" d="M 410,344 L 410,372"></path>
+  <path class="dg-head" d="M 405,372 L 415,372 L 410,380 Z"></path>
+  <path class="dg-line" d="M 630,344 L 630,372"></path>
+  <path class="dg-head" d="M 625,372 L 635,372 L 630,380 Z"></path>
+  <rect class="dg-box" x="100" y="380" width="180" height="72" rx="8"></rect>
+  <text class="dg-t dg-c" x="190" y="404.5">Gateway node</text>
+  <text class="dg-s dg-c" x="190" y="420.5">local sockets</text>
+  <text class="dg-s dg-c" x="190" y="436.5">stamps a per-session seq</text>
+  <rect class="dg-box" x="320" y="380" width="180" height="72" rx="8"></rect>
+  <text class="dg-t dg-c" x="410" y="404.5">Gateway node</text>
+  <text class="dg-s dg-c" x="410" y="420.5">local sockets</text>
+  <text class="dg-s dg-c" x="410" y="436.5">stamps a per-session seq</text>
+  <rect class="dg-box" x="540" y="380" width="180" height="72" rx="8"></rect>
+  <text class="dg-t dg-c" x="630" y="404.5">Gateway node</text>
+  <text class="dg-s dg-c" x="630" y="420.5">local sockets</text>
+  <text class="dg-s dg-c" x="630" y="436.5">stamps a per-session seq</text>
+  <path class="dg-line" d="M 190,452 L 190,492"></path>
+  <path class="dg-head" d="M 185,492 L 195,492 L 190,500 Z"></path>
+  <path class="dg-line" d="M 410,452 L 410,492"></path>
+  <path class="dg-head" d="M 405,492 L 415,492 L 410,500 Z"></path>
+  <path class="dg-line" d="M 630,452 L 630,492"></path>
+  <path class="dg-head" d="M 625,492 L 635,492 L 630,500 Z"></path>
+  <rect class="dg-box" x="100" y="500" width="180" height="36" rx="8"></rect>
+  <text class="dg-t dg-c" x="190" y="522.5">clients — WebSocket</text>
+  <rect class="dg-box" x="320" y="500" width="180" height="36" rx="8"></rect>
+  <text class="dg-t dg-c" x="410" y="522.5">clients — WebSocket</text>
+  <rect class="dg-box" x="540" y="500" width="180" height="36" rx="8"></rect>
+  <text class="dg-t dg-c" x="630" y="522.5">clients — WebSocket</text>
+  <rect class="dg-box" x="760" y="380" width="200" height="92" rx="8"></rect>
+  <text class="dg-t dg-c" x="860" y="406.5">Session registry</text>
+  <text class="dg-s dg-c" x="860" y="422.5">Redis, heartbeat TTL</text>
+  <text class="dg-s dg-c" x="860" y="438.5">who is where, for routing</text>
+  <text class="dg-s dg-c" x="860" y="454.5">and for presence, by expiry</text>
+  <path class="dg-line" d="M 860,380 L 860,266 L 668,266"></path>
+  <path class="dg-head" d="M 668,261 L 668,271 L 660,266 Z"></path>
+  <text class="dg-lbl" x="680" y="258">presence = TTL expiry, coalesced</text>
+  <text class="dg-s" x="30" y="560">A message can exist that nobody was told about; the client re-reads it on RESUME, because the store is the source of truth and the push is an optimisation over it.</text>
+  <text class="dg-note" x="30" y="582">Degrade in this order: presence → read state → history depth. Never live message delivery.</text>
+</svg>
+</div>
 
-  Session registry (Redis, heartbeat TTL) ── who is where, for routing and presence
-```
+<p class="diagram-cap">The 100× win is one arrow, and it is the reason this page exists: the guild process groups recipients by <em>gateway node</em> before sending. Everything above that box is unremarkable; everything below it is the interview.</p>
 
 ### Flow A — sending a message
 
@@ -290,6 +346,84 @@ Interview-performance traps live in `Interview mechanics` — see that page rath
 ---
 
 ## 14 · The five-minute skeleton (draw this cold)
+
+<div class="diagram">
+<svg viewBox="0 0 1000 512" role="img" aria-label="Discord five-minute skeleton. Write row: client, API service, ScyllaDB. Fanout row: guild process, one message per gateway node, gateway nodes stamping a sequence number, clients holding one WebSocket each. A Redis session registry. Margin notes for RESUME, presence, read state and the degradation order.">
+  <rect class="dg-banner" x="10" y="10" width="980" height="34" rx="9"></rect>
+  <text class="dg-banner-t dg-c" x="500" y="31.5">Minute five: everything below must be on the board. Badge numbers match the list.</text>
+  <circle class="dg-num" cx="22" cy="68" r="9"></circle>
+  <text class="dg-num-t" x="22" y="71.4">2</text>
+  <text class="dg-lane" x="38" y="72">WRITE — HTTP, NOT THE SOCKET</text>
+  <rect class="dg-box" x="30" y="86" width="100" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="80" y="118.5">Client</text>
+  <rect class="dg-box" x="158" y="86" width="200" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="258" y="110.5">API service</text>
+  <text class="dg-s dg-c" x="258" y="126.5">permissions once · Snowflake</text>
+  <circle class="dg-num" cx="158" cy="86" r="9"></circle>
+  <text class="dg-num-t" x="158" y="89.4">3</text>
+  <rect class="dg-box" x="398" y="86" width="220" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="508" y="110.5">ScyllaDB</text>
+  <text class="dg-s dg-c" x="508" y="126.5">(channel_id, bucket)</text>
+  <path class="dg-line" d="M 130,114 L 150,114"></path>
+  <path class="dg-head" d="M 150,119 L 150,109 L 158,114 Z"></path>
+  <path class="dg-line" d="M 358,114 L 390,114"></path>
+  <path class="dg-head" d="M 390,119 L 390,109 L 398,114 Z"></path>
+  <rect class="dg-warn" x="650" y="86" width="310" height="56" rx="8"></rect>
+  <text class="dg-warn-t dg-c" x="805" y="110.5">Store, then publish</text>
+  <text class="dg-s dg-c" x="805" y="126.5">never the inverse — it is unrecoverable</text>
+  <text class="dg-lane" x="30" y="190">FANOUT</text>
+  <rect class="dg-box" x="30" y="204" width="250" height="76" rx="8"></rect>
+  <text class="dg-t dg-c" x="155" y="230.5">Guild process</text>
+  <text class="dg-s dg-c" x="155" y="246.5">one owner per guild</text>
+  <text class="dg-s dg-c" x="155" y="262.5">per-channel total order for free</text>
+  <circle class="dg-num" cx="30" cy="204" r="9"></circle>
+  <text class="dg-num-t" x="30" y="207.4">4</text>
+  <circle class="dg-num" cx="360" cy="206" r="9"></circle>
+  <text class="dg-num-t" x="360" y="209.4">5</text>
+  <text class="dg-s dg-c" x="360" y="232">one message per node</text>
+  <path class="dg-line" d="M 280,242 L 432,242"></path>
+  <path class="dg-head" d="M 432,247 L 432,237 L 440,242 Z"></path>
+  <rect class="dg-box" x="440" y="204" width="210" height="76" rx="8"></rect>
+  <text class="dg-t dg-c" x="545" y="238.5">Gateway nodes</text>
+  <text class="dg-s dg-c" x="545" y="254.5">stamp a monotonic seq</text>
+  <circle class="dg-num" cx="440" cy="204" r="9"></circle>
+  <text class="dg-num-t" x="440" y="207.4">6</text>
+  <path class="dg-line" d="M 650,242 L 682,242"></path>
+  <path class="dg-head" d="M 682,247 L 682,237 L 690,242 Z"></path>
+  <rect class="dg-box" x="690" y="204" width="270" height="76" rx="8"></rect>
+  <text class="dg-t dg-c" x="825" y="230.5">clients</text>
+  <text class="dg-s dg-c" x="825" y="246.5">one WebSocket each</text>
+  <text class="dg-s dg-c" x="825" y="262.5">~15 M concurrent</text>
+  <circle class="dg-num" cx="690" cy="204" r="9"></circle>
+  <text class="dg-num-t" x="690" y="207.4">1</text>
+  <path class="dg-line" d="M 545,300 L 545,280"></path>
+  <rect class="dg-box" x="440" y="300" width="210" height="44" rx="8"></rect>
+  <text class="dg-t dg-c" x="545" y="318.5">Session registry</text>
+  <text class="dg-s dg-c" x="545" y="334.5">Redis, heartbeat TTL</text>
+  <text class="dg-lane" x="30" y="380">IN THE MARGIN — SAID, NOT DRAWN</text>
+  <rect class="dg-box" x="30" y="394" width="300" height="50" rx="8"></rect>
+  <text class="dg-t dg-c" x="180" y="415.5">RESUME from seq</text>
+  <text class="dg-s dg-c" x="180" y="431.5">replay buffer · backoff + jitter</text>
+  <circle class="dg-num" cx="30" cy="394" r="9"></circle>
+  <text class="dg-num-t" x="30" y="397.4">8</text>
+  <rect class="dg-box" x="350" y="394" width="290" height="50" rx="8"></rect>
+  <text class="dg-t dg-c" x="495" y="415.5">Presence</text>
+  <text class="dg-s dg-c" x="495" y="431.5">TTL-derived · coalesced · lazy</text>
+  <circle class="dg-num" cx="350" cy="394" r="9"></circle>
+  <text class="dg-num-t" x="350" y="397.4">7</text>
+  <rect class="dg-box" x="660" y="394" width="300" height="50" rx="8"></rect>
+  <text class="dg-t dg-c" x="810" y="415.5">Read state</text>
+  <text class="dg-s dg-c" x="810" y="431.5">write-behind · coalescing cache</text>
+  <circle class="dg-num" cx="660" cy="394" r="9"></circle>
+  <text class="dg-num-t" x="660" y="397.4">9</text>
+  <rect class="dg-warn" x="30" y="462" width="930" height="40" rx="8"></rect>
+  <text class="dg-t dg-c" x="495" y="486.5">Degrade in this order: presence → read state → history depth. Never live message delivery.</text>
+  <circle class="dg-num" cx="30" cy="462" r="9"></circle>
+  <text class="dg-num-t" x="30" y="465.4">10</text>
+</svg>
+</div>
+
+<p class="diagram-cap">The bottom row is the one candidates skip. Presence, read state and the degradation order are not decoration — presence is the highest-volume event type in the system, and scoping it out is what makes the connection look stateless when it is not.</p>
 
 1. Clients hold **one WebSocket** to a **gateway node**. ~15 M concurrent. Sessions are registered in **Redis with a heartbeat TTL**.
 2. Sends go over **HTTP** to an **API service**, not over the socket. Request/response wants status codes and rate limits.

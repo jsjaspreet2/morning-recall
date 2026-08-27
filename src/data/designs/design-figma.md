@@ -139,17 +139,84 @@ One WebSocket per client per open file. Both document changes and presence ride 
 
 ## 6 · High-level design — flows
 
-```text
-   ┌────────── client ──────────┐                    ┌──────── server ────────┐
-   │  input → scene graph       │                    │  file process (§11)    │
-   │        ↓            ↑      │   WebSocket        │   in-memory document   │
-   │  local apply    renderer   │ ◄────────────────► │   version counter      │
-   │        ↓         (WebGL)   │   set / ack / set  │   socket set for file  │
-   │  pending queue             │                    └───────────┬────────────┘
-   └────────────────────────────┘                                │
-                    ▲                                            ▼
-              snapshot (CDN)  ◄───────── periodic ──────── op log (durable)
-```
+<div class="diagram">
+<svg viewBox="0 0 1000 578" role="img" aria-label="Figma high-level design. Client column: input, local apply to the scene graph painting inside sixteen milliseconds with no network, a WebGL renderer, and a pending queue keyed by object and property holding unacknowledged values. Server column: one file process per open file acting as the ordering authority with last-writer-wins per property, an op log in Kafka as the system of record, and a snapshot job to S3 and the CDN. A bottom lane shows cold open: snapshot from CDN, decode off the main thread, paint the viewport first, then apply the op tail.">
+  <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
+  <text class="dg-banner-t dg-c" x="500" y="33.5">Convergence, not linearizability. The document model chose the algorithm — and the local loop never waits for the network.</text>
+  <text class="dg-lane" x="30" y="76">CLIENT — 16 MS, NO NETWORK ON THIS PATH</text>
+  <text class="dg-lane" x="560" y="76">SERVER — ONE PROCESS PER OPEN FILE</text>
+  <path class="dg-div" d="M 515,90 L 515,145"></path>
+  <path class="dg-div" d="M 515,255 L 515,420"></path>
+  <rect class="dg-box" x="40" y="100" width="180" height="40" rx="8"></rect>
+  <text class="dg-t dg-c" x="130" y="124.5">Input</text>
+  <rect class="dg-box" x="40" y="158" width="180" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="130" y="182.5">Local apply</text>
+  <text class="dg-s dg-c" x="130" y="198.5">scene graph, painted now</text>
+  <rect class="dg-box" x="40" y="232" width="180" height="52" rx="8"></rect>
+  <text class="dg-t dg-c" x="130" y="254.5">Renderer (WebGL)</text>
+  <text class="dg-s dg-c" x="130" y="270.5">16 ms budget</text>
+  <path class="dg-line" d="M 130,140 L 130,150"></path>
+  <path class="dg-head" d="M 125,150 L 135,150 L 130,158 Z"></path>
+  <path class="dg-line" d="M 130,214 L 130,224"></path>
+  <path class="dg-head" d="M 125,224 L 135,224 L 130,232 Z"></path>
+  <rect class="dg-box" x="250" y="150" width="200" height="100" rx="8"></rect>
+  <text class="dg-t dg-c" x="350" y="180.5">Pending queue</text>
+  <text class="dg-s dg-c" x="350" y="196.5">keyed (objectId, key)</text>
+  <text class="dg-s dg-c" x="350" y="212.5">unacknowledged values</text>
+  <text class="dg-s dg-c" x="350" y="228.5">1000 frames replay as 1</text>
+  <path class="dg-line" d="M 220,186 L 242,186"></path>
+  <path class="dg-head" d="M 242,191 L 242,181 L 250,186 Z"></path>
+  <rect class="dg-box" x="560" y="100" width="400" height="120" rx="8"></rect>
+  <text class="dg-t dg-c" x="760" y="132.5">File process</text>
+  <text class="dg-s dg-c" x="760" y="148.5">the ordering authority — one per open file</text>
+  <text class="dg-s dg-c" x="760" y="164.5">in-memory document · version counter</text>
+  <text class="dg-s dg-c" x="760" y="180.5">last-writer-wins per property</text>
+  <text class="dg-s dg-c" x="760" y="196.5">socket set for this file</text>
+  <path class="dg-line" d="M 450,170 L 552,170"></path>
+  <path class="dg-head" d="M 552,175 L 552,165 L 560,170 Z"></path>
+  <text class="dg-lbl dg-c" x="505" y="162">set · clientSeq</text>
+  <path class="dg-line" d="M 560,200 L 458,200"></path>
+  <path class="dg-head" d="M 458,195 L 458,205 L 450,200 Z"></path>
+  <text class="dg-lbl dg-c" x="505" y="222">ack · set · bye</text>
+  <rect class="dg-box" x="560" y="270" width="400" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="760" y="294.5">Op log — Kafka, partitioned by fileId</text>
+  <text class="dg-s dg-c" x="760" y="310.5">the system of record</text>
+  <rect class="dg-box" x="560" y="356" width="400" height="52" rx="8"></rect>
+  <text class="dg-t dg-c" x="760" y="386.5">Snapshot job → S3 → CDN</text>
+  <path class="dg-line" d="M 760,220 L 760,262"></path>
+  <path class="dg-head" d="M 755,262 L 765,262 L 760,270 Z"></path>
+  <path class="dg-line" d="M 760,326 L 760,348"></path>
+  <path class="dg-head" d="M 755,348 L 765,348 L 760,356 Z"></path>
+  <rect class="dg-warn" x="250" y="270" width="200" height="76" rx="8"></rect>
+  <text class="dg-warn-t dg-c" x="350" y="288.5">Discard rule</text>
+  <text class="dg-s dg-c" x="350" y="304.5">a remote set for a property</text>
+  <text class="dg-s dg-c" x="350" y="320.5">you hold an unacked value for</text>
+  <text class="dg-s dg-c" x="350" y="336.5">is dropped, every frame</text>
+  <path class="dg-line" d="M 350,250 L 350,262"></path>
+  <path class="dg-head" d="M 345,262 L 355,262 L 350,270 Z"></path>
+  <path class="dg-div" d="M 20,430 L 980,430"></path>
+  <text class="dg-lane" x="30" y="456">COLD OPEN — hello(sinceVersion)</text>
+  <rect class="dg-box" x="30" y="470" width="220" height="52" rx="8"></rect>
+  <text class="dg-t dg-c" x="140" y="492.5">snapshot from CDN</text>
+  <text class="dg-s dg-c" x="140" y="508.5">immutable blob + its version</text>
+  <rect class="dg-box" x="290" y="470" width="220" height="52" rx="8"></rect>
+  <text class="dg-t dg-c" x="400" y="500.5">decode off main thread</text>
+  <rect class="dg-box" x="550" y="470" width="200" height="52" rx="8"></rect>
+  <text class="dg-t dg-c" x="650" y="500.5">paint viewport first</text>
+  <rect class="dg-box" x="790" y="470" width="170" height="52" rx="8"></rect>
+  <text class="dg-t dg-c" x="875" y="492.5">apply op tail</text>
+  <text class="dg-s dg-c" x="875" y="508.5">then live</text>
+  <path class="dg-line" d="M 250,496 L 282,496"></path>
+  <path class="dg-head" d="M 282,501 L 282,491 L 290,496 Z"></path>
+  <path class="dg-line" d="M 510,496 L 542,496"></path>
+  <path class="dg-head" d="M 542,501 L 542,491 L 550,496 Z"></path>
+  <path class="dg-line" d="M 750,496 L 782,496"></path>
+  <path class="dg-head" d="M 782,501 L 782,491 L 790,496 Z"></path>
+  <text class="dg-note" x="30" y="552">Tail too old? The server does not reconstruct — it sends a fresh snapshot and the client discards everything except its pending queue.</text>
+</svg>
+</div>
+
+<p class="diagram-cap">The interesting line is the one that isn't there: nothing on the local loop touches the network. Draw the client as a closed cycle first, then hang the socket off the pending queue — that ordering is the whole argument for why this is not OT.</p>
 
 ### Flow A — a local edit, and the conflict it might hit
 
@@ -322,6 +389,86 @@ Two implementation details worth stating because they are where it actually goes
 ---
 
 ## 14 · The five-minute skeleton (draw this cold)
+
+<div class="diagram">
+<svg viewBox="0 0 1000 500" role="img" aria-label="Figma five-minute skeleton. The document model as a map of object to property to value. Client loop: input, local apply, renderer, pending queue. One WebSocket to one file process, the ordering authority, with a registry, an op log and a snapshot path to the CDN. Presence drawn as a separate lossy arrow, and two decisions written in the corner.">
+  <rect class="dg-banner" x="10" y="10" width="980" height="34" rx="9"></rect>
+  <text class="dg-banner-t dg-c" x="500" y="31.5">Minute five: everything below must be on the board. Badge numbers match the list.</text>
+  <rect class="dg-good" x="30" y="68" width="930" height="40" rx="8"></rect>
+  <text class="dg-t dg-c" x="495" y="92.5">Map&lt;ObjectID, Map&lt;Property, Value&gt;&gt; — the property is the unit of conflict</text>
+  <circle class="dg-num" cx="30" cy="68" r="9"></circle>
+  <text class="dg-num-t" x="30" y="71.4">1</text>
+  <text class="dg-lane" x="30" y="140">CLIENT</text>
+  <text class="dg-lane" x="560" y="140">SERVER</text>
+  <path class="dg-div" d="M 515,150 L 515,230"></path>
+  <path class="dg-div" d="M 515,262 L 515,330"></path>
+  <rect class="dg-box" x="30" y="154" width="150" height="50" rx="8"></rect>
+  <text class="dg-t dg-c" x="105" y="183.5">Input</text>
+  <circle class="dg-num" cx="30" cy="154" r="9"></circle>
+  <text class="dg-num-t" x="30" y="157.4">2</text>
+  <rect class="dg-box" x="30" y="222" width="150" height="50" rx="8"></rect>
+  <text class="dg-t dg-c" x="105" y="243.5">Local apply</text>
+  <text class="dg-s dg-c" x="105" y="259.5">16 ms</text>
+  <rect class="dg-box" x="30" y="290" width="150" height="50" rx="8"></rect>
+  <text class="dg-t dg-c" x="105" y="319.5">Renderer (WebGL)</text>
+  <path class="dg-line" d="M 105,204 L 105,214"></path>
+  <path class="dg-head" d="M 100,214 L 110,214 L 105,222 Z"></path>
+  <path class="dg-line" d="M 105,272 L 105,282"></path>
+  <path class="dg-head" d="M 100,282 L 110,282 L 105,290 Z"></path>
+  <rect class="dg-box" x="220" y="204" width="240" height="86" rx="8"></rect>
+  <text class="dg-t dg-c" x="340" y="235.5">Pending queue</text>
+  <text class="dg-s dg-c" x="340" y="251.5">keyed (objectId, key)</text>
+  <text class="dg-s dg-c" x="340" y="267.5">unacked values only</text>
+  <circle class="dg-num" cx="220" cy="204" r="9"></circle>
+  <text class="dg-num-t" x="220" y="207.4">3</text>
+  <path class="dg-line" d="M 180,247 L 212,247"></path>
+  <path class="dg-head" d="M 212,252 L 212,242 L 220,247 Z"></path>
+  <rect class="dg-box" x="560" y="154" width="400" height="86" rx="8"></rect>
+  <text class="dg-t dg-c" x="760" y="185.5">File process</text>
+  <text class="dg-s dg-c" x="760" y="201.5">the ordering authority</text>
+  <text class="dg-s dg-c" x="760" y="217.5">LWW per property</text>
+  <circle class="dg-num" cx="560" cy="154" r="9"></circle>
+  <text class="dg-num-t" x="560" y="157.4">4</text>
+  <path class="dg-line" d="M 460,247 L 552,247"></path>
+  <path class="dg-head" d="M 552,252 L 552,242 L 560,247 Z"></path>
+  <text class="dg-lbl dg-c" x="510" y="239">one WebSocket</text>
+  <rect class="dg-box" x="560" y="270" width="400" height="44" rx="8"></rect>
+  <text class="dg-t dg-c" x="760" y="296.5">Op log — Kafka by fileId</text>
+  <circle class="dg-num" cx="560" cy="270" r="9"></circle>
+  <text class="dg-num-t" x="560" y="273.4">6</text>
+  <rect class="dg-box" x="560" y="338" width="400" height="44" rx="8"></rect>
+  <text class="dg-t dg-c" x="760" y="364.5">Snapshot → S3 → CDN</text>
+  <circle class="dg-num" cx="560" cy="338" r="9"></circle>
+  <text class="dg-num-t" x="560" y="341.4">7</text>
+  <path class="dg-line" d="M 760,240 L 760,262"></path>
+  <path class="dg-head" d="M 755,262 L 765,262 L 760,270 Z"></path>
+  <path class="dg-line" d="M 760,314 L 760,330"></path>
+  <path class="dg-head" d="M 755,330 L 765,330 L 760,338 Z"></path>
+  <path class="dg-line" d="M 560,360 L 500,360 L 500,404 L 188,404"></path>
+  <path class="dg-head" d="M 188,399 L 188,409 L 180,404 Z"></path>
+  <rect class="dg-box" x="30" y="382" width="150" height="44" rx="8"></rect>
+  <text class="dg-t dg-c" x="105" y="408.5">cold open</text>
+  <rect class="dg-box" x="220" y="338" width="240" height="44" rx="8"></rect>
+  <text class="dg-t dg-c" x="340" y="356.5">Presence</text>
+  <text class="dg-s dg-c" x="340" y="372.5">lossy · unordered · never stored</text>
+  <circle class="dg-num" cx="220" cy="338" r="9"></circle>
+  <text class="dg-num-t" x="220" y="341.4">8</text>
+  <rect class="dg-box" x="30" y="446" width="290" height="40" rx="8"></rect>
+  <text class="dg-t dg-c" x="175" y="470.5">Registry: fileId → server</text>
+  <circle class="dg-num" cx="30" cy="446" r="9"></circle>
+  <text class="dg-num-t" x="30" y="449.4">5</text>
+  <rect class="dg-box" x="340" y="446" width="290" height="40" rx="8"></rect>
+  <text class="dg-t dg-c" x="485" y="470.5">fractional index · LWW per property</text>
+  <circle class="dg-num" cx="340" cy="446" r="9"></circle>
+  <text class="dg-num-t" x="340" y="449.4">9</text>
+  <rect class="dg-good" x="650" y="446" width="310" height="40" rx="8"></rect>
+  <text class="dg-t dg-c" x="805" y="470.5">convergence, not linearizability</text>
+  <circle class="dg-num" cx="650" cy="446" r="9"></circle>
+  <text class="dg-num-t" x="650" y="449.4">10</text>
+</svg>
+</div>
+
+<p class="diagram-cap">Item 1 is a box because it is the answer: get the document model on the board before anything else, and the algorithm argument in §7 writes itself. The two boxes at the bottom are the sentences you close on.</p>
 
 1. **Document model, first and biggest:** `Map<ObjectID, Map<Property, Value>>`. Say that the property is the unit of conflict.
 2. **Client:** input → local apply → scene graph → WebGL renderer. Mark the **16 ms** budget on the local loop.

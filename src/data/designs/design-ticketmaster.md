@@ -142,25 +142,68 @@ POST /v1/orders                            → { orderId, status }
 
 ## 6 · High-level design — two paths that barely touch
 
-```
-                        ┌──────────────────────────────────────┐
-  10M users ────────────▶  EDGE: CDN + queue/admission worker  │
-                        └───────┬──────────────────┬───────────┘
-                    ~5M QPS     │                  │  ~2k/s admitted
-                                ▼                  ▼
-                   Availability read path    Booking Service
-                   (cache/CDN + WS deltas)         │
-                                ▲                  ▼
-                                │           Inventory DB (per-event shard)
-                                │                  │
-                                └──── deltas ──────┤ status changes
-                                                   ▼
-                                        outbox → Kafka → orders,
-                                        notifications, analytics
-                                                   │
-                                                   ▼
-                                          Payment Service (PSP)
-```
+<div class="diagram">
+<svg viewBox="0 0 1000 662" role="img" aria-label="Ticketmaster high-level design, two paths that barely touch. Ten million users hit an edge that is both CDN and queue admission worker. Left path, browse at five million QPS: an availability service serving a ten-kilobyte bitmap from memory, rebuilt from the inventory change stream and edge-cached for one to five seconds, plus WebSocket deltas applied only when the version is exactly one ahead. Right path, buy at about two thousand a second: booking service requiring a session token, an inventory database with one shard per event and lazy expiry inside the conditional update, an outbox to Kafka, and the payment processor. Deltas flow from the inventory database back to the availability service.">
+  <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
+  <text class="dg-banner-t dg-c" x="500" y="33.5">Two paths that barely touch. 5 M QPS of browse never reaches the inventory DB; ~2 k/s is all the booking tier ever sees.</text>
+  <rect class="dg-box" x="30" y="90" width="150" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="105" y="126.5">10 M users</text>
+  <rect class="dg-box" x="230" y="90" width="460" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="460" y="118.5">EDGE — CDN + queue / admission worker</text>
+  <text class="dg-s dg-c" x="460" y="134.5">the only thing between the herd and the booking tier</text>
+  <rect class="dg-good" x="730" y="90" width="230" height="64" rx="8"></rect>
+  <text class="dg-good-t dg-c" x="845" y="118.5">Admission control</text>
+  <text class="dg-s dg-c" x="845" y="134.5">scale by admitting, not by capacity</text>
+  <path class="dg-line" d="M 180,122 L 222,122"></path>
+  <path class="dg-head" d="M 222,127 L 222,117 L 230,122 Z"></path>
+  <text class="dg-lane" x="30" y="190">BROWSE — 5 M QPS, STALE-TOLERANT</text>
+  <text class="dg-lane" x="700" y="190">BUY — ~2 k/s, STRICTLY SERIALIZABLE</text>
+  <path class="dg-line" d="M 330,154 L 330,192"></path>
+  <path class="dg-head" d="M 325,192 L 335,192 L 330,200 Z"></path>
+  <text class="dg-lbl" x="345" y="182">~5 M QPS</text>
+  <path class="dg-line" d="M 590,154 L 590,192"></path>
+  <path class="dg-head" d="M 585,192 L 595,192 L 590,200 Z"></path>
+  <text class="dg-lbl" x="605" y="182">~2 k/s admitted</text>
+  <rect class="dg-box" x="30" y="200" width="400" height="90" rx="8"></rect>
+  <text class="dg-t dg-c" x="230" y="225.5">Availability Service</text>
+  <text class="dg-s dg-c" x="230" y="241.5">10 KB bitmap + version, served from memory</text>
+  <text class="dg-s dg-c" x="230" y="257.5">rebuilt from the inventory change stream</text>
+  <text class="dg-s dg-c" x="230" y="273.5">edge cache 1–5 s TTL — that TTL absorbs the QPS</text>
+  <path class="dg-line" d="M 230,290 L 230,326"></path>
+  <path class="dg-head" d="M 225,326 L 235,326 L 230,334 Z"></path>
+  <rect class="dg-box" x="30" y="334" width="400" height="76" rx="8"></rect>
+  <text class="dg-t dg-c" x="230" y="360.5">WebSocket deltas</text>
+  <text class="dg-s dg-c" x="230" y="376.5">{version, changes: [[ordinal, status]]}</text>
+  <text class="dg-s dg-c" x="230" y="392.5">apply only if version == local + 1, else resync</text>
+  <rect class="dg-box" x="530" y="200" width="430" height="76" rx="8"></rect>
+  <text class="dg-t dg-c" x="745" y="226.5">Booking Service</text>
+  <text class="dg-s dg-c" x="745" y="242.5">session token required — this is what makes the queue real</text>
+  <text class="dg-s dg-c" x="745" y="258.5">seats acquired in sorted seat_id order</text>
+  <path class="dg-line" d="M 745,276 L 745,312"></path>
+  <path class="dg-head" d="M 740,312 L 750,312 L 745,320 Z"></path>
+  <rect class="dg-box" x="530" y="320" width="430" height="76" rx="8"></rect>
+  <text class="dg-t dg-c" x="745" y="346.5">Inventory DB</text>
+  <text class="dg-s dg-c" x="745" y="362.5">one shard per event · a single writer</text>
+  <text class="dg-s dg-c" x="745" y="378.5">AVAILABLE / HELD / SOLD · lazy expiry in the predicate</text>
+  <path class="dg-line" d="M 745,396 L 745,428"></path>
+  <path class="dg-head" d="M 740,428 L 750,428 L 745,436 Z"></path>
+  <rect class="dg-box" x="530" y="436" width="430" height="60" rx="8"></rect>
+  <text class="dg-t dg-c" x="745" y="462.5">outbox → Kafka</text>
+  <text class="dg-s dg-c" x="745" y="478.5">orders · notifications · analytics · async capture</text>
+  <path class="dg-line" d="M 745,496 L 745,528"></path>
+  <path class="dg-head" d="M 740,528 L 750,528 L 745,536 Z"></path>
+  <rect class="dg-box" x="530" y="536" width="430" height="50" rx="8"></rect>
+  <text class="dg-t dg-c" x="745" y="557.5">Payment Service (PSP)</text>
+  <text class="dg-s dg-c" x="745" y="573.5">authorize under its own idempotency key</text>
+  <path class="dg-line" d="M 530,358 L 480,358 L 480,245 L 438,245"></path>
+  <path class="dg-head" d="M 438,240 L 438,250 L 430,245 Z"></path>
+  <text class="dg-lbl" x="486" y="232">deltas</text>
+  <text class="dg-s" x="30" y="620">The read path never touches the inventory DB. That is what lets 5 M QPS coexist with a single writer per event.</text>
+  <text class="dg-note" x="30" y="642">Abandonment: nothing happens. No job runs, no timer fires — the seat is reclaimed by whichever writer next evaluates the expiry predicate.</text>
+</svg>
+</div>
+
+<p class="diagram-cap">The two columns share one arrow, and it points the cheap way: inventory deltas out to the cache, never a read in. Scaling by admission rather than by capacity is the architectural move — everything right of the edge is built for 2 k/s and will never see more.</p>
 
 **The two properties to point at on your own diagram:**
 
@@ -468,6 +511,63 @@ Most of these are 15-second items. **That doesn't mean skipping them** — it me
 ---
 
 ## 14 · The five-minute skeleton (draw this cold)
+
+<div class="diagram">
+<svg viewBox="0 0 1000 490" role="img" aria-label="Ticketmaster five-minute skeleton. A banner separating browse from buy, then contention and sharding, the edge waiting room and the read path, the three inventory states and the two ways to acquire seats, multi-seat transactions and the purchase saga.">
+  <rect class="dg-banner" x="10" y="10" width="980" height="34" rx="9"></rect>
+  <text class="dg-banner-t dg-c" x="500" y="31.5">Minute five: everything below must be on the board. Badge numbers match the list.</text>
+  <rect class="dg-good" x="30" y="68" width="930" height="40" rx="8"></rect>
+  <text class="dg-t dg-c" x="495" y="92.5">Browse: 5 M QPS, stale-OK. Buy: 60 k total writes, strictly serializable. Separate them completely.</text>
+  <circle class="dg-num" cx="30" cy="68" r="9"></circle>
+  <text class="dg-num-t" x="30" y="71.4">1</text>
+  <rect class="dg-box" x="30" y="140" width="460" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="260" y="164.5">Contention 166:1</text>
+  <text class="dg-s dg-c" x="260" y="180.5">the ratio is the problem, not the volume</text>
+  <circle class="dg-num" cx="30" cy="140" r="9"></circle>
+  <text class="dg-num-t" x="30" y="143.4">2</text>
+  <rect class="dg-box" x="510" y="140" width="450" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="735" y="164.5">Shard by event_id</text>
+  <text class="dg-s dg-c" x="735" y="180.5">the hot shard is intentional · dedicate capacity</text>
+  <circle class="dg-num" cx="510" cy="140" r="9"></circle>
+  <text class="dg-num-t" x="510" y="143.4">9</text>
+  <rect class="dg-box" x="30" y="216" width="460" height="76" rx="8"></rect>
+  <text class="dg-t dg-c" x="260" y="242.5">Edge waiting room</text>
+  <text class="dg-s dg-c" x="260" y="258.5">Redis INCR → signed token → drain at measured capacity</text>
+  <text class="dg-s dg-c" x="260" y="274.5">session token required by the booking API</text>
+  <circle class="dg-num" cx="30" cy="216" r="9"></circle>
+  <text class="dg-num-t" x="30" y="219.4">3</text>
+  <rect class="dg-box" x="510" y="216" width="450" height="76" rx="8"></rect>
+  <text class="dg-t dg-c" x="735" y="242.5">Read path</text>
+  <text class="dg-s dg-c" x="735" y="258.5">10 KB bitmap + version, edge-cached 1–5 s</text>
+  <text class="dg-s dg-c" x="735" y="274.5">WebSocket deltas · resync on a version gap</text>
+  <circle class="dg-num" cx="510" cy="216" r="9"></circle>
+  <text class="dg-num-t" x="510" y="219.4">4</text>
+  <rect class="dg-box" x="30" y="312" width="460" height="76" rx="8"></rect>
+  <text class="dg-t dg-c" x="260" y="338.5">Inventory — three states</text>
+  <text class="dg-s dg-c" x="260" y="354.5">a hold is a row with hold_expires_at</text>
+  <text class="dg-s dg-c" x="260" y="370.5">lazy expiry inside the conditional update; the sweeper is cosmetic</text>
+  <circle class="dg-num" cx="30" cy="312" r="9"></circle>
+  <text class="dg-num-t" x="30" y="315.4">5</text>
+  <rect class="dg-box" x="510" y="312" width="450" height="76" rx="8"></rect>
+  <text class="dg-t dg-c" x="735" y="338.5">Acquiring seats</text>
+  <text class="dg-s dg-c" x="735" y="354.5">user-selected → optimistic conditional update</text>
+  <text class="dg-s dg-c" x="735" y="370.5">best-available → FOR UPDATE SKIP LOCKED</text>
+  <circle class="dg-num" cx="510" cy="312" r="9"></circle>
+  <text class="dg-num-t" x="510" y="315.4">6</text>
+  <rect class="dg-box" x="30" y="408" width="460" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="260" y="432.5">Multi-seat = one transaction</text>
+  <text class="dg-s dg-c" x="260" y="448.5">seats acquired in sorted order, or you deadlock</text>
+  <circle class="dg-num" cx="30" cy="408" r="9"></circle>
+  <text class="dg-num-t" x="30" y="411.4">7</text>
+  <rect class="dg-box" x="510" y="408" width="450" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="735" y="432.5">Saga: hold → authorize → sell → capture</text>
+  <text class="dg-s dg-c" x="735" y="448.5">reversible actions first</text>
+  <circle class="dg-num" cx="510" cy="408" r="9"></circle>
+  <text class="dg-num-t" x="510" y="411.4">8</text>
+</svg>
+</div>
+
+<p class="diagram-cap">Badge 2 is the sentence that reframes the round: 166 bidders per seat is a contention problem, and no amount of throughput planning touches it. Say it before you draw the waiting room.</p>
 
 1. Two workloads: browse (5M QPS, stale-OK) and buy (60k total writes, strictly serializable). **Separate them completely.**
 2. Contention ratio 166:1 is the real problem, not volume.

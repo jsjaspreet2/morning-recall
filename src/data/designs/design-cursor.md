@@ -469,6 +469,72 @@ Note what's *absent*: no transactional store, no cross-shard consistency, no dur
 
 ## 14 · The five-minute skeleton (draw this cold)
 
+<div class="diagram">
+<svg viewBox="0 0 1000 516" role="img" aria-label="Cursor Tab five-minute skeleton. A banner scoping to the 200 millisecond budget, then the QPS and waste figures, why the budget makes a RAG pipeline illegal, client-side context assembly, the should-fire filter, the three caches, the small FIM model and its serving stack, cancellation, indexing as a separate lifecycle, the privacy ladder, and the metrics that matter.">
+  <rect class="dg-banner" x="10" y="10" width="980" height="34" rx="9"></rect>
+  <text class="dg-banner-t dg-c" x="500" y="31.5">Minute five: everything below must be on the board. Badge numbers match the list.</text>
+  <rect class="dg-good" x="30" y="68" width="930" height="40" rx="8"></rect>
+  <text class="dg-t dg-c" x="495" y="92.5">Four products, four budgets — scope to Tab at ~200 ms and let that constraint drive everything</text>
+  <circle class="dg-num" cx="30" cy="68" r="9"></circle>
+  <text class="dg-num-t" x="30" y="71.4">1</text>
+  <rect class="dg-box" x="30" y="140" width="460" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="260" y="164.5">~40 k QPS average, 100 k peak</text>
+  <text class="dg-s dg-c" x="260" y="180.5">80%+ of inference is wasted — the economic centre</text>
+  <circle class="dg-num" cx="30" cy="140" r="9"></circle>
+  <text class="dg-num-t" x="30" y="143.4">2</text>
+  <rect class="dg-warn" x="510" y="140" width="450" height="56" rx="8"></rect>
+  <text class="dg-warn-t dg-c" x="735" y="164.5">The budget kills the RAG pipeline</text>
+  <text class="dg-s dg-c" x="735" y="180.5">rerank 100 ms alone · large-model prefill 350 ms</text>
+  <circle class="dg-num" cx="510" cy="140" r="9"></circle>
+  <text class="dg-num-t" x="510" y="143.4">3</text>
+  <rect class="dg-box" x="30" y="216" width="600" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="330" y="236.5">Context assembled client-side in ~10 ms</text>
+  <text class="dg-s dg-c" x="330" y="252.5">prefix/suffix (FIM) → recent edits → open tabs → LSP symbols → imports</text>
+  <text class="dg-s dg-c" x="330" y="268.5">embeddings are the last resort, not the first</text>
+  <circle class="dg-num" cx="30" cy="216" r="9"></circle>
+  <text class="dg-num-t" x="30" y="219.4">4</text>
+  <rect class="dg-box" x="650" y="216" width="310" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="805" y="236.5">Should-fire filter, before debounce</text>
+  <text class="dg-s dg-c" x="805" y="252.5">suppressing 20–40% beats any</text>
+  <text class="dg-s dg-c" x="805" y="268.5">inference optimisation</text>
+  <circle class="dg-num" cx="650" cy="216" r="9"></circle>
+  <text class="dg-num-t" x="650" y="219.4">5</text>
+  <rect class="dg-box" x="30" y="300" width="460" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="260" y="320.5">Three caches</text>
+  <text class="dg-s dg-c" x="260" y="336.5">client (context hash) · server KV (prefix)</text>
+  <text class="dg-s dg-c" x="260" y="352.5">shared results, containing no user code</text>
+  <circle class="dg-num" cx="30" cy="300" r="9"></circle>
+  <text class="dg-num-t" x="30" y="303.4">6</text>
+  <rect class="dg-box" x="510" y="300" width="450" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="735" y="320.5">Small FIM model, trained on edits</text>
+  <text class="dg-s dg-c" x="735" y="336.5">continuous batching · prefix KV cache</text>
+  <text class="dg-s dg-c" x="735" y="352.5">speculative decoding · regional routing</text>
+  <circle class="dg-num" cx="510" cy="300" r="9"></circle>
+  <text class="dg-num-t" x="510" y="303.4">7</text>
+  <rect class="dg-box" x="30" y="384" width="300" height="50" rx="8"></rect>
+  <text class="dg-t dg-c" x="180" y="405.5">Cancellation frees the slot</text>
+  <text class="dg-s dg-c" x="180" y="421.5">it is the common path</text>
+  <circle class="dg-num" cx="30" cy="384" r="9"></circle>
+  <text class="dg-num-t" x="30" y="387.4">8</text>
+  <rect class="dg-box" x="350" y="384" width="300" height="50" rx="8"></rect>
+  <text class="dg-t dg-c" x="500" y="405.5">Indexing is separate</text>
+  <text class="dg-s dg-c" x="500" y="421.5">Merkle diff · Tab never waits</text>
+  <circle class="dg-num" cx="350" cy="384" r="9"></circle>
+  <text class="dg-num-t" x="350" y="387.4">9</text>
+  <rect class="dg-box" x="670" y="384" width="290" height="50" rx="8"></rect>
+  <text class="dg-t dg-c" x="815" y="405.5">Privacy ladder</text>
+  <text class="dg-s dg-c" x="815" y="421.5">Tab is unaffected by privacy mode</text>
+  <circle class="dg-num" cx="670" cy="384" r="9"></circle>
+  <text class="dg-num-t" x="670" y="387.4">10</text>
+  <rect class="dg-box" x="30" y="454" width="930" height="44" rx="8"></rect>
+  <text class="dg-t dg-c" x="495" y="480.5">Metrics: acceptance rate · retained characters (acceptance is gameable) · the latency-vs-acceptance curve</text>
+  <circle class="dg-num" cx="30" cy="454" r="9"></circle>
+  <text class="dg-num-t" x="30" y="457.4">11</text>
+</svg>
+</div>
+
+<p class="diagram-cap">Eleven marks, and badge 3 is the one that wins the round: price the RAG pipeline out loud rather than asserting it away. At 200 ms a reranker is illegal, not merely expensive.</p>
+
 1. Four products, four budgets. **Scope to Tab: ~200ms**, and let that constraint drive everything.
 2. ~40k QPS average, 100k peak. **80%+ of inference is wasted** — that's the economic center of the design.
 3. **Budget kills the RAG pipeline:** rerank alone is 100ms, large-model prefill is 350ms. Price it, don't assert it.

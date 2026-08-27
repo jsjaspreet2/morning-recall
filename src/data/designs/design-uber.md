@@ -132,15 +132,43 @@ Draw two flows, not one box diagram. Boxes without a flow read as memorization.
 
 ### Flow A — the supply firehose (write-heavy, disposable)
 
-```
-Driver app ──ping/4s──▶ Location Gateway (WS) ──▶ Location Service
-                                                    │
-                                    ┌───────────────┴───────────────┐
-                                    ▼ hot path                      ▼ cold path
-                          In-memory geo index               Kafka → S3 / warehouse
-                          (sharded by cell, Redis-          (traffic modeling, trip
-                           backed for failover)              reconstruction, disputes)
-```
+<div class="diagram">
+<svg viewBox="0 0 1000 366" role="img" aria-label="Uber supply firehose. Driver app pings every four seconds over a WebSocket to a regional location gateway, then the location service computes an H3 cell. The path forks: a hot in-memory geo index sharded by cell, where ninety percent of pings overwrite in place, and a cold Kafka path to S3 and the warehouse that is never in the matching path.">
+  <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
+  <text class="dg-banner-t dg-c" x="500" y="33.5">The hot path answers one question — who is near here, right now. Never route matching through Kafka.</text>
+  <rect class="dg-box" x="30" y="90" width="180" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="120" y="118.5">Driver app</text>
+  <text class="dg-s dg-c" x="120" y="134.5">ping / 4 s</text>
+  <rect class="dg-box" x="250" y="90" width="240" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="370" y="118.5">Location Gateway</text>
+  <text class="dg-s dg-c" x="370" y="134.5">WebSocket, regional</text>
+  <rect class="dg-box" x="530" y="90" width="220" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="640" y="118.5">Location Service</text>
+  <text class="dg-s dg-c" x="640" y="134.5">h3.latLngToCell(…, 8)</text>
+  <path class="dg-line" d="M 210,122 L 242,122"></path>
+  <path class="dg-head" d="M 242,127 L 242,117 L 250,122 Z"></path>
+  <path class="dg-line" d="M 490,122 L 522,122"></path>
+  <path class="dg-head" d="M 522,127 L 522,117 L 530,122 Z"></path>
+  <path class="dg-line" d="M 640,154 L 640,186"></path>
+  <path class="dg-line" d="M 280,186 L 830,186"></path>
+  <path class="dg-line" d="M 280,186 L 280,212"></path>
+  <path class="dg-head" d="M 275,212 L 285,212 L 280,220 Z"></path>
+  <path class="dg-line" d="M 830,186 L 830,212"></path>
+  <path class="dg-head" d="M 825,212 L 835,212 L 830,220 Z"></path>
+  <rect class="dg-box" x="60" y="220" width="440" height="90" rx="8"></rect>
+  <text class="dg-t dg-c" x="280" y="245.5">HOT — in-memory geo index</text>
+  <text class="dg-s dg-c" x="280" y="261.5">sharded by cell, Redis-backed for failover</text>
+  <text class="dg-s dg-c" x="280" y="277.5">same cell (~90%): overwrite in place, O(1)</text>
+  <text class="dg-s dg-c" x="280" y="293.5">different cell: move, and hand off on the ring</text>
+  <rect class="dg-box" x="560" y="220" width="400" height="90" rx="8"></rect>
+  <text class="dg-t dg-c" x="760" y="253.5">COLD — Kafka → S3 / warehouse</text>
+  <text class="dg-s dg-c" x="760" y="269.5">fire-and-forget, never in the matching path</text>
+  <text class="dg-s dg-c" x="760" y="285.5">traffic modelling · reconstruction · disputes</text>
+  <text class="dg-note" x="30" y="344">No ping for 30 s → stale, and deprioritised in matching. 60 s → evicted entirely. Tunnels and dead apps must not appear as available supply.</text>
+</svg>
+</div>
+
+<p class="diagram-cap">One source, two consumers, nothing in common. Kafka is a log, not an index — routing a matching query through it adds queue latency to the one thing that has to be fresh.</p>
 
 **The point of the fork:** the hot path is a mutable, last-write-wins index that only ever answers one question — *who is near here, right now.* The cold path is the durable stream. They have nothing in common except the source. **Never route matching queries through Kafka**; Kafka is a log, not an index, and you'd be adding queue latency to the one thing that must be fresh.
 
@@ -156,15 +184,60 @@ Driver app ──ping/4s──▶ Location Gateway (WS) ──▶ Location Servi
 
 ### Flow B — the demand path (low volume, transactional)
 
-```
-Rider app ──▶ API GW ──▶ Ride Service ──▶ Ride DB (sharded by region)
-                              │                 │
-                              │                 └──▶ outbox → Kafka → notifications, analytics
-                              ▼
-                        Matching Service ──queries──▶ geo index
-                              │
-                              └──offer──▶ Notification/Push ──▶ Driver app
-```
+<div class="diagram">
+<svg viewBox="0 0 1000 620" role="img" aria-label="Uber demand path. Rider app to API gateway to ride service, which returns 201 without waiting for a match and writes to a region-sharded ride database with an outbox. The ride service enqueues to the matching service, which owns a cell range on the consistent-hash ring and is the only reader of the geo index. The matcher runs a funnel from k-ring to real road ETAs, offers with a fifteen-second TTL, and finally commits a conditional update that enforces exactly one driver.">
+  <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
+  <text class="dg-banner-t dg-c" x="500" y="33.5">The matcher is the only component that reads the supply index and writes the ride state machine — one owner, no lock.</text>
+  <rect class="dg-box" x="30" y="90" width="140" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="100" y="122.5">Rider app</text>
+  <rect class="dg-box" x="210" y="90" width="150" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="285" y="122.5">API Gateway</text>
+  <rect class="dg-box" x="400" y="90" width="200" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="500" y="114.5">Ride Service</text>
+  <text class="dg-s dg-c" x="500" y="130.5">201 without a match</text>
+  <rect class="dg-box" x="640" y="90" width="320" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="800" y="114.5">Ride DB</text>
+  <text class="dg-s dg-c" x="800" y="130.5">sharded by region · outbox → Kafka</text>
+  <path class="dg-line" d="M 170,118 L 202,118"></path>
+  <path class="dg-head" d="M 202,123 L 202,113 L 210,118 Z"></path>
+  <path class="dg-line" d="M 360,118 L 392,118"></path>
+  <path class="dg-head" d="M 392,123 L 392,113 L 400,118 Z"></path>
+  <path class="dg-line" d="M 600,118 L 632,118"></path>
+  <path class="dg-head" d="M 632,123 L 632,113 L 640,118 Z"></path>
+  <path class="dg-line" d="M 500,146 L 500,182"></path>
+  <path class="dg-head" d="M 495,182 L 505,182 L 500,190 Z"></path>
+  <rect class="dg-box" x="330" y="190" width="340" height="76" rx="8"></rect>
+  <text class="dg-t dg-c" x="500" y="216.5">Matching Service</text>
+  <text class="dg-s dg-c" x="500" y="232.5">owns a cell range on the ring</text>
+  <text class="dg-s dg-c" x="500" y="248.5">single writer — no distributed lock</text>
+  <path class="dg-line" d="M 670,228 L 712,228"></path>
+  <path class="dg-head" d="M 712,233 L 712,223 L 720,228 Z"></path>
+  <text class="dg-lbl dg-c" x="695" y="220">reads</text>
+  <rect class="dg-box" x="720" y="190" width="240" height="76" rx="8"></rect>
+  <text class="dg-t dg-c" x="840" y="224.5">Geo index</text>
+  <text class="dg-s dg-c" x="840" y="240.5">read-only from here</text>
+  <path class="dg-line" d="M 500,266 L 500,302"></path>
+  <path class="dg-head" d="M 495,302 L 505,302 L 500,310 Z"></path>
+  <rect class="dg-box" x="230" y="310" width="540" height="76" rx="8"></rect>
+  <text class="dg-t dg-c" x="500" y="336.5">The funnel</text>
+  <text class="dg-s dg-c" x="500" y="352.5">k-ring → ~200 candidates → filter to AVAILABLE + class → ~50</text>
+  <text class="dg-s dg-c" x="500" y="368.5">haversine top 10 → real road ETAs → batch-solve in a 2–5 s window</text>
+  <path class="dg-line" d="M 500,386 L 500,422"></path>
+  <path class="dg-head" d="M 495,422 L 505,422 L 500,430 Z"></path>
+  <rect class="dg-box" x="230" y="430" width="540" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="500" y="450.5">Offer, 15 s TTL</text>
+  <text class="dg-s dg-c" x="500" y="466.5">decline or timeout → cascade to the next candidate</text>
+  <text class="dg-s dg-c" x="500" y="482.5">~60 s total, then fail visibly</text>
+  <path class="dg-line" d="M 500,494 L 500,502"></path>
+  <path class="dg-head" d="M 495,502 L 505,502 L 500,510 Z"></path>
+  <rect class="dg-good" x="30" y="510" width="930" height="60" rx="8"></rect>
+  <text class="dg-t dg-c" x="495" y="536.5">WHERE id=? AND status='MATCHING' AND version=? — zero rows means another matcher already assigned it</text>
+  <text class="dg-s dg-c" x="495" y="552.5">this is where “exactly one driver” is actually enforced</text>
+  <text class="dg-note" x="30" y="600">Push is an optimisation, not the source of truth. If it is dropped, or the socket reconnects, the client calls GET /v1/rides/{id} and reconciles.</text>
+</svg>
+</div>
+
+<p class="diagram-cap">The funnel narrows twice for a reason: cheap filters first, real road ETAs only on ten candidates. The conditional update at the bottom is the line that actually enforces one driver per ride — everything above it is an optimisation.</p>
 
 **The seam:** Matching Service is the only component that reads the supply index and writes to the ride state machine. Making it the single owner of that decision is what makes §8 tractable.
 
@@ -437,6 +510,56 @@ The rider needs "driver assigned," "driver arriving," and a moving dot at ~1Hz. 
 ---
 
 ## 14 · The five-minute skeleton (what you must be able to draw cold)
+
+<div class="diagram">
+<svg viewBox="0 0 1000 460" role="img" aria-label="Uber five-minute skeleton. A banner naming the thousand-to-one ratio between the supply firehose and the ride lifecycle, then supply and demand, the matcher's cell ownership and the matching funnel, the offer TTL and the WebSocket push, and the region-sharded ride database with its payment saga.">
+  <rect class="dg-banner" x="10" y="10" width="980" height="34" rx="9"></rect>
+  <text class="dg-banner-t dg-c" x="500" y="31.5">Minute five: everything below must be on the board. Badge numbers match the list.</text>
+  <rect class="dg-good" x="30" y="68" width="930" height="40" rx="8"></rect>
+  <text class="dg-t dg-c" x="495" y="92.5">Supply firehose 2.5 M writes/sec, disposable · ride lifecycle 30 k writes/sec, durable — a 1000× ratio</text>
+  <circle class="dg-num" cx="30" cy="68" r="9"></circle>
+  <text class="dg-num-t" x="30" y="71.4">1</text>
+  <rect class="dg-box" x="30" y="140" width="460" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="260" y="160.5">Supply</text>
+  <text class="dg-s dg-c" x="260" y="176.5">H3 index, sharded by parent cell, in memory</text>
+  <text class="dg-s dg-c" x="260" y="192.5">the cold path forks to Kafka</text>
+  <circle class="dg-num" cx="30" cy="140" r="9"></circle>
+  <text class="dg-num-t" x="30" y="143.4">2</text>
+  <rect class="dg-box" x="510" y="140" width="450" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="735" y="168.5">Demand</text>
+  <text class="dg-s dg-c" x="735" y="184.5">quote → ride (idempotency key) → matcher</text>
+  <circle class="dg-num" cx="510" cy="140" r="9"></circle>
+  <text class="dg-num-t" x="510" y="143.4">3</text>
+  <rect class="dg-box" x="30" y="224" width="460" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="260" y="252.5">Matcher owns a cell range</text>
+  <text class="dg-s dg-c" x="260" y="268.5">consistent hashing → single writer, no distributed lock</text>
+  <circle class="dg-num" cx="30" cy="224" r="9"></circle>
+  <text class="dg-num-t" x="30" y="227.4">4</text>
+  <rect class="dg-box" x="510" y="224" width="450" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="735" y="244.5">The funnel</text>
+  <text class="dg-s dg-c" x="735" y="260.5">k-ring → filter → haversine top 10 → real ETA</text>
+  <text class="dg-s dg-c" x="735" y="276.5">batched min-cost assignment</text>
+  <circle class="dg-num" cx="510" cy="224" r="9"></circle>
+  <text class="dg-num-t" x="510" y="227.4">5</text>
+  <rect class="dg-box" x="30" y="308" width="460" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="260" y="328.5">Offer, 15 s TTL</text>
+  <text class="dg-s dg-c" x="260" y="344.5">cascade on decline</text>
+  <text class="dg-s dg-c" x="260" y="360.5">the DB conditional update is the last line of defence</text>
+  <circle class="dg-num" cx="30" cy="308" r="9"></circle>
+  <text class="dg-num-t" x="30" y="311.4">6</text>
+  <rect class="dg-box" x="510" y="308" width="450" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="735" y="336.5">WebSocket push</text>
+  <text class="dg-s dg-c" x="735" y="352.5">the client reconciles on reconnect</text>
+  <circle class="dg-num" cx="510" cy="308" r="9"></circle>
+  <text class="dg-num-t" x="510" y="311.4">7</text>
+  <rect class="dg-box" x="30" y="392" width="930" height="50" rx="8"></rect>
+  <text class="dg-t dg-c" x="495" y="421.5">Region-sharded ride DB · payment pre-auth at start, async capture at end — the trip never blocks on payment</text>
+  <circle class="dg-num" cx="30" cy="392" r="9"></circle>
+  <text class="dg-num-t" x="30" y="395.4">8</text>
+</svg>
+</div>
+
+<p class="diagram-cap">Badge 1 first, out loud: two systems, a thousand-to-one write ratio, and only one of them is allowed to lose data. Draw them as separate diagrams and the rest of the round follows.</p>
 
 1. Two systems: supply firehose (disposable, 2.5M w/s) + ride lifecycle (durable, 30k w/s). **1000× ratio.**
 2. Supply: H3 index, sharded by parent cell, in memory, cold path forks to Kafka.

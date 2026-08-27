@@ -280,6 +280,12 @@ Rules that are not optional:
 5. **Geometry attributes stay inline** (`x`, `y`, `width`, `height`, `rx`, `d`, `viewBox`), so a box
    moves by editing one number.
 
+**Two boards per page.** §6 gets the flows. §14 gets a *skeleton* board: the same system stripped
+to what must be on a whiteboard at minute five, with a numbered `dg-num` badge on each box keyed to
+the numbered list below it — so the page doubles as a self-check after drawing it cold. Items with
+no box to hang on (a ratio, a rule, a sentence you have to say) become labelled tiles under a lane
+reading *"in the margin — said, not drawn."* That gap is usually where candidates go quiet.
+
 Sizing: `viewBox` is 1000 units wide; the wrapper scrolls below 680px rather than shrinking the
 board to a picture of a board. Budget roughly 5.5px per character at `dg-s` and 6.3px at `dg-t`
 when checking that a label fits its box.

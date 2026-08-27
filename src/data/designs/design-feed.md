@@ -123,23 +123,83 @@ DELETE /v1/users/{id}/follow        → 204
 
 ## 6 · High-level design — flows
 
-```
-                                        ┌──────────────┐
-   POST /tweets ──▶ Tweet Service ──────▶  Tweet Store  │ (source of truth)
-                         │              └──────────────┘
-                         ▼ outbox
-                       Kafka ──▶ Fanout Workers ──┬── normal author ──▶ Timeline Cache
-                         │        (tiered queues) │                     (Redis zsets)
-                         │                        └── celebrity ──▶ (skipped entirely)
-                         ▼
-                   Social Graph ("who follows X")
+<div class="diagram">
+<svg viewBox="0 0 1000 596" role="img" aria-label="Feed high-level design. Write path: post to the tweet service, Snowflake id, tweet store, acknowledge immediately. An outbox feeds Kafka and fanout workers with tiered queues, which read the social graph and either push into a Redis timeline cache below the follower threshold, or do nothing at all above it. Read path: timeline service merges a sorted-set range with the recent tweets of followed celebrities, then hydrates bodies, authors and counts.">
+  <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
+  <text class="dg-banner-t dg-c" x="500" y="33.5">6k writes/sec, ×200 amplification. Neither pure strategy works — push below the threshold, pull above it, merge at read.</text>
+  <text class="dg-lane" x="30" y="76">WRITE — ENDS AT THE TWEET STORE</text>
+  <rect class="dg-box" x="30" y="90" width="130" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="95" y="122.5">POST /tweets</text>
+  <rect class="dg-box" x="190" y="90" width="180" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="280" y="114.5">Tweet Service</text>
+  <text class="dg-s dg-c" x="280" y="130.5">Snowflake id</text>
+  <rect class="dg-box" x="400" y="90" width="200" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="500" y="114.5">Tweet Store</text>
+  <text class="dg-s dg-c" x="500" y="130.5">source of truth</text>
+  <path class="dg-line" d="M 160,118 L 182,118"></path>
+  <path class="dg-head" d="M 182,123 L 182,113 L 190,118 Z"></path>
+  <path class="dg-line" d="M 370,118 L 392,118"></path>
+  <path class="dg-head" d="M 392,123 L 392,113 L 400,118 Z"></path>
+  <rect class="dg-good" x="640" y="90" width="320" height="56" rx="8"></rect>
+  <text class="dg-good-t dg-c" x="800" y="114.5">Ack here</text>
+  <text class="dg-s dg-c" x="800" y="130.5">durable now; everything after is delivery</text>
+  <path class="dg-line" d="M 500,146 L 500,172"></path>
+  <path class="dg-head" d="M 495,172 L 505,172 L 500,180 Z"></path>
+  <rect class="dg-box" x="400" y="180" width="200" height="44" rx="8"></rect>
+  <text class="dg-t dg-c" x="500" y="206.5">outbox → Kafka</text>
+  <path class="dg-line" d="M 500,224 L 500,250"></path>
+  <path class="dg-head" d="M 495,250 L 505,250 L 500,258 Z"></path>
+  <rect class="dg-box" x="340" y="258" width="300" height="76" rx="8"></rect>
+  <text class="dg-t dg-c" x="490" y="284.5">Fanout workers</text>
+  <text class="dg-s dg-c" x="490" y="300.5">tiered queues by follower count</text>
+  <text class="dg-s dg-c" x="490" y="316.5">active users only · idempotent ZADD</text>
+  <rect class="dg-box" x="30" y="258" width="250" height="76" rx="8"></rect>
+  <text class="dg-t dg-c" x="155" y="284.5">Social graph</text>
+  <text class="dg-s dg-c" x="155" y="300.5">who follows X</text>
+  <text class="dg-s dg-c" x="155" y="316.5">stored both directions</text>
+  <path class="dg-line" d="M 340,296 L 288,296"></path>
+  <path class="dg-head" d="M 288,291 L 288,301 L 280,296 Z"></path>
+  <rect class="dg-box" x="700" y="254" width="260" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="830" y="278.5">Timeline cache</text>
+  <text class="dg-s dg-c" x="830" y="294.5">Redis zset, capped ~400</text>
+  <rect class="dg-ghost" x="700" y="326" width="260" height="60" rx="8"></rect>
+  <text class="dg-lane dg-c" x="830" y="350">ABOVE ~100k → NOTHING</text>
+  <text class="dg-s dg-c" x="830" y="371">the path is the absence of work</text>
+  <path class="dg-line" d="M 640,280 L 692,280"></path>
+  <path class="dg-head" d="M 692,285 L 692,275 L 700,280 Z"></path>
+  <path class="dg-line" d="M 640,312 L 670,312 L 670,356 L 692,356"></path>
+  <path class="dg-head" d="M 692,361 L 692,351 L 700,356 Z"></path>
+  <path class="dg-div" d="M 20,410 L 980,410"></path>
+  <text class="dg-lane" x="30" y="436">READ — THE MERGE IS THE HYBRID</text>
+  <rect class="dg-box" x="30" y="450" width="140" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="100" y="486.5">GET /timeline</text>
+  <rect class="dg-box" x="190" y="450" width="170" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="275" y="478.5">Timeline Service</text>
+  <text class="dg-s dg-c" x="275" y="494.5">merge · dedupe · cap</text>
+  <path class="dg-line" d="M 170,482 L 182,482"></path>
+  <path class="dg-head" d="M 182,487 L 182,477 L 190,482 Z"></path>
+  <rect class="dg-box" x="400" y="428" width="250" height="44" rx="8"></rect>
+  <text class="dg-t dg-c" x="525" y="454.5">ZREVRANGE timeline:{user}</text>
+  <rect class="dg-box" x="400" y="486" width="250" height="44" rx="8"></rect>
+  <text class="dg-t dg-c" x="525" y="512.5">celebrity recent tweets</text>
+  <path class="dg-line" d="M 360,482 L 380,482 L 380,450 L 392,450"></path>
+  <path class="dg-head" d="M 392,455 L 392,445 L 400,450 Z"></path>
+  <path class="dg-line" d="M 360,482 L 380,482 L 380,508 L 392,508"></path>
+  <path class="dg-head" d="M 392,513 L 392,503 L 400,508 Z"></path>
+  <rect class="dg-box" x="700" y="450" width="260" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="830" y="470.5">Hydrate</text>
+  <text class="dg-s dg-c" x="830" y="486.5">tweet · author · counts</text>
+  <text class="dg-s dg-c" x="830" y="502.5">this is the real read cost</text>
+  <path class="dg-line" d="M 650,450 L 675,450 L 675,468 L 692,468"></path>
+  <path class="dg-head" d="M 692,473 L 692,463 L 700,468 Z"></path>
+  <path class="dg-line" d="M 650,508 L 675,508 L 675,496 L 692,496"></path>
+  <path class="dg-head" d="M 692,501 L 692,491 L 700,496 Z"></path>
+  <text class="dg-s" x="30" y="558">Filter deletes, blocks and mutes at read time. Scrubbing timelines is what makes a delete expensive.</text>
+  <text class="dg-note" x="30" y="578">Losing fanout writes degrades a timeline; it never loses a tweet. That is what makes the cache safe to lose.</text>
+</svg>
+</div>
 
-   GET /timeline ──▶ Timeline Service
-                         ├── ZREVRANGE timeline:{user}          → ids
-                         ├── + live query of followed celebrities → ids
-                         ├── merge, dedupe, cap
-                         └── hydrate ids → Tweet Cache, Author Cache, Counts Cache
-```
+<p class="diagram-cap">Two arrows leave the fanout worker and one of them goes nowhere. Draw the celebrity branch as an empty box on purpose — the elegant part of this design is work that does not happen.</p>
 
 **The two properties to point at:**
 
@@ -415,6 +475,88 @@ There's no cross-shard transaction anywhere in this design, which is worth notic
 ---
 
 ## 14 · The five-minute skeleton (draw this cold)
+
+<div class="diagram">
+<svg viewBox="0 0 1000 520" role="img" aria-label="Feed five-minute skeleton. An amplification banner, a write row from tweet service through Kafka and fanout workers into the Redis timeline cache, the social graph and the hybrid threshold, the free celebrity pull, then a read row: timeline lookup, merge, hydrate, cursor.">
+  <rect class="dg-banner" x="10" y="10" width="980" height="34" rx="9"></rect>
+  <text class="dg-banner-t dg-c" x="500" y="31.5">Minute five: everything below must be on the board. Badge numbers match the list.</text>
+  <rect class="dg-good" x="30" y="68" width="930" height="40" rx="8"></rect>
+  <text class="dg-t dg-c" x="495" y="92.5">6k writes/sec · ×200 amplification, ×100 M worst case — the write is trivial, the amplification is the problem</text>
+  <circle class="dg-num" cx="30" cy="68" r="9"></circle>
+  <text class="dg-num-t" x="30" y="71.4">1</text>
+  <text class="dg-lane" x="30" y="140">WRITE</text>
+  <rect class="dg-box" x="30" y="154" width="170" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="115" y="190.5">Tweet Service</text>
+  <rect class="dg-box" x="230" y="154" width="200" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="330" y="182.5">Kafka</text>
+  <text class="dg-s dg-c" x="330" y="198.5">tiered queues</text>
+  <circle class="dg-num" cx="230" cy="154" r="9"></circle>
+  <text class="dg-num-t" x="230" y="157.4">5</text>
+  <rect class="dg-box" x="460" y="154" width="230" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="575" y="182.5">Fanout workers</text>
+  <text class="dg-s dg-c" x="575" y="198.5">active users · idempotent ZADD</text>
+  <rect class="dg-box" x="720" y="154" width="240" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="840" y="174.5">Timeline cache</text>
+  <text class="dg-s dg-c" x="840" y="190.5">Redis zset, capped ~400</text>
+  <text class="dg-s dg-c" x="840" y="206.5">it is a cache</text>
+  <circle class="dg-num" cx="720" cy="154" r="9"></circle>
+  <text class="dg-num-t" x="720" y="157.4">6</text>
+  <path class="dg-line" d="M 200,186 L 222,186"></path>
+  <path class="dg-head" d="M 222,191 L 222,181 L 230,186 Z"></path>
+  <path class="dg-line" d="M 430,186 L 452,186"></path>
+  <path class="dg-head" d="M 452,191 L 452,181 L 460,186 Z"></path>
+  <path class="dg-line" d="M 690,186 L 712,186"></path>
+  <path class="dg-head" d="M 712,191 L 712,181 L 720,186 Z"></path>
+  <rect class="dg-box" x="30" y="248" width="230" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="145" y="272.5">Social graph</text>
+  <text class="dg-s dg-c" x="145" y="288.5">both directions · bucketed</text>
+  <circle class="dg-num" cx="30" cy="248" r="9"></circle>
+  <text class="dg-num-t" x="30" y="251.4">8</text>
+  <rect class="dg-box" x="290" y="248" width="400" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="490" y="272.5">Hybrid</text>
+  <text class="dg-s dg-c" x="490" y="288.5">push below ~100k · pull above · merge at read</text>
+  <circle class="dg-num" cx="290" cy="248" r="9"></circle>
+  <text class="dg-num-t" x="290" y="251.4">3</text>
+  <rect class="dg-good" x="720" y="248" width="240" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="840" y="272.5">Celebrity pull is free</text>
+  <text class="dg-s dg-c" x="840" y="288.5">one list, millions of readers</text>
+  <circle class="dg-num" cx="720" cy="248" r="9"></circle>
+  <text class="dg-num-t" x="720" y="251.4">4</text>
+  <text class="dg-lane" x="30" y="346">READ</text>
+  <rect class="dg-box" x="30" y="360" width="230" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="145" y="388.5">Timeline lookup</text>
+  <text class="dg-s dg-c" x="145" y="404.5">~1 ms</text>
+  <rect class="dg-box" x="290" y="360" width="200" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="390" y="396.5">Merge · dedupe · cap</text>
+  <rect class="dg-box" x="520" y="360" width="250" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="645" y="380.5">Hydrate</text>
+  <text class="dg-s dg-c" x="645" y="396.5">tweet · author · counts</text>
+  <text class="dg-s dg-c" x="645" y="412.5">the real read cost</text>
+  <circle class="dg-num" cx="520" cy="360" r="9"></circle>
+  <text class="dg-num-t" x="520" y="363.4">9</text>
+  <rect class="dg-box" x="790" y="360" width="170" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="875" y="388.5">Cursor</text>
+  <text class="dg-s dg-c" x="875" y="404.5">Snowflake, never offset</text>
+  <circle class="dg-num" cx="790" cy="360" r="9"></circle>
+  <text class="dg-num-t" x="790" y="363.4">10</text>
+  <path class="dg-line" d="M 260,392 L 282,392"></path>
+  <path class="dg-head" d="M 282,397 L 282,387 L 290,392 Z"></path>
+  <path class="dg-line" d="M 490,392 L 512,392"></path>
+  <path class="dg-head" d="M 512,397 L 512,387 L 520,392 Z"></path>
+  <path class="dg-line" d="M 770,392 L 782,392"></path>
+  <path class="dg-head" d="M 782,397 L 782,387 L 790,392 Z"></path>
+  <rect class="dg-box" x="30" y="458" width="460" height="40" rx="8"></rect>
+  <text class="dg-t dg-c" x="260" y="482.5">Deletes filtered at read time, never scrubbed</text>
+  <circle class="dg-num" cx="30" cy="458" r="9"></circle>
+  <text class="dg-num-t" x="30" y="461.4">7</text>
+  <rect class="dg-box" x="510" y="458" width="450" height="40" rx="8"></rect>
+  <text class="dg-t dg-c" x="735" y="482.5">Fanout-on-write by default — the inverse of messaging</text>
+  <circle class="dg-num" cx="510" cy="458" r="9"></circle>
+  <text class="dg-num-t" x="510" y="461.4">2</text>
+</svg>
+</div>
+
+<p class="diagram-cap">Badge 3 is the whole answer and it is one box: neither pure strategy survives contact with a 100 M-follower account. Get the threshold on the board and the two deep dives write themselves.</p>
 
 1. Writes are trivial (6k/s). **Amplification is the problem**: ×200 average, ×100M worst case.
 2. Fanout-on-**write** by default — a write happens once, a read happens every refresh. *(Inverse of messaging; the deciding variable is merge width.)*

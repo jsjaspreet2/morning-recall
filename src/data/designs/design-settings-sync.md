@@ -169,28 +169,73 @@ WS   /v1/subscribe   ← { entity: "team:7", version: 13, delay_ms: 4200 }   // 
 
 ## 6 · High-level design — flows
 
-```text
-        ┌──────────────── client (IDE) ─────────────────┐
-        │  local store: source docs + their versions    │
-        │               pending patch (base_version)    │
-        │  resolve()  ──►  effective document           │ ← works with the server down
-        └───┬──────────────────▲──────────────────▲─────┘
-            │ GET /manifest    │ 304, usually     │ { entity, version }  = a hint
-            │ PUT If-Match     │                  │
-            ▼                  │                  │
-     ┌───────────────────────┐ │           ┌──────┴───────┐
-     │    settings API       │─┘           │  WS gateway  │──► registry (Redis)
-     │  CAS on the pointer   │             └──────▲───────┘
-     └───────────┬───────────┘                    │
-                 │ ONE transaction                │
-                 ▼                                │
-     ┌──────────────────────────┐  outbox  ┌──────┴─────────┐
-     │ Postgres                 │─────────►│    fanout      │
-     │   revision  (immutable)  │  → Kafka │  team→members  │
-     │   current   (pointer)    │          └────────────────┘
-     │   membership · outbox    │
-     └──────────────────────────┘
-```
+<div class="diagram">
+<svg viewBox="0 0 1000 596" role="img" aria-label="Settings sync high-level design. The client holds source documents with their versions, a pending patch, and a resolve function evaluated per key over four layers, and works with the server down. Below: a settings API doing compare-and-set on a pointer, Postgres holding immutable revisions plus the pointer and an outbox in one transaction, a fanout service, and a WebSocket gateway whose push carries only an entity and a version — a hint, not a value.">
+  <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
+  <text class="dg-banner-t dg-c" x="500" y="33.5">Push is a hint, never a value. Kill the socket tier and convergence degrades from ~2 s to ≤60 s. Nothing else changes.</text>
+  <text class="dg-lane" x="30" y="76">CLIENT (IDE) — WORKS WITH THE SERVER DOWN</text>
+  <rect class="dg-box" x="30" y="90" width="560" height="92" rx="8"></rect>
+  <text class="dg-t dg-c" x="310" y="116.5">Local store</text>
+  <text class="dg-s dg-c" x="310" y="132.5">source documents + their versions</text>
+  <text class="dg-s dg-c" x="310" y="148.5">pending patch (base_version)</text>
+  <text class="dg-s dg-c" x="310" y="164.5">resolve() → the effective document</text>
+  <rect class="dg-good" x="620" y="90" width="340" height="92" rx="8"></rect>
+  <text class="dg-t dg-c" x="790" y="108.5">resolve() — evaluated per key</text>
+  <text class="dg-s dg-c" x="790" y="124.5">1 · mandatory team policy</text>
+  <text class="dg-s dg-c" x="790" y="140.5">2 · user override</text>
+  <text class="dg-s dg-c" x="790" y="156.5">3 · team default</text>
+  <text class="dg-s dg-c" x="790" y="172.5">4 · product default</text>
+  <path class="dg-div" d="M 20,200 L 980,200"></path>
+  <text class="dg-lane" x="30" y="238">SERVER</text>
+  <rect class="dg-box" x="30" y="252" width="300" height="76" rx="8"></rect>
+  <text class="dg-t dg-c" x="180" y="278.5">Settings API</text>
+  <text class="dg-s dg-c" x="180" y="294.5">CAS on the pointer</text>
+  <text class="dg-s dg-c" x="180" y="310.5">PUT If-Match · 412 + current doc</text>
+  <rect class="dg-box" x="660" y="252" width="300" height="76" rx="8"></rect>
+  <text class="dg-t dg-c" x="810" y="278.5">WS gateway</text>
+  <text class="dg-s dg-c" x="810" y="294.5">registry (Redis)</text>
+  <text class="dg-s dg-c" x="810" y="310.5">{entity, version} only</text>
+  <rect class="dg-box" x="30" y="380" width="300" height="110" rx="8"></rect>
+  <text class="dg-t dg-c" x="180" y="407.5">Postgres</text>
+  <text class="dg-s dg-c" x="180" y="423.5">revision (immutable)</text>
+  <text class="dg-s dg-c" x="180" y="439.5">current (pointer)</text>
+  <text class="dg-s dg-c" x="180" y="455.5">WHERE version = $expected</text>
+  <text class="dg-s dg-c" x="180" y="471.5">membership · outbox</text>
+  <rect class="dg-box" x="660" y="380" width="300" height="110" rx="8"></rect>
+  <text class="dg-t dg-c" x="810" y="415.5">Fanout</text>
+  <text class="dg-s dg-c" x="810" y="431.5">outbox → Kafka, keyed by entity</text>
+  <text class="dg-s dg-c" x="810" y="447.5">team → members, paged</text>
+  <text class="dg-s dg-c" x="810" y="463.5">does NOT compute 50 k documents</text>
+  <path class="dg-line" d="M 150,182 L 150,244"></path>
+  <path class="dg-head" d="M 145,244 L 155,244 L 150,252 Z"></path>
+  <text class="dg-lbl" x="165" y="228">PUT If-Match · GET /manifest</text>
+  <path class="dg-line" d="M 180,328 L 180,372"></path>
+  <path class="dg-head" d="M 175,372 L 185,372 L 180,380 Z"></path>
+  <text class="dg-lbl" x="195" y="360">ONE transaction</text>
+  <path class="dg-line" d="M 180,490 L 180,512 L 810,512 L 810,498"></path>
+  <path class="dg-head" d="M 815,498 L 805,498 L 810,490 Z"></path>
+  <text class="dg-lbl" x="380" y="504">outbox drains → Kafka</text>
+  <path class="dg-line" d="M 810,380 L 810,336"></path>
+  <path class="dg-head" d="M 815,336 L 805,336 L 810,328 Z"></path>
+  <path class="dg-line" d="M 810,252 L 810,224 L 430,224 L 430,190"></path>
+  <path class="dg-head" d="M 435,190 L 425,190 L 430,182 Z"></path>
+  <text class="dg-lbl" x="450" y="218">{entity, version} — a hint, not a value</text>
+  <rect class="dg-warn" x="390" y="252" width="240" height="76" rx="8"></rect>
+  <text class="dg-warn-t dg-c" x="510" y="278.5">412 + the current doc</text>
+  <text class="dg-s dg-c" x="510" y="294.5">merge disjoint keys, retry</text>
+  <text class="dg-s dg-c" x="510" y="310.5">same key → conflict UI</text>
+  <rect class="dg-box" x="390" y="380" width="240" height="110" rx="8"></rect>
+  <text class="dg-t dg-c" x="510" y="407.5">Absorbing the herd</text>
+  <text class="dg-s dg-c" x="510" y="423.5">the hint carries the version</text>
+  <text class="dg-s dg-c" x="510" y="439.5">delay_ms jitter by team size</text>
+  <text class="dg-s dg-c" x="510" y="455.5">version-addressed → CDN hit</text>
+  <text class="dg-s dg-c" x="510" y="471.5">429 + Retry-After is safe</text>
+  <text class="dg-s" x="30" y="552">Retry twice, then ask the human. An auto-merge-and-retry loop with no backoff, between two machines that both keep editing, is a livelock.</text>
+  <text class="dg-note" x="30" y="574">Push tier fully down? Clients fall back from a 15-minute poll to 60 seconds. There is only one recovery path, and it is also the normal path.</text>
+</svg>
+</div>
+
+<p class="diagram-cap">The socket carries an entity and a version and nothing else. Draw that label on the arrow before you draw the gateway — it is what makes duplicate pushes free, lost pushes survivable, and the whole tier optional.</p>
 
 ### Flow A — a user changes a setting on one of their two laptops
 
@@ -473,6 +518,74 @@ Plus the unglamorous ones: outbox depth (the leading indicator for everything ab
 ---
 
 ## 14 · The five-minute skeleton (draw this cold)
+
+<div class="diagram">
+<svg viewBox="0 0 1000 490" role="img" aria-label="Settings sync five-minute skeleton. The resolution function centred at the top over four layers, flanked by the client and the membership entity. Then the two tables and their compare-and-set predicate, the aggregate version, the manifest and If-Match calls, the socket-as-hint rule, the outbox chain, and two closing sentences.">
+  <rect class="dg-banner" x="10" y="10" width="980" height="34" rx="9"></rect>
+  <text class="dg-banner-t dg-c" x="500" y="31.5">Minute five: everything below must be on the board. Badge numbers match the list.</text>
+  <rect class="dg-good" x="280" y="68" width="440" height="96" rx="8"></rect>
+  <text class="dg-t dg-c" x="500" y="88.5">resolve() — evaluated per key</text>
+  <text class="dg-s dg-c" x="500" y="104.5">1 · mandatory team policy</text>
+  <text class="dg-s dg-c" x="500" y="120.5">2 · user override</text>
+  <text class="dg-s dg-c" x="500" y="136.5">3 · team default</text>
+  <text class="dg-s dg-c" x="500" y="152.5">4 · product default</text>
+  <circle class="dg-num" cx="280" cy="68" r="9"></circle>
+  <text class="dg-num-t" x="280" y="71.4">1</text>
+  <rect class="dg-box" x="30" y="68" width="230" height="96" rx="8"></rect>
+  <text class="dg-t dg-c" x="145" y="96.5">Client</text>
+  <text class="dg-s dg-c" x="145" y="112.5">source docs + versions</text>
+  <text class="dg-s dg-c" x="145" y="128.5">pending patch</text>
+  <text class="dg-s dg-c" x="145" y="144.5">works with server down</text>
+  <circle class="dg-num" cx="30" cy="68" r="9"></circle>
+  <text class="dg-num-t" x="30" y="71.4">3</text>
+  <rect class="dg-box" x="750" y="68" width="210" height="96" rx="8"></rect>
+  <text class="dg-t dg-c" x="855" y="104.5">Membership</text>
+  <text class="dg-s dg-c" x="855" y="120.5">its own version</text>
+  <text class="dg-s dg-c" x="855" y="136.5">feeds resolve()</text>
+  <circle class="dg-num" cx="750" cy="68" r="9"></circle>
+  <text class="dg-num-t" x="750" y="71.4">8</text>
+  <rect class="dg-box" x="30" y="190" width="460" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="260" y="210.5">Two tables</text>
+  <text class="dg-s dg-c" x="260" y="226.5">revision (immutable) · current (pointer)</text>
+  <text class="dg-s dg-c" x="260" y="242.5">WHERE version = $expected — that is the whole of it</text>
+  <circle class="dg-num" cx="30" cy="190" r="9"></circle>
+  <text class="dg-num-t" x="30" y="193.4">2</text>
+  <rect class="dg-box" x="510" y="190" width="450" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="735" y="210.5">aggregate_version</text>
+  <text class="dg-s dg-c" x="735" y="226.5">a tuple of every input</text>
+  <text class="dg-s dg-c" x="735" y="242.5">the ETag and the Redis cache key</text>
+  <circle class="dg-num" cx="510" cy="190" r="9"></circle>
+  <text class="dg-num-t" x="510" y="193.4">9</text>
+  <rect class="dg-box" x="30" y="274" width="290" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="175" y="294.5">GET /manifest</text>
+  <text class="dg-s dg-c" x="175" y="310.5">{session, entity → version}</text>
+  <text class="dg-s dg-c" x="175" y="326.5">~200 bytes, usually 304</text>
+  <circle class="dg-num" cx="30" cy="274" r="9"></circle>
+  <text class="dg-num-t" x="30" y="277.4">4</text>
+  <rect class="dg-box" x="350" y="274" width="290" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="495" y="302.5">PUT If-Match</text>
+  <text class="dg-s dg-c" x="495" y="318.5">412 returns the current document</text>
+  <circle class="dg-num" cx="350" cy="274" r="9"></circle>
+  <text class="dg-num-t" x="350" y="277.4">5</text>
+  <rect class="dg-box" x="670" y="274" width="290" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="815" y="302.5">The socket is a hint</text>
+  <text class="dg-s dg-c" x="815" y="318.5">ignore ≤, fetch on a gap</text>
+  <circle class="dg-num" cx="670" cy="274" r="9"></circle>
+  <text class="dg-num-t" x="670" y="277.4">7</text>
+  <rect class="dg-box" x="30" y="358" width="930" height="50" rx="8"></rect>
+  <text class="dg-t dg-c" x="495" y="387.5">Outbox inside the write transaction → Kafka by entity → fanout → WS gateway → client</text>
+  <circle class="dg-num" cx="30" cy="358" r="9"></circle>
+  <text class="dg-num-t" x="30" y="361.4">6</text>
+  <rect class="dg-good" x="30" y="428" width="460" height="44" rx="8"></rect>
+  <text class="dg-t dg-c" x="260" y="454.5">delivery is a hint; versions are the truth</text>
+  <circle class="dg-num" cx="30" cy="428" r="9"></circle>
+  <text class="dg-num-t" x="30" y="431.4">10</text>
+  <rect class="dg-good" x="510" y="428" width="450" height="44" rx="8"></rect>
+  <text class="dg-t dg-c" x="735" y="454.5">the layer is writable, the effect is not</text>
+</svg>
+</div>
+
+<p class="diagram-cap">Badge 1 goes on the board before any box, and it is four layers deep, evaluated per key. Everything else here exists to get the right inputs into that function and to tell clients when an input moved.</p>
 
 1. **The resolution function first, in the middle of the board**, before any box: four layers, mandatory team policy on top, product default at the bottom, user override in between. Say "evaluated per key."
 2. Two tables: **`revision` (immutable)** and **`current` (pointer)**. Write `WHERE version = $expected` next to the pointer — that is the concurrency control, and it is the whole of it.

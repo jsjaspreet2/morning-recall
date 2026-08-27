@@ -451,6 +451,16 @@ button {
   fill: var(--dg-warn-text);
   font-size: 11px;
 }
+.prose .diagram .dg-num {
+  fill: var(--dg-banner-stroke);
+  stroke: none;
+}
+.prose .diagram .dg-num-t {
+  fill: var(--dg-banner-text);
+  font-size: 9.5px;
+  font-weight: 700;
+  text-anchor: middle;
+}
 .prose .diagram .dg-c {
   text-anchor: middle;
 }

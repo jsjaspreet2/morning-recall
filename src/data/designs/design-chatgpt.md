@@ -156,40 +156,107 @@ GET  /v1/runs/{runId}                            → Run          (status, for a
 
 ## 6 · High-level design — flows
 
-```
-  WRITE / GENERATE
-  Client ──POST /messages──▶ API Gateway ──▶ Chat Service ──▶ ScyllaDB (chats, messages, runs)
-                                                   │
-                                                   └──enqueue──▶ Scheduler ──▶ Priority Queues
-                                                                              (free / plus / pro)
-                                                                                    │
-                                                                                    ▼
-                                                                            Inference Workers
-                                                                          (GPU, continuous batch)
-                                                                                    │
-              The worker makes TWO INDEPENDENT WRITES and then frees its batch slot. │
-              They go to different systems, for different reasons, and never meet:   │
-                                                                                    │
-            ┌───────────────────────────────────────────────────────────────────────┴┐
-            │ (a) XADD every token                          (b) produce ONE message   │
-            │     the LIVE VIEW: lossy, TTL'd                   DURABILITY: exactly   │
-            │     losing it costs the animation                 once, ordered per chat│
-            ▼                                                                        ▼
-     Redis Streams                                                              Kafka
-     key: run:{runId}                                                    topic: messages
-            │                                                              key = chatId
-            │ XREAD from last-seen id                                            │
-            │ ── the streaming tier reads ONLY this ──                           │ consume
-            ▼                                                                    ▼
-  Client ◀──SSE──  Streaming Tier                                            Persister
-                   (stateless, its own deploy unit)                       (batches writes)
-                                                                                 │
-                                                                                 ▼
-                                                                             ScyllaDB
+<div class="diagram">
+<svg viewBox="0 0 1000 872" role="img" aria-label="ChatGPT high-level design. Write path: client, API gateway, chat service, ScyllaDB, with a quota check at the door before enqueue. The chat service enqueues to a scheduler, priority queues by tier, and a fixed pool of inference workers. Each worker makes two independent writes that never meet: token-by-token XADD into Redis Streams for the lossy live view, which the streaming tier tails and forwards over SSE, and one finished message into Kafka keyed by chat id for durability, which a persister batch-writes to ScyllaDB. Read path: client to gateway to chat service to ScyllaDB.">
+  <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
+  <text class="dg-banner-t dg-c" x="500" y="33.5">Two independent writes out of the GPU — different systems, different reasons, and neither is a backup for the other.</text>
+  <text class="dg-lane" x="30" y="76">WRITE / GENERATE</text>
+  <rect class="dg-box" x="30" y="90" width="110" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="85" y="122.5">Client</text>
+  <rect class="dg-box" x="170" y="90" width="140" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="240" y="122.5">API Gateway</text>
+  <rect class="dg-box" x="340" y="90" width="180" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="430" y="114.5">Chat Service</text>
+  <text class="dg-s dg-c" x="430" y="130.5">CRUD + enqueue</text>
+  <rect class="dg-box" x="550" y="90" width="200" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="650" y="114.5">ScyllaDB</text>
+  <text class="dg-s dg-c" x="650" y="130.5">chats, messages, runs</text>
+  <rect class="dg-good" x="780" y="90" width="180" height="56" rx="8"></rect>
+  <text class="dg-good-t dg-c" x="870" y="114.5">Quota at the door</text>
+  <text class="dg-s dg-c" x="870" y="130.5">rejection costs 0 GPU-seconds</text>
+  <path class="dg-line" d="M 140,118 L 162,118"></path>
+  <path class="dg-head" d="M 162,123 L 162,113 L 170,118 Z"></path>
+  <path class="dg-line" d="M 310,118 L 332,118"></path>
+  <path class="dg-head" d="M 332,123 L 332,113 L 340,118 Z"></path>
+  <path class="dg-line" d="M 520,118 L 542,118"></path>
+  <path class="dg-head" d="M 542,123 L 542,113 L 550,118 Z"></path>
+  <path class="dg-line" d="M 430,146 L 430,172"></path>
+  <path class="dg-head" d="M 425,172 L 435,172 L 430,180 Z"></path>
+  <text class="dg-lbl" x="445" y="168">enqueue</text>
+  <rect class="dg-box" x="340" y="180" width="180" height="52" rx="8"></rect>
+  <text class="dg-t dg-c" x="430" y="202.5">Scheduler</text>
+  <text class="dg-s dg-c" x="430" y="218.5">tier weight + aging</text>
+  <path class="dg-line" d="M 430,232 L 430,258"></path>
+  <path class="dg-head" d="M 425,258 L 435,258 L 430,266 Z"></path>
+  <rect class="dg-box" x="300" y="266" width="260" height="52" rx="8"></rect>
+  <text class="dg-t dg-c" x="430" y="288.5">Priority queues</text>
+  <text class="dg-s dg-c" x="430" y="304.5">free / plus / pro</text>
+  <path class="dg-line" d="M 430,318 L 430,344"></path>
+  <path class="dg-head" d="M 425,344 L 435,344 L 430,352 Z"></path>
+  <rect class="dg-box" x="280" y="352" width="300" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="430" y="380.5">Inference workers</text>
+  <text class="dg-s dg-c" x="430" y="396.5">fixed GPU pool · continuous batching</text>
+  <path class="dg-line" d="M 430,416 L 430,450"></path>
+  <path class="dg-line" d="M 200,450 L 720,450"></path>
+  <path class="dg-line" d="M 200,450 L 200,478"></path>
+  <path class="dg-head" d="M 195,478 L 205,478 L 200,486 Z"></path>
+  <path class="dg-line" d="M 720,450 L 720,478"></path>
+  <path class="dg-head" d="M 715,478 L 725,478 L 720,486 Z"></path>
+  <text class="dg-lbl dg-c" x="460" y="470">two independent writes — neither is a backup for the other</text>
+  <rect class="dg-box" x="80" y="486" width="240" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="200" y="506.5">Redis Streams</text>
+  <text class="dg-s dg-c" x="200" y="522.5">key run:{runId} · XADD per token</text>
+  <text class="dg-s dg-c" x="200" y="538.5">lossy and TTL'd — costs the animation</text>
+  <path class="dg-line" d="M 200,550 L 200,576"></path>
+  <path class="dg-head" d="M 195,576 L 205,576 L 200,584 Z"></path>
+  <rect class="dg-box" x="60" y="584" width="310" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="215" y="604.5">Streaming Tier</text>
+  <text class="dg-s dg-c" x="215" y="620.5">~570 k SSE connections, no run state</text>
+  <text class="dg-s dg-c" x="215" y="636.5">XREAD from last-seen id → SSE</text>
+  <path class="dg-line" d="M 200,648 L 200,668"></path>
+  <path class="dg-head" d="M 195,668 L 205,668 L 200,676 Z"></path>
+  <rect class="dg-box" x="60" y="676" width="310" height="40" rx="8"></rect>
+  <text class="dg-t dg-c" x="215" y="700.5">Client — SSE, Last-Event-ID replays</text>
+  <rect class="dg-box" x="600" y="486" width="240" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="720" y="506.5">Kafka</text>
+  <text class="dg-s dg-c" x="720" y="522.5">topic messages, key = chatId</text>
+  <text class="dg-s dg-c" x="720" y="538.5">exactly one finished message</text>
+  <path class="dg-line" d="M 720,550 L 720,576"></path>
+  <path class="dg-head" d="M 715,576 L 725,576 L 720,584 Z"></path>
+  <rect class="dg-box" x="600" y="584" width="240" height="52" rx="8"></rect>
+  <text class="dg-t dg-c" x="720" y="606.5">Persister</text>
+  <text class="dg-s dg-c" x="720" y="622.5">batches writes</text>
+  <path class="dg-line" d="M 720,636 L 720,660"></path>
+  <path class="dg-head" d="M 715,660 L 725,660 L 720,668 Z"></path>
+  <rect class="dg-box" x="600" y="668" width="240" height="40" rx="8"></rect>
+  <text class="dg-t dg-c" x="720" y="692.5">ScyllaDB</text>
+  <rect class="dg-ghost" x="395" y="560" width="180" height="110" rx="8"></rect>
+  <text class="dg-lane dg-c" x="485" y="584">THEY NEVER MEET</text>
+  <text class="dg-s dg-c" x="485" y="605">the streaming tier reads</text>
+  <text class="dg-s dg-c" x="485" y="622">Redis and only Redis</text>
+  <text class="dg-s dg-c" x="485" y="639">Kafka never feeds a stream</text>
+  <path class="dg-div" d="M 20,740 L 980,740"></path>
+  <text class="dg-lane" x="30" y="766">READ / HISTORY</text>
+  <rect class="dg-box" x="30" y="780" width="110" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="85" y="816.5">Client</text>
+  <rect class="dg-box" x="170" y="780" width="150" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="245" y="816.5">API Gateway</text>
+  <rect class="dg-box" x="350" y="780" width="180" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="440" y="816.5">Chat Service</text>
+  <rect class="dg-box" x="560" y="780" width="260" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="690" y="800.5">ScyllaDB</text>
+  <text class="dg-s dg-c" x="690" y="816.5">LOCAL_ONE for the sidebar</text>
+  <text class="dg-s dg-c" x="690" y="832.5">your own chat: LOCAL_QUORUM</text>
+  <path class="dg-line" d="M 140,812 L 162,812"></path>
+  <path class="dg-head" d="M 162,817 L 162,807 L 170,812 Z"></path>
+  <path class="dg-line" d="M 320,812 L 342,812"></path>
+  <path class="dg-head" d="M 342,817 L 342,807 L 350,812 Z"></path>
+  <path class="dg-line" d="M 530,812 L 552,812"></path>
+  <path class="dg-head" d="M 552,817 L 552,807 L 560,812 Z"></path>
+</svg>
+</div>
 
-  READ / HISTORY
-  Client ──GET /chats, /messages──▶ API Gateway ──▶ Chat Service ──▶ ScyllaDB (LOCAL_ONE)
-```
+<p class="diagram-cap">Draw the fork under the GPU first. Redis carries tokens for the live view and is allowed to lose them; Kafka carries one finished message and is not. Lose Redis and the animation breaks while the answer still gets stored — lose Kafka and the user watches a perfect answer you then fail to keep.</p>
 
 Three tiers, and the split is the design:
 
@@ -632,6 +699,86 @@ Then the compliance edge that comes with it: **deletion must reach all three tie
 ---
 
 ## 14 · The five-minute skeleton (draw this cold)
+
+<div class="diagram">
+<svg viewBox="0 0 1000 606" role="img" aria-label="ChatGPT five-minute skeleton. A numbers banner, then the three tiers, the Run entity, the two-call submit and stream split, SSE, the Redis stream path, the two cheap writes on completion, cancellation, shedding, prefill versus decode, metering, context assembly and the storage layout.">
+  <rect class="dg-banner" x="10" y="10" width="980" height="34" rx="9"></rect>
+  <text class="dg-banner-t dg-c" x="500" y="31.5">Minute five: everything below must be on the board. Badge numbers match the list.</text>
+  <rect class="dg-good" x="30" y="68" width="930" height="40" rx="8"></rect>
+  <text class="dg-t dg-c" x="495" y="92.5">57k generations/sec · 570 k concurrent streams · ~72 k GPUs · ~$3.5 M/day · 1.8 PB/yr</text>
+  <circle class="dg-num" cx="30" cy="68" r="9"></circle>
+  <text class="dg-num-t" x="30" y="71.4">13</text>
+  <circle class="dg-num" cx="22" cy="132" r="9"></circle>
+  <text class="dg-num-t" x="22" y="135.4">1</text>
+  <text class="dg-lane" x="38" y="136">THREE TIERS — ~50 MACHINES AGAINST ~9,000</text>
+  <rect class="dg-box" x="30" y="150" width="280" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="170" y="178.5">API — CRUD</text>
+  <text class="dg-s dg-c" x="170" y="194.5">stateless, scales on requests</text>
+  <rect class="dg-box" x="350" y="150" width="280" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="490" y="178.5">Streaming — sockets</text>
+  <text class="dg-s dg-c" x="490" y="194.5">570 k connections, no run state</text>
+  <rect class="dg-box" x="670" y="150" width="290" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="815" y="178.5">Inference — GPUs</text>
+  <text class="dg-s dg-c" x="815" y="194.5">fixed pool, scheduled not scaled</text>
+  <rect class="dg-box" x="30" y="234" width="280" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="170" y="262.5">Run</text>
+  <text class="dg-s dg-c" x="170" y="278.5">queued → running → done / failed</text>
+  <circle class="dg-num" cx="30" cy="234" r="9"></circle>
+  <text class="dg-num-t" x="30" y="237.4">2</text>
+  <rect class="dg-box" x="350" y="234" width="280" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="490" y="262.5">Submit ≠ stream</text>
+  <text class="dg-s dg-c" x="490" y="278.5">POST returns runId; GET streams</text>
+  <circle class="dg-num" cx="350" cy="234" r="9"></circle>
+  <text class="dg-num-t" x="350" y="237.4">3</text>
+  <rect class="dg-box" x="670" y="234" width="290" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="815" y="262.5">SSE, not WebSocket</text>
+  <text class="dg-s dg-c" x="815" y="278.5">Last-Event-ID replay · cancel is a POST</text>
+  <circle class="dg-num" cx="670" cy="234" r="9"></circle>
+  <text class="dg-num-t" x="670" y="237.4">4</text>
+  <rect class="dg-box" x="30" y="318" width="600" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="330" y="346.5">Worker → Redis Stream run:{runId} → streaming tier</text>
+  <text class="dg-s dg-c" x="330" y="362.5">SSE event id = Redis entry id, so reconnect is a replay from an offset</text>
+  <circle class="dg-num" cx="30" cy="318" r="9"></circle>
+  <text class="dg-num-t" x="30" y="321.4">5</text>
+  <rect class="dg-box" x="650" y="318" width="310" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="805" y="338.5">Two cheap writes, no DB call</text>
+  <text class="dg-s dg-c" x="805" y="354.5">terminal entry + Kafka by chatId</text>
+  <text class="dg-s dg-c" x="805" y="370.5">a GPU never waits on storage</text>
+  <circle class="dg-num" cx="650" cy="318" r="9"></circle>
+  <text class="dg-num-t" x="650" y="321.4">6</text>
+  <rect class="dg-warn" x="30" y="402" width="300" height="50" rx="8"></rect>
+  <text class="dg-warn-t dg-c" x="180" y="423.5">A closed socket is not a cancel</text>
+  <text class="dg-s dg-c" x="180" y="439.5">cancel must reach the GPU</text>
+  <circle class="dg-num" cx="30" cy="402" r="9"></circle>
+  <text class="dg-num-t" x="30" y="405.4">7</text>
+  <rect class="dg-box" x="350" y="402" width="300" height="50" rx="8"></rect>
+  <text class="dg-t dg-c" x="500" y="423.5">Shed at the door</text>
+  <text class="dg-s dg-c" x="500" y="439.5">never kill work in flight</text>
+  <circle class="dg-num" cx="350" cy="402" r="9"></circle>
+  <text class="dg-num-t" x="350" y="405.4">8</text>
+  <rect class="dg-box" x="670" y="402" width="290" height="50" rx="8"></rect>
+  <text class="dg-t dg-c" x="815" y="423.5">Prefill compute-bound</text>
+  <text class="dg-s dg-c" x="815" y="439.5">decode is bandwidth-bound</text>
+  <circle class="dg-num" cx="670" cy="402" r="9"></circle>
+  <text class="dg-num-t" x="670" y="405.4">9</text>
+  <rect class="dg-box" x="30" y="472" width="460" height="50" rx="8"></rect>
+  <text class="dg-t dg-c" x="260" y="493.5">Meter tokens, not requests</text>
+  <text class="dg-s dg-c" x="260" y="509.5">weighted queues with aging, not strict priority</text>
+  <circle class="dg-num" cx="30" cy="472" r="9"></circle>
+  <text class="dg-num-t" x="30" y="475.4">10</text>
+  <rect class="dg-box" x="510" y="472" width="450" height="50" rx="8"></rect>
+  <text class="dg-t dg-c" x="735" y="493.5">Context: system → summary → last K</text>
+  <text class="dg-s dg-c" x="735" y="509.5">stable prefix first, for the KV cache</text>
+  <circle class="dg-num" cx="510" cy="472" r="9"></circle>
+  <text class="dg-num-t" x="510" y="475.4">11</text>
+  <rect class="dg-box" x="30" y="542" width="930" height="44" rx="8"></rect>
+  <text class="dg-t dg-c" x="495" y="568.5">ScyllaDB partitioned on chatId · a second table for the sidebar · hot/warm/cold at 30 and 180 days</text>
+  <circle class="dg-num" cx="30" cy="542" r="9"></circle>
+  <text class="dg-num-t" x="30" y="545.4">12</text>
+</svg>
+</div>
+
+<p class="diagram-cap">Thirteen marks, and the top row carries the argument: ~50 machines against ~9,000 is why the tiers are separate deploys. Say the ratio before you draw the second box.</p>
 
 1. **Three tiers: API (CRUD), Streaming (sockets), Inference (GPUs).** Say the ~50 machines vs ~9,000 ratio — that ratio is the reason they're separate.
 2. **`Run` is an entity.** Queued → running → done / cancelled / failed. Everything hard is an operation on it.

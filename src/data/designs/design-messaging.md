@@ -147,22 +147,88 @@ Two consequences that catch people out:
 
 ## 6 · High-level design — flows
 
-```
-                    ┌─────────────────────────────────────────┐
-  1B devices ───────▶  Connection Gateways (~10k nodes, WS)   │
-                    └──────┬───────────────────────▲──────────┘
-                           │ send                  │ deliver
-                           ▼                       │
-                    Message Service ───────────────┘
-                       │        │           (registry lookup:
-                       │        │            device → gateway)
-                       ▼        ▼
-              Message Store   Connection Registry (Redis, TTL)
-           (sharded by conv)         │
-                       │             └── offline? ──▶ APNs / FCM push
-                       ▼
-              outbox → Kafka ──▶ receipts, search index, analytics
-```
+<div class="diagram">
+<svg viewBox="0 0 1000 662" role="img" aria-label="Messaging high-level design. Send path: client with a client message id and optimistic echo, connection gateways, message service, and a message store sharded by conversation that assigns a sequence number and appends durably in one atomic step. Deliver path: the message service resolves members to devices, looks each up in a Redis connection registry, groups them by gateway and pushes one batched RPC per gateway; devices with no registry entry get a push notification carrying no body. Reconnect path: backoff with jitter, a sync token, then per-conversation catch-up.">
+  <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
+  <text class="dg-banner-t dg-c" x="500" y="33.5">The store is boring; the gateway tier is enormous. 120 writes/sec per shard against ~10,000 nodes holding a billion sockets.</text>
+  <text class="dg-lane" x="30" y="76">SEND</text>
+  <rect class="dg-box" x="30" y="90" width="160" height="72" rx="8"></rect>
+  <text class="dg-t dg-c" x="110" y="114.5">Client</text>
+  <text class="dg-s dg-c" x="110" y="130.5">clientMessageId</text>
+  <text class="dg-s dg-c" x="110" y="146.5">optimistic local echo</text>
+  <rect class="dg-box" x="230" y="90" width="240" height="72" rx="8"></rect>
+  <text class="dg-t dg-c" x="350" y="122.5">Connection Gateways</text>
+  <text class="dg-s dg-c" x="350" y="138.5">~10 k nodes, WebSocket</text>
+  <rect class="dg-box" x="510" y="90" width="210" height="72" rx="8"></rect>
+  <text class="dg-t dg-c" x="615" y="130.5">Message Service</text>
+  <rect class="dg-box" x="760" y="90" width="200" height="72" rx="8"></rect>
+  <text class="dg-t dg-c" x="860" y="122.5">Message Store</text>
+  <text class="dg-s dg-c" x="860" y="138.5">sharded by conversation</text>
+  <path class="dg-line" d="M 190,126 L 222,126"></path>
+  <path class="dg-head" d="M 222,131 L 222,121 L 230,126 Z"></path>
+  <path class="dg-line" d="M 470,126 L 502,126"></path>
+  <path class="dg-head" d="M 502,131 L 502,121 L 510,126 Z"></path>
+  <path class="dg-line" d="M 720,126 L 752,126"></path>
+  <path class="dg-head" d="M 752,131 L 752,121 L 760,126 Z"></path>
+  <rect class="dg-good" x="30" y="190" width="450" height="70" rx="8"></rect>
+  <text class="dg-good-t dg-c" x="255" y="213.5">Durability before delivery</text>
+  <text class="dg-s dg-c" x="255" y="229.5">ack once stored — delivery may fail and retry</text>
+  <text class="dg-s dg-c" x="255" y="245.5">because sync is authoritative</text>
+  <rect class="dg-box" x="510" y="190" width="450" height="70" rx="8"></rect>
+  <text class="dg-t dg-c" x="735" y="213.5">Dedupe, in one atomic step</text>
+  <text class="dg-s dg-c" x="735" y="229.5">seq = last_seq + 1, unique (conv_id, client_msg_id)</text>
+  <text class="dg-s dg-c" x="735" y="245.5">constraint violation → return the original</text>
+  <path class="dg-line" d="M 860,162 L 860,182"></path>
+  <path class="dg-head" d="M 855,182 L 865,182 L 860,190 Z"></path>
+  <path class="dg-div" d="M 20,286 L 980,286"></path>
+  <text class="dg-lane" x="30" y="312">DELIVER — A LOOKUP, NOT A BROADCAST</text>
+  <rect class="dg-box" x="30" y="326" width="200" height="76" rx="8"></rect>
+  <text class="dg-t dg-c" x="130" y="360.5">Message Service</text>
+  <text class="dg-s dg-c" x="130" y="376.5">members → devices</text>
+  <rect class="dg-box" x="270" y="326" width="240" height="76" rx="8"></rect>
+  <text class="dg-t dg-c" x="390" y="352.5">Connection Registry</text>
+  <text class="dg-s dg-c" x="390" y="368.5">Redis, device → gateway</text>
+  <text class="dg-s dg-c" x="390" y="384.5">heartbeat TTL</text>
+  <rect class="dg-box" x="550" y="326" width="200" height="76" rx="8"></rect>
+  <text class="dg-t dg-c" x="650" y="360.5">Group by gateway</text>
+  <text class="dg-s dg-c" x="650" y="376.5">one batched RPC per gateway</text>
+  <rect class="dg-box" x="790" y="326" width="170" height="76" rx="8"></rect>
+  <text class="dg-t dg-c" x="875" y="360.5">Gateways</text>
+  <text class="dg-s dg-c" x="875" y="376.5">push to local sockets</text>
+  <path class="dg-line" d="M 230,364 L 262,364"></path>
+  <path class="dg-head" d="M 262,369 L 262,359 L 270,364 Z"></path>
+  <path class="dg-line" d="M 510,364 L 542,364"></path>
+  <path class="dg-head" d="M 542,369 L 542,359 L 550,364 Z"></path>
+  <path class="dg-line" d="M 750,364 L 782,364"></path>
+  <path class="dg-head" d="M 782,369 L 782,359 L 790,364 Z"></path>
+  <path class="dg-line" d="M 390,402 L 390,428"></path>
+  <path class="dg-head" d="M 385,428 L 395,428 L 390,436 Z"></path>
+  <rect class="dg-warn" x="270" y="436" width="240" height="52" rx="8"></rect>
+  <text class="dg-warn-t dg-c" x="390" y="458.5">No entry = offline</text>
+  <text class="dg-s dg-c" x="390" y="474.5">APNs / FCM hint, no body</text>
+  <rect class="dg-box" x="550" y="436" width="410" height="52" rx="8"></rect>
+  <text class="dg-t dg-c" x="755" y="458.5">seq &gt; local_max + 1 → pull the missing range</text>
+  <text class="dg-s dg-c" x="755" y="474.5">empty pull? retry, then advance past it — or the client wedges</text>
+  <path class="dg-div" d="M 20,512 L 980,512"></path>
+  <text class="dg-lane" x="30" y="538">RECONNECT</text>
+  <rect class="dg-box" x="30" y="552" width="230" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="145" y="576.5">Backoff with jitter</text>
+  <text class="dg-s dg-c" x="145" y="592.5">10 M in lockstep is a herd</text>
+  <rect class="dg-box" x="290" y="552" width="290" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="435" y="576.5">GET /sync with a sync token</text>
+  <text class="dg-s dg-c" x="435" y="592.5">a per-device watermark</text>
+  <rect class="dg-box" x="610" y="552" width="350" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="785" y="576.5">Diff, then after_seq per conversation</text>
+  <text class="dg-s dg-c" x="785" y="592.5">usually zero — one round trip</text>
+  <path class="dg-line" d="M 260,580 L 282,580"></path>
+  <path class="dg-head" d="M 282,585 L 282,575 L 290,580 Z"></path>
+  <path class="dg-line" d="M 580,580 L 602,580"></path>
+  <path class="dg-head" d="M 602,585 L 602,575 L 610,580 Z"></path>
+  <text class="dg-note" x="30" y="640">Sync token older than retention? Reset to head and backfill. A bounded gap in history beats a sync that never completes.</text>
+</svg>
+</div>
+
+<p class="diagram-cap">Delivery is a lookup. Nothing subscribes to a conversation — the service resolves members to devices to gateways and sends one batched RPC per gateway, which is the same grouping trick as Discord arrived at from the opposite direction.</p>
 
 **The two properties to point at:**
 
@@ -525,6 +591,78 @@ What actually differs is a retention policy **plus three subsystems that exist o
 ---
 
 ## 14 · The five-minute skeleton (draw this cold)
+
+<div class="diagram">
+<svg viewBox="0 0 1000 510" role="img" aria-label="Messaging five-minute skeleton. A banner naming fanout and guarantees as the problem. Send row: client with a client message id, gateway, message service, and the conversation shard assigning a sequence. Rows for exactly-once impossibility, durability before delivery, the connection registry, fanout-on-read, offline push, per-device cursors and sharding by conversation.">
+  <rect class="dg-banner" x="10" y="10" width="980" height="34" rx="9"></rect>
+  <text class="dg-banner-t dg-c" x="500" y="31.5">Minute five: everything below must be on the board. Badge numbers match the list.</text>
+  <rect class="dg-good" x="30" y="68" width="930" height="40" rx="8"></rect>
+  <text class="dg-t dg-c" x="495" y="92.5">Not a throughput problem, not a contention problem — fanout and guarantees</text>
+  <circle class="dg-num" cx="30" cy="68" r="9"></circle>
+  <text class="dg-num-t" x="30" y="71.4">1</text>
+  <text class="dg-lane" x="30" y="140">SEND</text>
+  <rect class="dg-box" x="30" y="154" width="170" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="115" y="182.5">Client</text>
+  <text class="dg-s dg-c" x="115" y="198.5">clientMessageId</text>
+  <circle class="dg-num" cx="30" cy="154" r="9"></circle>
+  <text class="dg-num-t" x="30" y="157.4">3</text>
+  <rect class="dg-box" x="240" y="154" width="190" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="335" y="190.5">Gateway</text>
+  <rect class="dg-box" x="470" y="154" width="200" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="570" y="190.5">Message Service</text>
+  <rect class="dg-box" x="700" y="154" width="260" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="830" y="174.5">Conversation shard</text>
+  <text class="dg-s dg-c" x="830" y="190.5">seq = last_seq + 1</text>
+  <text class="dg-s dg-c" x="830" y="206.5">unique (conv, client_msg)</text>
+  <circle class="dg-num" cx="700" cy="154" r="9"></circle>
+  <text class="dg-num-t" x="700" y="157.4">4</text>
+  <path class="dg-line" d="M 200,186 L 232,186"></path>
+  <path class="dg-head" d="M 232,191 L 232,181 L 240,186 Z"></path>
+  <path class="dg-line" d="M 430,186 L 462,186"></path>
+  <path class="dg-head" d="M 462,191 L 462,181 L 470,186 Z"></path>
+  <path class="dg-line" d="M 670,186 L 692,186"></path>
+  <path class="dg-head" d="M 692,191 L 692,181 L 700,186 Z"></path>
+  <rect class="dg-box" x="30" y="248" width="460" height="50" rx="8"></rect>
+  <text class="dg-t dg-c" x="260" y="269.5">Exactly-once is impossible</text>
+  <text class="dg-s dg-c" x="260" y="285.5">at-least-once + idempotent dedupe at both ends</text>
+  <circle class="dg-num" cx="30" cy="248" r="9"></circle>
+  <text class="dg-num-t" x="30" y="251.4">2</text>
+  <rect class="dg-box" x="510" y="248" width="450" height="50" rx="8"></rect>
+  <text class="dg-t dg-c" x="735" y="269.5">Durability before delivery</text>
+  <text class="dg-s dg-c" x="735" y="285.5">delivery is best-effort because sync is authoritative</text>
+  <circle class="dg-num" cx="510" cy="248" r="9"></circle>
+  <text class="dg-num-t" x="510" y="251.4">5</text>
+  <text class="dg-lane" x="30" y="340">DELIVER</text>
+  <rect class="dg-box" x="30" y="354" width="290" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="175" y="374.5">Connection registry</text>
+  <text class="dg-s dg-c" x="175" y="390.5">device → gateway, ~10 k nodes</text>
+  <text class="dg-s dg-c" x="175" y="406.5">batch per gateway, not pub/sub</text>
+  <circle class="dg-num" cx="30" cy="354" r="9"></circle>
+  <text class="dg-num-t" x="30" y="357.4">6</text>
+  <rect class="dg-box" x="350" y="354" width="290" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="495" y="382.5">Fanout-on-read for content</text>
+  <text class="dg-s dg-c" x="495" y="398.5">write only for notifications</text>
+  <circle class="dg-num" cx="350" cy="354" r="9"></circle>
+  <text class="dg-num-t" x="350" y="357.4">7</text>
+  <rect class="dg-box" x="670" y="354" width="290" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="815" y="382.5">Offline → APNs / FCM hint</text>
+  <text class="dg-s dg-c" x="815" y="398.5">no body · two-phase bounded sync</text>
+  <circle class="dg-num" cx="670" cy="354" r="9"></circle>
+  <text class="dg-num-t" x="670" y="357.4">8</text>
+  <rect class="dg-box" x="30" y="440" width="460" height="46" rx="8"></rect>
+  <text class="dg-t dg-c" x="260" y="459.5">Read state = per-device cursor</text>
+  <text class="dg-s dg-c" x="260" y="475.5">debounced, lossy — monotonic state is safe to drop</text>
+  <circle class="dg-num" cx="30" cy="440" r="9"></circle>
+  <text class="dg-num-t" x="30" y="443.4">9</text>
+  <rect class="dg-box" x="510" y="440" width="450" height="46" rx="8"></rect>
+  <text class="dg-t dg-c" x="735" y="459.5">Shard by conversation_id</text>
+  <text class="dg-s dg-c" x="735" y="475.5">single-writer ordering · name the retention fork</text>
+  <circle class="dg-num" cx="510" cy="440" r="9"></circle>
+  <text class="dg-num-t" x="510" y="443.4">10</text>
+</svg>
+</div>
+
+<p class="diagram-cap">Badge 4 is the one integer doing four jobs — order, gaps, cursors, dedupe. Say the density fork out loud while you draw it: sortable is free, dense is what forces the counter and the log into one transaction.</p>
 
 1. Not a throughput problem, not a contention problem. **Fanout + guarantees.**
 2. **Exactly-once is impossible** → at-least-once + idempotent dedupe at both ends.

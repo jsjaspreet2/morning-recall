@@ -126,22 +126,87 @@ DELETE /v1/bookings/{id}                → cancel
 
 ## 6 · High-level design — flows
 
-```text
-  SEARCH (99.9% of traffic)
-  Client ──▶ Search Service ──▶ Elasticsearch cluster (geo + attrs + availability bitmap)
-                   │                      ▲
-                   ├──▶ Pricing (per-night overrides, fees)
-                   └──▶ Ranking
-                                          │ index updates (~seconds)
-  BOOKING (rare, transactional)           │
-  Client ──▶ Booking API ──▶ Temporal workflow ──┬─▶ Reservations DB (EXCLUDE constraint)
-                                                 ├─▶ Payments (auth → capture)
-                                                 ├─▶ Host approval (up to 24h timer)
-                                                 └─▶ outbox → Kafka ──────────┘
-                                                          │
-  HOST / EXTERNAL ────────────────────────────────────────┤
-  iCal poller ──▶ Calendar Sync ──▶ block ranges ─────────┘
-```
+<div class="diagram">
+<svg viewBox="0 0 1000 600" role="img" aria-label="Airbnb high-level design. A search lane carrying 99.9% of traffic: client to search service to Elasticsearch with a geo bounding box and availability bitmap, then hydration. A booking lane: client to booking API to a Temporal workflow whose four steps end at a reservations database with an exclusion constraint. An outbox feeds Kafka, which updates the search index seconds later. A third lane polls external iCal calendars, the real source of double bookings.">
+  <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
+  <text class="dg-banner-t dg-c" x="500" y="33.5">1000:1 read:write — 100k searches/sec against 23 bookings/sec. Search is the hard problem; correctness is one line of DDL.</text>
+  <text class="dg-lane" x="30" y="76">SEARCH — 99.9% OF TRAFFIC</text>
+  <rect class="dg-box" x="30" y="90" width="110" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="85" y="126.5">Client</text>
+  <rect class="dg-box" x="180" y="90" width="160" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="260" y="118.5">Search Service</text>
+  <text class="dg-s dg-c" x="260" y="134.5">one ES query</text>
+  <rect class="dg-box" x="380" y="90" width="250" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="505" y="110.5">Elasticsearch</text>
+  <text class="dg-s dg-c" x="505" y="126.5">geo bbox + attrs + availability bitmap</text>
+  <text class="dg-s dg-c" x="505" y="142.5">ranked; cursor on (score, listing_id)</text>
+  <rect class="dg-box" x="670" y="90" width="290" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="815" y="110.5">Hydrate</text>
+  <text class="dg-s dg-c" x="815" y="126.5">per-night price with host overrides</text>
+  <text class="dg-s dg-c" x="815" y="142.5">fees, photos, review aggregates</text>
+  <path class="dg-line" d="M 140,122 L 172,122"></path>
+  <path class="dg-head" d="M 172,127 L 172,117 L 180,122 Z"></path>
+  <path class="dg-line" d="M 340,122 L 372,122"></path>
+  <path class="dg-head" d="M 372,127 L 372,117 L 380,122 Z"></path>
+  <path class="dg-line" d="M 630,122 L 662,122"></path>
+  <path class="dg-head" d="M 662,127 L 662,117 L 670,122 Z"></path>
+  <text class="dg-s dg-c" x="505" y="180">no post-filtering — pagination stays correct</text>
+  <text class="dg-s dg-c" x="815" y="180">prices computed at hydration, not indexed</text>
+  <path class="dg-div" d="M 20,206 L 980,206"></path>
+  <text class="dg-lane" x="30" y="232">BOOKING — RARE, TRANSACTIONAL</text>
+  <rect class="dg-box" x="30" y="246" width="110" height="52" rx="8"></rect>
+  <text class="dg-t dg-c" x="85" y="276.5">Client</text>
+  <rect class="dg-box" x="180" y="246" width="160" height="52" rx="8"></rect>
+  <text class="dg-t dg-c" x="260" y="268.5">Booking API</text>
+  <text class="dg-s dg-c" x="260" y="284.5">idempotency key</text>
+  <rect class="dg-box" x="380" y="246" width="290" height="110" rx="8"></rect>
+  <text class="dg-t dg-c" x="525" y="273.5">Temporal workflow</text>
+  <text class="dg-s dg-c" x="525" y="289.5">1 · insert PENDING — constraint arbitrates</text>
+  <text class="dg-s dg-c" x="525" y="305.5">2 · authorize payment, before any wait</text>
+  <text class="dg-s dg-c" x="525" y="321.5">3 · confirm → outbox event</text>
+  <text class="dg-s dg-c" x="525" y="337.5">4 · durable timer → capture at check-in</text>
+  <rect class="dg-good" x="710" y="246" width="250" height="110" rx="8"></rect>
+  <text class="dg-t dg-c" x="835" y="281.5">Reservations DB</text>
+  <text class="dg-s dg-c" x="835" y="297.5">EXCLUDE USING gist</text>
+  <text class="dg-s dg-c" x="835" y="313.5">(listing_id =, stay_range &amp;&amp;)</text>
+  <text class="dg-s dg-c" x="835" y="329.5">half-open ranges '[)'</text>
+  <path class="dg-line" d="M 140,272 L 172,272"></path>
+  <path class="dg-head" d="M 172,277 L 172,267 L 180,272 Z"></path>
+  <path class="dg-line" d="M 340,272 L 372,272"></path>
+  <path class="dg-head" d="M 372,277 L 372,267 L 380,272 Z"></path>
+  <path class="dg-line" d="M 670,301 L 702,301"></path>
+  <path class="dg-head" d="M 702,306 L 702,296 L 710,301 Z"></path>
+  <rect class="dg-box" x="380" y="380" width="290" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="525" y="396.5">outbox → Kafka</text>
+  <text class="dg-s dg-c" x="525" y="412.5">search index · notifications</text>
+  <text class="dg-s dg-c" x="525" y="428.5">push blocked dates to external calendars</text>
+  <path class="dg-line" d="M 525,356 L 525,372"></path>
+  <path class="dg-head" d="M 520,372 L 530,372 L 525,380 Z"></path>
+  <path class="dg-line" d="M 380,408 L 358,408 L 358,140 L 372,140"></path>
+  <path class="dg-head" d="M 372,145 L 372,135 L 380,140 Z"></path>
+  <text class="dg-lbl" x="180" y="200">index updates (~seconds)</text>
+  <path class="dg-div" d="M 20,460 L 980,460"></path>
+  <text class="dg-lane" x="30" y="486">HOST / EXTERNAL — WHERE DOUBLE BOOKINGS ACTUALLY COME FROM</text>
+  <rect class="dg-box" x="30" y="500" width="150" height="52" rx="8"></rect>
+  <text class="dg-t dg-c" x="105" y="522.5">iCal poller</text>
+  <text class="dg-s dg-c" x="105" y="538.5">every few minutes</text>
+  <rect class="dg-box" x="220" y="500" width="170" height="52" rx="8"></rect>
+  <text class="dg-t dg-c" x="305" y="522.5">Calendar Sync</text>
+  <text class="dg-s dg-c" x="305" y="538.5">detect, don't prevent</text>
+  <rect class="dg-box" x="430" y="500" width="180" height="52" rx="8"></rect>
+  <text class="dg-t dg-c" x="520" y="530.5">Block ranges</text>
+  <path class="dg-line" d="M 180,526 L 212,526"></path>
+  <path class="dg-head" d="M 212,531 L 212,521 L 220,526 Z"></path>
+  <path class="dg-line" d="M 390,526 L 422,526"></path>
+  <path class="dg-head" d="M 422,531 L 422,521 L 430,526 Z"></path>
+  <path class="dg-line" d="M 610,526 L 835,526 L 835,372"></path>
+  <path class="dg-head" d="M 840,372 L 830,372 L 835,364 Z"></path>
+  <text class="dg-note" x="660" y="516">conflicts arrive after the fact</text>
+  <text class="dg-note" x="30" y="580">A stale search result is fine. Three layers, each fresher than the last: search bitmap → listing calendar → constraint. Only the last is truth.</text>
+</svg>
+</div>
+
+<p class="diagram-cap">Two paths that touch in exactly one place — an outbox, read seconds later. Draw that gap deliberately: the search lane never reads the reservations database, and saying so is worth more than any box on the board.</p>
 
 **The two properties to point at:**
 
@@ -416,6 +481,97 @@ Three consumers, three representations, and conflating them is a modeling mistak
 ---
 
 ## 14 · The five-minute skeleton (draw this cold)
+
+<div class="diagram">
+<svg viewBox="0 0 1000 470" role="img" aria-label="Airbnb five-minute skeleton. Search lane: client, search service, Elasticsearch, hydrate. Booking lane: client, booking API, Temporal workflow, reservations database with an exclusion constraint. Three notes on durable execution, active expiry and derived availability. An external calendar lane, and the three availability layers ordered by freshness.">
+  <rect class="dg-banner" x="10" y="10" width="980" height="34" rx="9"></rect>
+  <text class="dg-banner-t dg-c" x="500" y="31.5">Minute five: everything below must be on the board. Badge numbers match the list.</text>
+  <circle class="dg-num" cx="22" cy="68" r="9"></circle>
+  <text class="dg-num-t" x="22" y="71.4">1</text>
+  <text class="dg-lane" x="38" y="72">SEARCH — 100k/SEC</text>
+  <rect class="dg-box" x="30" y="86" width="100" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="80" y="118.5">Client</text>
+  <rect class="dg-box" x="168" y="86" width="140" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="238" y="118.5">Search Service</text>
+  <rect class="dg-box" x="346" y="86" width="250" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="471" y="110.5">Elasticsearch</text>
+  <text class="dg-s dg-c" x="471" y="126.5">geo bbox + availability bitmap</text>
+  <circle class="dg-num" cx="346" cy="86" r="9"></circle>
+  <text class="dg-num-t" x="346" y="89.4">5</text>
+  <rect class="dg-box" x="634" y="86" width="200" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="734" y="110.5">Hydrate</text>
+  <text class="dg-s dg-c" x="734" y="126.5">prices computed here</text>
+  <circle class="dg-num" cx="634" cy="86" r="9"></circle>
+  <text class="dg-num-t" x="634" y="89.4">6</text>
+  <path class="dg-line" d="M 130,114 L 160,114"></path>
+  <path class="dg-head" d="M 160,119 L 160,109 L 168,114 Z"></path>
+  <path class="dg-line" d="M 308,114 L 338,114"></path>
+  <path class="dg-head" d="M 338,119 L 338,109 L 346,114 Z"></path>
+  <path class="dg-line" d="M 596,114 L 626,114"></path>
+  <path class="dg-head" d="M 626,119 L 626,109 L 634,114 Z"></path>
+  <circle class="dg-num" cx="22" cy="190" r="9"></circle>
+  <text class="dg-num-t" x="22" y="193.4">2</text>
+  <text class="dg-lane" x="38" y="194">BOOKING — 23/SEC, CONTENTION ≈ 1</text>
+  <rect class="dg-box" x="30" y="208" width="100" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="80" y="244.5">Client</text>
+  <rect class="dg-box" x="168" y="208" width="140" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="238" y="236.5">Booking API</text>
+  <text class="dg-s dg-c" x="238" y="252.5">idempotency key</text>
+  <rect class="dg-box" x="346" y="208" width="250" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="471" y="228.5">Temporal workflow</text>
+  <text class="dg-s dg-c" x="471" y="244.5">constraint → auth → approve</text>
+  <text class="dg-s dg-c" x="471" y="260.5">confirm → timer → capture</text>
+  <circle class="dg-num" cx="346" cy="208" r="9"></circle>
+  <text class="dg-num-t" x="346" y="211.4">7</text>
+  <rect class="dg-good" x="634" y="208" width="200" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="734" y="228.5">Reservations DB</text>
+  <text class="dg-s dg-c" x="734" y="244.5">EXCLUDE USING gist</text>
+  <text class="dg-s dg-c" x="734" y="260.5">half-open '[)'</text>
+  <circle class="dg-num" cx="634" cy="208" r="9"></circle>
+  <text class="dg-num-t" x="634" y="211.4">3</text>
+  <path class="dg-line" d="M 130,240 L 160,240"></path>
+  <path class="dg-head" d="M 160,245 L 160,235 L 168,240 Z"></path>
+  <path class="dg-line" d="M 308,240 L 338,240"></path>
+  <path class="dg-head" d="M 338,245 L 338,235 L 346,240 Z"></path>
+  <path class="dg-line" d="M 596,240 L 626,240"></path>
+  <path class="dg-head" d="M 626,245 L 626,235 L 634,240 Z"></path>
+  <circle class="dg-num" cx="30" cy="298" r="9"></circle>
+  <text class="dg-num-t" x="30" y="301.4">8</text>
+  <text class="dg-s" x="48" y="302">Temporal is durable execution, not mutual exclusion — the constraint does the arbitrating.</text>
+  <circle class="dg-num" cx="30" cy="322" r="9"></circle>
+  <text class="dg-num-t" x="30" y="325.4">9</text>
+  <text class="dg-s" x="48" y="326">Expiry is active here, a workflow timer. A constraint cannot evaluate now().</text>
+  <circle class="dg-num" cx="30" cy="346" r="9"></circle>
+  <text class="dg-num-t" x="30" y="349.4">4</text>
+  <text class="dg-s" x="48" y="350">Availability is derived from reservations + rules, and materialised only into the index.</text>
+  <path class="dg-div" d="M 440,376 L 440,452"></path>
+  <circle class="dg-num" cx="22" cy="384" r="9"></circle>
+  <text class="dg-num-t" x="22" y="387.4">11</text>
+  <text class="dg-lane" x="38" y="388">EXTERNAL</text>
+  <rect class="dg-box" x="30" y="400" width="140" height="44" rx="8"></rect>
+  <text class="dg-t dg-c" x="100" y="426.5">iCal poller</text>
+  <rect class="dg-box" x="210" y="400" width="160" height="44" rx="8"></rect>
+  <text class="dg-t dg-c" x="290" y="418.5">Calendar Sync</text>
+  <text class="dg-s dg-c" x="290" y="434.5">detect, don't prevent</text>
+  <path class="dg-line" d="M 170,422 L 202,422"></path>
+  <path class="dg-head" d="M 202,427 L 202,417 L 210,422 Z"></path>
+  <circle class="dg-num" cx="462" cy="384" r="9"></circle>
+  <text class="dg-num-t" x="462" y="387.4">10</text>
+  <text class="dg-lane" x="478" y="388">AVAILABILITY — LEAST TO MOST FRESH</text>
+  <rect class="dg-box" x="470" y="400" width="150" height="44" rx="8"></rect>
+  <text class="dg-t dg-c" x="545" y="426.5">search bitmap</text>
+  <rect class="dg-box" x="650" y="400" width="150" height="44" rx="8"></rect>
+  <text class="dg-t dg-c" x="725" y="426.5">listing calendar</text>
+  <rect class="dg-good" x="830" y="400" width="140" height="44" rx="8"></rect>
+  <text class="dg-t dg-c" x="900" y="426.5">constraint</text>
+  <path class="dg-line" d="M 620,422 L 642,422"></path>
+  <path class="dg-head" d="M 642,427 L 642,417 L 650,422 Z"></path>
+  <path class="dg-line" d="M 800,422 L 822,422"></path>
+  <path class="dg-head" d="M 822,427 L 822,417 L 830,422 Z"></path>
+</svg>
+</div>
+
+<p class="diagram-cap">Draw it cold, then check the badges. The three text lines are the ones with no box to hang on — they get said, not drawn, and they are where most candidates go quiet.</p>
 
 1. **~1000:1 read:write.** 23 bookings/sec, 100k searches/sec. **Search is the problem**, correctness is cheap.
 2. Inventory is an **interval**, not a point. Conflict is overlap. Contention ≈ 1.

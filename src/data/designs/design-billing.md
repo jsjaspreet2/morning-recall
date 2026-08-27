@@ -161,48 +161,94 @@ POST /webhooks/psp                     signature-verified; 200 means "durably qu
 
 ## 6 · High-level design — flows
 
-```
-                        ┌───────────────────────┐
-     API request ──────▶│   Inference Gateway   │──────▶ model / GPU pool
-                        └──┬─────────────────┬──┘        (the ChatGPT page)
-             ① admit       │                 │  ② usage event → gateway OUTBOX,
-             sync, ≤5ms    │                 │     same txn as run completion
-                           ▼                 ▼
-                 ┌──────────────────┐   ┌──────────────────────────────┐
-                 │  Admission Svc   │   │  Kafka  usage.raw            │
-                 │  in-proc leases  │   │  key=org_id · acks=all       │
-                 └────────┬─────────┘   └───────────────┬──────────────┘
-                    lease │ refill                      │
-                          ▼                             ▼
-                 ┌──────────────────┐   ┌──────────────────────────────┐
-                 │  Redis Cluster   │   │  Rate & Post workers          │
-                 │  budget:{org}    │◀──│  dedupe on run_id             │
-                 │  resv:{run_id}   │   │  price = f(model, occurred_at)│
-                 └──────────────────┘   └───────────────┬──────────────┘
-                          ▲                             │ rated events, deduped
-       materialized       │                             ▼
-       balance ───────────┘            ┌──────────────────────────────────┐
-                                       │  ClickHouse — rated usage        │
-                                       │  ~1B rows/day · dashboards       │
-                                       └───────────────┬──────────────────┘
-                                            hourly     │ aggregate per org
-                                                       ▼
-                                       ┌──────────────────────────────────┐
-                                       │  Ledger — Postgres + Citus       │
-                                       │  ~55 entries/s · append-only     │
-                                       │  UNIQUE(source_type, source_id)  │
-                                       └───┬──────────────────────────┬───┘
-                                           │                          │ period close
-                                           ▼                          ▼
-                             ┌────────────────────┐   ┌─────────────────────┐
-                             │ Reconciliation     │   │ Invoicing Service   │
-                             │ gateway ↔ ledger   │   └──────────┬──────────┘
-                             │        ↔ settlement│              │ charge
-                             └─────────▲──────────┘   ┌──────────▼──────────┐
-                                       │              │  Payment Processor  │
-                                       └──────────────│  (Stripe)           │
-                                          webhooks    └─────────────────────┘
-```
+<div class="diagram">
+<svg viewBox="0 0 1000 712" role="img" aria-label="Billing high-level design, split down the middle. A header band: API request, inference gateway which admits synchronously and writes a usage event to a local outbox in the run's transaction, and the GPU pool. Left column, synchronous and approximate: admission service holding in-process leases, Redis holding budgets and reservations, and a spend-limit rejection whose overshoot is bounded. Right column, asynchronous and exact: Kafka usage.raw, rate-and-post workers that dedupe on run id, and ClickHouse. One arrow crosses the divide, carrying the materialised balance back to Redis. Both halves meet at an append-only ledger in Postgres, below which sit reconciliation, invoicing and the payment processor.">
+  <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
+  <text class="dg-banner-t dg-c" x="500" y="33.5">The vertical split is the consistency split. Left: sync, approximate, fails open. Right: async, exact, loses nothing.</text>
+  <rect class="dg-box" x="30" y="90" width="140" height="60" rx="8"></rect>
+  <text class="dg-t dg-c" x="100" y="124.5">API request</text>
+  <rect class="dg-box" x="200" y="90" width="420" height="60" rx="8"></rect>
+  <text class="dg-t dg-c" x="410" y="116.5">Inference Gateway</text>
+  <text class="dg-s dg-c" x="410" y="132.5">admit sync ≤5 ms · usage → local outbox in the run's txn</text>
+  <rect class="dg-box" x="650" y="90" width="310" height="60" rx="8"></rect>
+  <text class="dg-t dg-c" x="805" y="116.5">model / GPU pool</text>
+  <text class="dg-s dg-c" x="805" y="132.5">the ChatGPT page</text>
+  <path class="dg-line" d="M 170,120 L 192,120"></path>
+  <path class="dg-head" d="M 192,125 L 192,115 L 200,120 Z"></path>
+  <path class="dg-line" d="M 620,120 L 642,120"></path>
+  <path class="dg-head" d="M 642,125 L 642,115 L 650,120 Z"></path>
+  <text class="dg-lane" x="30" y="186">① SYNCHRONOUS — APPROXIMATE, FAILS OPEN</text>
+  <text class="dg-lane" x="640" y="186">② ASYNCHRONOUS — EXACT, LOSES NOTHING</text>
+  <path class="dg-div" d="M 505,196 L 505,275"></path>
+  <path class="dg-div" d="M 505,340 L 505,560"></path>
+  <path class="dg-line" d="M 400,150 L 400,192"></path>
+  <path class="dg-head" d="M 395,192 L 405,192 L 400,200 Z"></path>
+  <rect class="dg-box" x="30" y="200" width="420" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="240" y="224.5">Admission Service</text>
+  <text class="dg-s dg-c" x="240" y="240.5">in-process leases · worst-case reservation</text>
+  <path class="dg-line" d="M 240,256 L 240,282"></path>
+  <path class="dg-head" d="M 235,282 L 245,282 L 240,290 Z"></path>
+  <text class="dg-lbl" x="255" y="278">lease / refill</text>
+  <rect class="dg-box" x="30" y="290" width="420" height="72" rx="8"></rect>
+  <text class="dg-t dg-c" x="240" y="314.5">Redis Cluster</text>
+  <text class="dg-s dg-c" x="240" y="330.5">budget:{org} · resv:{run_id} with TTL</text>
+  <text class="dg-s dg-c" x="240" y="346.5">a cache with a lease protocol, never truth</text>
+  <path class="dg-line" d="M 240,362 L 240,388"></path>
+  <path class="dg-head" d="M 235,388 L 245,388 L 240,396 Z"></path>
+  <rect class="dg-warn" x="30" y="396" width="420" height="56" rx="8"></rect>
+  <text class="dg-warn-t dg-c" x="240" y="420.5">429 spend_limit_exceeded</text>
+  <text class="dg-s dg-c" x="240" y="436.5">overshoot is bounded, not zero — the lease shrinks near the limit</text>
+  <path class="dg-line" d="M 580,150 L 580,192"></path>
+  <path class="dg-head" d="M 575,192 L 585,192 L 580,200 Z"></path>
+  <rect class="dg-box" x="540" y="200" width="420" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="750" y="224.5">Kafka usage.raw</text>
+  <text class="dg-s dg-c" x="750" y="240.5">key = org_id · acks=all · 7-day retention</text>
+  <path class="dg-line" d="M 750,256 L 750,282"></path>
+  <path class="dg-head" d="M 745,282 L 755,282 L 750,290 Z"></path>
+  <rect class="dg-box" x="540" y="290" width="420" height="72" rx="8"></rect>
+  <text class="dg-t dg-c" x="750" y="314.5">Rate &amp; post workers</text>
+  <text class="dg-s dg-c" x="750" y="330.5">dedupe on run_id · price pinned by occurred_at</text>
+  <text class="dg-s dg-c" x="750" y="346.5">release the leftover reservation</text>
+  <path class="dg-line" d="M 750,362 L 750,388"></path>
+  <path class="dg-head" d="M 745,388 L 755,388 L 750,396 Z"></path>
+  <rect class="dg-box" x="540" y="396" width="420" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="750" y="420.5">ClickHouse — rated usage</text>
+  <text class="dg-s dg-c" x="750" y="436.5">~1 B rows/day · dashboards ≤60 s behind</text>
+  <path class="dg-line" d="M 540,326 L 458,326"></path>
+  <path class="dg-head" d="M 458,321 L 458,331 L 450,326 Z"></path>
+  <text class="dg-lbl dg-c" x="495" y="282">materialised balance</text>
+  <path class="dg-line" d="M 750,452 L 750,478"></path>
+  <path class="dg-head" d="M 745,478 L 755,478 L 750,486 Z"></path>
+  <text class="dg-lbl" x="765" y="474">hourly aggregate per org</text>
+  <rect class="dg-good" x="280" y="486" width="440" height="76" rx="8"></rect>
+  <text class="dg-t dg-c" x="500" y="504.5">Ledger — Postgres + Citus</text>
+  <text class="dg-s dg-c" x="500" y="520.5">~55 entries/s · append-only · hash-chained</text>
+  <text class="dg-s dg-c" x="500" y="536.5">UNIQUE (source_type, source_id)</text>
+  <text class="dg-s dg-c" x="500" y="552.5">the only component both halves touch</text>
+  <path class="dg-line" d="M 500,562 L 500,580"></path>
+  <path class="dg-line" d="M 175,580 L 500,580"></path>
+  <path class="dg-line" d="M 175,580 L 175,590"></path>
+  <path class="dg-head" d="M 170,590 L 180,590 L 175,598 Z"></path>
+  <path class="dg-line" d="M 500,580 L 500,590"></path>
+  <path class="dg-head" d="M 495,590 L 505,590 L 500,598 Z"></path>
+  <rect class="dg-box" x="30" y="598" width="290" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="175" y="618.5">Reconciliation</text>
+  <text class="dg-s dg-c" x="175" y="634.5">gateway log ↔ ledger ↔ settlement</text>
+  <text class="dg-s dg-c" x="175" y="650.5">an exception queue with an owner</text>
+  <rect class="dg-box" x="360" y="598" width="280" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="500" y="626.5">Invoicing</text>
+  <text class="dg-s dg-c" x="500" y="642.5">period close, staggered by hash(org) % 28</text>
+  <rect class="dg-box" x="680" y="598" width="280" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="820" y="626.5">Payment processor</text>
+  <text class="dg-s dg-c" x="820" y="642.5">explicit state machine · derived key</text>
+  <path class="dg-line" d="M 640,630 L 672,630"></path>
+  <path class="dg-head" d="M 672,635 L 672,625 L 680,630 Z"></path>
+  <text class="dg-lbl dg-c" x="660" y="622">charge</text>
+  <text class="dg-note" x="30" y="692">No transition fires on a bare 200 OK. An invoice moves to PAID on a webhook or a reconciliation query, never on the HTTP response to the charge call.</text>
+</svg>
+</div>
+
+<p class="diagram-cap">Draw the vertical line before you draw a box. Left of it nothing may block a request and everything is allowed to be approximate; right of it nothing may lose a write. The ledger is the only component that belongs to both halves, and that is the whole argument.</p>
 
 **The two properties to point at before walking a request through it:**
 
@@ -509,6 +555,68 @@ The volume is unremarkable — **~55 entries/s, ~1.7B rows/year** — which mean
 ---
 
 ## 14 · The five-minute skeleton (draw this cold)
+
+<div class="diagram">
+<svg viewBox="0 0 1000 470" role="img" aria-label="Billing five-minute skeleton. Paired rows across the sync/async split: gateway and admission service, Redis and the outbox pump to Kafka, rate-and-post workers and ClickHouse, then the hourly ledger aggregation spanning both, and finally invoicing, the payment processor and daily reconciliation.">
+  <rect class="dg-banner" x="10" y="10" width="980" height="34" rx="9"></rect>
+  <text class="dg-banner-t dg-c" x="500" y="31.5">Minute five: everything below must be on the board. Badge numbers match the list.</text>
+  <rect class="dg-box" x="30" y="68" width="460" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="260" y="88.5">Inference gateway</text>
+  <text class="dg-s dg-c" x="260" y="104.5">POST /admit — sync, ≤5 ms, fails open</text>
+  <text class="dg-s dg-c" x="260" y="120.5">usage event → local outbox, same txn</text>
+  <circle class="dg-num" cx="30" cy="68" r="9"></circle>
+  <text class="dg-num-t" x="30" y="71.4">1</text>
+  <rect class="dg-box" x="510" y="68" width="450" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="735" y="88.5">Admission service</text>
+  <text class="dg-s dg-c" x="735" y="104.5">in-memory lease per org, refilled from Redis</text>
+  <text class="dg-s dg-c" x="735" y="120.5">reserve worst case, settle the actual later</text>
+  <circle class="dg-num" cx="510" cy="68" r="9"></circle>
+  <text class="dg-num-t" x="510" y="71.4">2</text>
+  <rect class="dg-box" x="30" y="152" width="460" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="260" y="176.5">Redis Cluster</text>
+  <text class="dg-s dg-c" x="260" y="192.5">budget:{org} · resv:{run_id} TTL — never a source of truth</text>
+  <circle class="dg-num" cx="30" cy="152" r="9"></circle>
+  <text class="dg-num-t" x="30" y="155.4">3</text>
+  <rect class="dg-box" x="510" y="152" width="450" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="735" y="176.5">Outbox pump → Kafka usage.raw</text>
+  <text class="dg-s dg-c" x="735" y="192.5">key org_id · acks=all · 7-day retention</text>
+  <circle class="dg-num" cx="510" cy="152" r="9"></circle>
+  <text class="dg-num-t" x="510" y="155.4">4</text>
+  <rect class="dg-box" x="30" y="228" width="460" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="260" y="252.5">Rate &amp; post workers</text>
+  <text class="dg-s dg-c" x="260" y="268.5">dedupe on run_id · price pinned by occurred_at</text>
+  <circle class="dg-num" cx="30" cy="228" r="9"></circle>
+  <text class="dg-num-t" x="30" y="231.4">5</text>
+  <rect class="dg-box" x="510" y="228" width="450" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="735" y="252.5">ClickHouse — rated usage</text>
+  <text class="dg-s dg-c" x="735" y="268.5">ORDER BY (org_id, occurred_at) · ≤60 s behind</text>
+  <circle class="dg-num" cx="510" cy="228" r="9"></circle>
+  <text class="dg-num-t" x="510" y="231.4">6</text>
+  <rect class="dg-good" x="30" y="304" width="930" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="495" y="324.5">Hourly aggregation → the ledger</text>
+  <text class="dg-s dg-c" x="495" y="340.5">Postgres + Citus sharded by org_id · append-only · hash-chained</text>
+  <text class="dg-s dg-c" x="495" y="356.5">UNIQUE (source_type, source_id) — re-running the window is a no-op</text>
+  <circle class="dg-num" cx="30" cy="304" r="9"></circle>
+  <text class="dg-num-t" x="30" y="307.4">7</text>
+  <rect class="dg-box" x="30" y="388" width="290" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="175" y="412.5">Invoicing at period close</text>
+  <text class="dg-s dg-c" x="175" y="428.5">staggered by hash(org_id) % 28</text>
+  <circle class="dg-num" cx="30" cy="388" r="9"></circle>
+  <text class="dg-num-t" x="30" y="391.4">8</text>
+  <rect class="dg-box" x="350" y="388" width="290" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="495" y="412.5">Payment processor</text>
+  <text class="dg-s dg-c" x="495" y="428.5">no transition fires on a 200</text>
+  <circle class="dg-num" cx="350" cy="388" r="9"></circle>
+  <text class="dg-num-t" x="350" y="391.4">9</text>
+  <rect class="dg-box" x="670" y="388" width="290" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="815" y="412.5">Daily 3-way reconciliation</text>
+  <text class="dg-s dg-c" x="815" y="428.5">an exception queue with an owner</text>
+  <circle class="dg-num" cx="670" cy="388" r="9"></circle>
+  <text class="dg-num-t" x="670" y="391.4">10</text>
+</svg>
+</div>
+
+<p class="diagram-cap">The left column never blocks and the right column never loses. Badge 7 is where they join — say “money moves once an hour, the meter moves twelve thousand times a second” as you draw it.</p>
 
 1. **Inference gateway** → `POST /admit` (sync, ≤5ms, fails open) and a **usage event into a local outbox, in the same transaction as run completion.**
 2. **Admission service** holds an **in-memory budget lease** per org; decrements locally; refills from Redis. Reserves the **worst case** at admission, settles the actual later.
