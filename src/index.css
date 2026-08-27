@@ -308,6 +308,159 @@ button {
   margin-bottom: 0.9rem;
 }
 
+/* --------------------------------------------------------------------------
+   Whiteboard diagrams.
+
+   Hand-drawn SVG written straight into the markdown (rehype-raw turns it into
+   real elements). Every colour, weight and anchor comes from the classes below
+   rather than from presentation attributes, so one copy of the markup reads in
+   both themes — and so a diagram can be edited by moving a coordinate without
+   also hunting for its colours.
+
+   Arrowheads are explicit triangles rather than <marker> defs: markers survive
+   the parse5 → hast → React round-trip only if every camelCased attribute maps
+   cleanly, and a silently headless arrow is exactly the failure this diagram
+   exists to avoid.
+   -------------------------------------------------------------------------- */
+.prose .diagram {
+  --dg-fill: #ffffff;
+  --dg-stroke: #c4c4cc;
+  --dg-text: #27272a;
+  --dg-muted: #71717a;
+  --dg-line: #9a9aa4;
+  --dg-banner-fill: #eef2ff;
+  --dg-banner-stroke: #c7d2fe;
+  --dg-banner-text: #3730a3;
+  --dg-good-fill: #ecfdf5;
+  --dg-good-stroke: #6ee7b7;
+  --dg-good-text: #065f46;
+  --dg-warn-fill: #fff7ed;
+  --dg-warn-stroke: #fdba74;
+  --dg-warn-text: #9a3412;
+
+  overflow-x: auto;
+  margin: 1.5rem 0;
+  padding: 0.25rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  background: var(--panel-bg);
+}
+:root.dark .prose .diagram {
+  --dg-fill: #17171c;
+  --dg-stroke: #3c3c45;
+  --dg-text: #e4e4e7;
+  --dg-muted: #a1a1aa;
+  --dg-line: #6f6f7a;
+  --dg-banner-fill: #1c1b33;
+  --dg-banner-stroke: #4338ca;
+  --dg-banner-text: #c7d2fe;
+  --dg-good-fill: #0c2a20;
+  --dg-good-stroke: #047857;
+  --dg-good-text: #6ee7b7;
+  --dg-warn-fill: #2b1a0d;
+  --dg-warn-stroke: #b45309;
+  --dg-warn-text: #fdba74;
+}
+/* Scales to the column, but stops at --dg-min: below that the wrapper scrolls
+   instead, because a board shrunk to phone width is a picture of a board. */
+.prose .diagram svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-width: 680px;
+  font-family: inherit;
+}
+.prose .diagram .dg-box {
+  fill: var(--dg-fill);
+  stroke: var(--dg-stroke);
+  stroke-width: 1.25;
+}
+.prose .diagram .dg-banner {
+  fill: var(--dg-banner-fill);
+  stroke: var(--dg-banner-stroke);
+  stroke-width: 1.25;
+}
+.prose .diagram .dg-good {
+  fill: var(--dg-good-fill);
+  stroke: var(--dg-good-stroke);
+  stroke-width: 1.25;
+}
+.prose .diagram .dg-warn {
+  fill: var(--dg-warn-fill);
+  stroke: var(--dg-warn-stroke);
+  stroke-width: 1.25;
+}
+.prose .diagram .dg-line {
+  fill: none;
+  stroke: var(--dg-line);
+  stroke-width: 1.5;
+}
+.prose .diagram .dg-head {
+  fill: var(--dg-line);
+  stroke: none;
+}
+.prose .diagram .dg-ghost {
+  fill: none;
+  stroke: var(--dg-stroke);
+  stroke-width: 1.25;
+  stroke-dasharray: 5 5;
+}
+.prose .diagram .dg-div {
+  fill: none;
+  stroke: var(--dg-stroke);
+  stroke-width: 1;
+  stroke-dasharray: 4 5;
+}
+/* type scale: title → sub → label, and the three semantic colours */
+.prose .diagram .dg-t {
+  fill: var(--dg-text);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.prose .diagram .dg-s {
+  fill: var(--dg-muted);
+  font-size: 10.5px;
+}
+.prose .diagram .dg-lbl {
+  fill: var(--dg-muted);
+  font-size: 10.5px;
+  font-style: italic;
+}
+.prose .diagram .dg-lane {
+  fill: var(--dg-muted);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+}
+.prose .diagram .dg-banner-t {
+  fill: var(--dg-banner-text);
+  font-size: 13px;
+  font-weight: 650;
+}
+.prose .diagram .dg-good-t {
+  fill: var(--dg-good-text);
+  font-size: 11px;
+  font-weight: 600;
+}
+.prose .diagram .dg-warn-t {
+  fill: var(--dg-warn-text);
+  font-size: 11px;
+  font-weight: 600;
+}
+.prose .diagram .dg-note {
+  fill: var(--dg-warn-text);
+  font-size: 11px;
+}
+.prose .diagram .dg-c {
+  text-anchor: middle;
+}
+/* The caption under a board: what to say out loud when you draw it. */
+.prose .diagram-cap {
+  margin: -0.9rem 0 1.5rem;
+  font-size: 0.85rem;
+  color: var(--quote-fg);
+}
+
 /* The header's title swap, when a guide scrolls under the chrome. */
 @keyframes doc-title-in {
   from {
