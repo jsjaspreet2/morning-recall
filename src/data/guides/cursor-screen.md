@@ -190,7 +190,123 @@ If you read nothing else on the morning of the 28th:
   the last twelve minutes for tests, non-negotiably. Name what you skipped.
 - **Both:** decisions, not menus. Every choice gets a reason and a switching condition.
 
-## 02 — The twelve-day schedule
+## 02 — The plan
+
+### A. AMENDED 8/26 — THE LAST THIRTY-SIX HOURS
+
+The twelve-day schedule in §02 D assumed reps starting 8/16. Those days went to the Discord and
+Figma screens instead, and eleven of the twelve drills are still untouched stubs. This replaces it.
+
+It is weighted toward design, because design runs first at 10:00 and it is the half you have read
+rather than rehearsed. Nothing here is new material. Every block is a rep.
+
+**Tonight — Wed 8/26, 22:00–23:30. No drills.** It is 10pm; a cold fifty-minute build now buys a
+worse Thursday.
+
+| Time | Do |
+|---|---|
+| 22:00–22:35 | **§03 of this guide**, then **§04 B** and **§04 J**. This is the spine you're missing: *Requirements → Contract → Client → Server → Deep dive → Failure → Close.* Core entities live inside Contract; the API is written before any boxes get drawn. |
+| 22:35–23:05 | The **Cursor Tab** design page — **§0, §13, §14 only.** The frame, the ranked traps, the five-minute skeleton. Skip the deep dives; they land tomorrow, after you've attempted the problem. |
+| 23:05–23:25 | Say the §0 sixty-second frame **out loud, three times**, until it runs without the page. |
+| 23:25 | Stop. Sleep. |
+
+**Thursday 8/27 — the work day.** Timed, out loud, AI off, and **graded before you look at
+anything** (§09 A). The taper this guide prescribes for D-1 assumed eleven days of banked reps.
+There aren't any, so Thursday is a work day and the taper shrinks to Thursday evening.
+
+| Time | Block | What |
+|---|---|---|
+| 09:00–10:30 | **Design 1 — Tab** | Draw the Tab page's §14 skeleton from blank, 5 min, diff it. Then the full 45-minute design out loud into Excalidraw, cold, **two columns from minute zero**. Grade with §03 F, then read §05 A and diff. |
+| 10:45–12:00 | **Code 1 — `cursor-02-typeahead`** | 50 min. The single most likely component prompt shape, and debounce + abort + generation guard is the race-condition rep. Prop signature typed and spoken before the body. Tests at 38 min regardless. |
+| 12:45–14:15 | **Design 2 — Agent chat** | §05 B, 45 min cold. Grade, read the model answer, diff. Then 15 min on the Tab page's client-side dives only. |
+| 14:30–15:45 | **Code 2 — `cursor-01-streaming-message`** | 45 min. Chunked arrival, coalesced paint, stop/cancel, abort on unmount, generation guard. Doubles as §04 D in code. |
+| 16:00–17:00 | **Code 3 — tests** | `cursor-05-write-the-tests`, 30 min. Then §08 A, §08 C, §08 D. Type the four-line race helper from blank until it's automatic. **Do not skip this for another component.** |
+| 17:15–18:15 | **Design 3 — unseen** | A prompt not in this guide: *"an in-editor debugger UI"* or *"a dashboard for agent runs across an org."* 45 min using §05 F's six moves. This rep measures the method, which is the thing actually graded. |
+| 19:30–20:30 | **Recall** | The `cursor` track. Weight cursor-05–12 and cursor-30–42. Say the two spoken cards out loud. |
+| 20:30 | **Hard stop** | §10 A setup: Excalidraw open on a blank two-column board, clean browser profile, scratch pad, notes closed. |
+
+**Friday 8/28 — the morning.** Nothing new. This window makes retrieval fast; it does not add
+material.
+
+| Time | Do |
+|---|---|
+| 07:30–08:00 | Re-read **only** §03 B, §06 B, §07 A. |
+| 08:00–08:20 | Retype the §06 B prop signature **from blank, twice, on a stopwatch.** Target ≤5 min each. |
+| 08:20–08:40 | Say the Tab §0 frame once and the §05 F six moves once. Out loud. |
+| 08:40–09:15 | One 25-minute mini-build cold, AI off — star rating or progress bar. Fingers warm without autocomplete. |
+| 09:15–09:45 | Stop. Water. Skim §03 C's six questions and §10 E's five things. |
+| 09:50 | In the room. |
+
+**What got cut, and why.** `cursor-11-streaming-markdown` and `cursor-12-merkle-hash` are reported
+prompts, which argues for them — but they are 85 minutes for two problems that may not appear, in a
+round the recruiter described as *a React component*. The encoding insight is already in recall
+cards cursor-44–53: read those in ten minutes instead. **Swap rule:** if Thursday's 17:15 block
+feels wrong on the day, replace it with a 20-minute `cursor-11` pass that stops the moment the
+contract is stated and one case is green — that is §06 G's build order, and it is the part that
+transfers. Nothing new gets *built*; authoring is what consumed the twelve days.
+
+### B. SCOPE — THIS IS A PRODUCT ENGINEERING ROLE
+
+Full-stack product engineering, not AI engineering. The distinction matters most in the design
+hour, because four of the five worked designs in §05 have an inference tier in them and it is easy
+to spend the deep dive in the wrong place.
+
+**The line.** You own the product surface end to end: the client, the API between them, the data
+model, the storage, the failure behaviour. You do **not** own the model. Treating the inference
+tier as a dependency with a latency and a price — rather than a system you are designing — is the
+correct answer for this role and it reads as scoping judgment, not as a gap.
+
+**Where the depth goes.** In §05 A, the client section is seven items long and every one of them is
+product engineering: trigger policy, context assembly in a worker, the prefix cache, speculative
+execution on a pause, cancellation with a generation counter, ghost text as a decoration that never
+enters undo history, multi-window. **That is your deep dive.** The server section's four
+model-serving lines are four sentences, said in passing, then you move on.
+
+**Name it and move on.** Have one sentence for each of these so a follow-up doesn't strand you, and
+resist the invitation to go deeper:
+
+| Topic | The one sentence |
+|---|---|
+| Continuous batching | *"Requests join an in-flight batch rather than waiting for a window — it's what makes p50 and throughput compatible. I'd take that as a given from the inference team."* |
+| KV-cache reuse / prefix caching | *"Keyed by prefix with session affinity, so a returning request lands where the prefix is warm. The failure mode is hot nodes; fall back to any node on a miss."* |
+| Model cascade | *"Small distilled model for the common case, escalate only on low confidence and only when the user has paused. Cost is why it's a cascade and not one model."* |
+| Speculative decoding, quantization, distillation | *"Levers I'd expect the model team to own. What I need from them is a latency number and a cost per token, and I'd design around whatever those are."* |
+| Embeddings, ANN index choice (HNSW vs IVF-PQ) | *"Hybrid retrieval — dense plus lexical — because exact symbol names are the failure case of pure embeddings. Index choice I'd defer; the product decision is the freshness guarantee."* |
+| Offline eval, RL reward shaping | *"Acceptance rate is gameable by suggesting short and safe, so I'd measure retained characters. The eval harness itself isn't mine."* |
+
+**Why design 2 is Agent chat and not the codebase index.** Both are commonly reported. The index
+question pulls straight into chunking strategy, embedding models and ANN structures — real work,
+someone else's. Agent chat is the same interview graded on your half: where run state lives so it
+survives a reload, the event vocabulary streaming over SSE, staged edits the user accepts or
+rejects while still typing, optimistic apply and rollback, and an append-only log as the source of
+truth. This guide says it itself — *"the client half here is genuinely harder than the server
+half."* If they hand you the index question anyway, §05 C is written and the Merkle-sync half of it
+is squarely yours; it just isn't the one to *rehearse*.
+
+**The coding hour needs no adjustment.** Typeahead, streaming message, and test quality are product
+engineering with no AI content beyond the shape of the data. That part of the plan was already
+right.
+
+### C. WHAT TO KEEP IN MIND
+
+1. **Don't draw, and don't type, for the first several minutes.** Both rounds are won in the
+   requirements phase and lost by starting early. Eight minutes of questions in the design hour;
+   the prop signature before the body in the coding hour.
+2. **Say a number, unprompted.** A latency budget, a request rate, a payload size. §03 F gives ten
+   points for it and most candidates never say one.
+3. **Fill both columns.** The invitation said the client has real complexity. The most common
+   failure is a server diagram with one box labelled "React app."
+4. **A POV is a decision plus a reason plus what would change your mind.** *"We could use SSE or
+   WebSockets, both have tradeoffs"* is the anti-signal and the most common way this round is lost.
+5. **Be deep in something specific by minute 36**, to the level of a data structure or a protocol
+   detail. Narrating breadth for forty minutes is the other common way to lose it.
+6. **Stop at 38 minutes and write tests**, whatever state the component is in. Test quality is one
+   of three named criteria and four sharp tests beat a finished component with none.
+7. **Type your code.** The pad records paste events with playback, and it's a no-AI round.
+
+### D. THE ORIGINAL TWELVE-DAY SCHEDULE
+
+Kept for reference. Superseded by §02 A from 8/26 onward.
 
 Twelve days, ~2.5–3.5 h each. Every day is one design rep, one coding rep, and the recall deck.
 The reps are what move the number; reading this guide is not a rep.

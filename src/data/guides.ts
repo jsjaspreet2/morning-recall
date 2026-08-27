@@ -30,7 +30,17 @@ export interface Guide {
 }
 
 export const guides: Guide[] = [
-  // Pinned to the top through 8/26 — the nearest date. Drop it back down afterwards.
+  // Pinned to the top through 8/28 — the nearest date. Drop it back down afterwards.
+  {
+    id: 'cursor-screen',
+    screen: true,
+    title: 'Cursor Screen — 8/28',
+    subtitle:
+      'The last thirty-six hours, hour by hour: what each round grades, where a product engineer’s depth belongs, client-side system design, five worked designs, and the coding-hour script.',
+    accent: 'rose',
+    md: cursorScreenMd,
+  },
+  // Screen was 8/26. Drop it down the list once the Cursor and Figma screens have passed.
   {
     id: 'discord-screen',
     screen: true,
@@ -49,16 +59,6 @@ export const guides: Guide[] = [
       'One hour, one multi-part problem in CoderPad: the round script, the document model that every Figma question is made of, five worked problems, and undo/redo done properly.',
     accent: 'violet',
     md: figmaScreenMd,
-  },
-  // Pinned second through 8/28, then drop it back down the list.
-  {
-    id: 'cursor-screen',
-    screen: true,
-    title: 'Cursor Screen — 8/28',
-    subtitle:
-      'Twelve-day plan for the two-hour screen: what each round grades, client-side system design, five worked designs, and the coding-hour script.',
-    accent: 'rose',
-    md: cursorScreenMd,
   },
   // Pinned through 9/17 — the last of the four screens. Drop it down afterwards.
   {
