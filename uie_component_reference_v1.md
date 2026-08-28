@@ -1,3 +1,30 @@
+**The trap that makes this worth building once — the read and the write are different problems.**
+
+**The write** derives new state from previous state, so it takes the functional form. Always,
+including where a direct set would happen to work today:
+
+```tsx
+setMessages((prev) => [...prev, userMsg, placeholder])
+```
+
+**The read** is the request body, which needs the history as a *value* — and a functional updater
+cannot hand one back to you. So it comes from the closure, which holds this render's `messages`.
+
+What breaks is trying to do the read inside the write:
+
+```tsx
+setMessages((m) => { history = [...m, userMsg]; return [...history, placeholder] })
+const res = await fetchStream(history, signal)     // history is STILL []
+```
+
+React defers the updater, so `history` is empty at the call. The transcript renders perfectly and
+the model answers a question it was never sent. **Saying why the two halves differ is the point** —
+it shows you know what the functional form is *for*, rather than that it exists.
+
+**Three more things to narrate.** The `replyId` is why the stream can append without re-finding the
+last message by index. `fetchStream` takes the history so the hook never has to know about system
+prompts or headers. And the abort lives in the hook, so a consumer cannot forget it.
+
 # UIE Component Reference
 
 > Companion to `react_css_frontend_interview_field_guide_v3`. That guide is for *recall* —
@@ -10048,9 +10075,12 @@ once, and two of the eight combinations are legal. This is §18 C applied to a h
 status: 'idle' | 'streaming' | 'done' | 'error'
 ```
 
-**3. Actions are stable; values are not.** Wrap every returned function in `useCallback` so a
-consumer can put `send` in a dependency array without an infinite loop. A hook that returns a fresh
-`send` every render pushes the memoisation problem onto every caller.
+**3. Stabilise the actions that can be stable — and do not contort the ones that cannot.**
+`useCallback` an action whose body reads only refs and setters; `stop` qualifies. An action that
+reads state, like `send` reading `messages`, cannot be stable without mirroring that state into a
+ref, and **that mirror is a real cost paid for a property most callers never use.** Leave it a plain
+function unless a consumer actually needs it in a dependency array. Reaching for `useCallback`
+reflexively here is what produces the bug in §D.
 
 **4. Derive, never store.** `canRetry`, `isEmpty`, `lastMessage` are functions of `messages` and
 `status`. Storing them is storing something that can disagree with its own inputs (§02 B, question
@@ -10086,7 +10116,7 @@ Everything below is the streaming effect you already know, moved behind an inter
 
 ```tsx
 type Message = { id: string; role: 'user' | 'assistant'; content: string }
-type Status = 'idle' | 'streaming' | 'done' | 'error'
+type Status = 'idle' | 'streaming' | 'error'
 
 export function useChat({
   fetchStream,                                   // injected — §18 D
@@ -10098,62 +10128,55 @@ export function useChat({
   const [error, setError] = useState<Error | null>(null)
   const controllerRef = useRef<AbortController | null>(null)
 
-  // A mirror of `messages` that is correct synchronously. One write path, so the
-  // two can never disagree.
-  const messagesRef = useRef<Message[]>([])
-  const commit = useCallback((next: Message[]) => {
-    messagesRef.current = next
-    setMessages(next)
-  }, [])
-
-  const stop = useCallback(() => {
+  function stop() {
     controllerRef.current?.abort()
-    setStatus('idle')
-  }, [])
+    setStatus('idle')      // a stop is a normal outcome, not an error
+  }
 
-  const send = useCallback(
-    async (text: string) => {
-      const controller = new AbortController()
-      controllerRef.current = controller
+  // A plain function, not a useCallback — see §B.3. It reads `messages`, so
+  // making it stable would mean mirroring state into a ref, for a property
+  // nothing here uses.
+  async function send(text: string) {
+    const controller = new AbortController()
+    controllerRef.current = controller
+    const replyId = crypto.randomUUID()
 
-      // Optimistic: the user's turn and an empty assistant turn land together,
-      // so the stream has somewhere to write and the UI never shows a gap.
-      // `history` comes from the ref, not from state — see the warning below.
-      const replyId = crypto.randomUUID()
-      const history: Message[] = [
-        ...messagesRef.current,
-        { id: crypto.randomUUID(), role: 'user', content: text },
-      ]
-      commit([...history, { id: replyId, role: 'assistant', content: '' }])
-      setStatus('streaming')
-      setError(null)
+    const userMsg: Message = { id: crypto.randomUUID(), role: 'user', content: text }
 
-      try {
-        const res = await fetchStream(history, controller.signal)
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const reader = res.body!.getReader()
-        const decoder = new TextDecoder()
+    // The READ — the request needs history as a value, and a functional updater
+    // cannot hand one back. The closure holds this render's messages.
+    const history: Message[] = [...messages, userMsg]
 
-        while (true) {
-          const { done, value } = await reader.read()
-          if (controller.signal.aborted) return
-          if (done) break
-          const chunk = decoder.decode(value, { stream: true })
-          commit(
-            messagesRef.current.map((msg) =>
-              msg.id === replyId ? { ...msg, content: msg.content + chunk } : msg,
-            ),
-          )
-        }
-        setStatus('done')
-      } catch (err) {
+    // The WRITE — derived from previous state, so it takes the functional form.
+    // Both turns land together, so the stream has somewhere to write.
+    setMessages((prev) => [...prev, userMsg, { id: replyId, role: 'assistant', content: '' }])
+    setStatus('streaming')
+    setError(null)
+
+    try {
+      const res = await fetchStream(history, controller.signal)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const reader = res.body!.getReader()
+      const decoder = new TextDecoder()
+
+      while (true) {
+        const { done, value } = await reader.read()
         if (controller.signal.aborted) return
-        setStatus('error')
-        setError(err instanceof Error ? err : new Error(String(err)))
+        if (done) break
+        const chunk = decoder.decode(value, { stream: true })
+        // Functional update HERE, because each chunk builds on the last and
+        // nothing reads the result synchronously. By id, never by position.
+        setMessages((m) =>
+          m.map((msg) => (msg.id === replyId ? { ...msg, content: msg.content + chunk } : msg)),
+        )
       }
-    },
-    [fetchStream, commit],
-  )
+      setStatus('idle')
+    } catch (err) {
+      if (controller.signal.aborted) return
+      setStatus('error')
+      setError(err instanceof Error ? err : new Error(String(err)))
+    }
+  }
 
   useEffect(() => () => controllerRef.current?.abort(), [])   // abort on unmount
 
