@@ -7,6 +7,7 @@ import codingPatternsMd from './guides/coding-patterns.md?raw'
 import systemDesignMd from './guides/system-design.md?raw'
 import animationMd from './guides/animation.md?raw'
 import technologyMd from './guides/technology.md?raw'
+import componentRoundMd from './guides/component-round.md?raw'
 import uieComponentsMd from './guides/uie-components.md?raw'
 import cursorScreenMd from './guides/cursor-screen.md?raw'
 import figmaScreenMd from './guides/figma-screen.md?raw'
@@ -119,6 +120,16 @@ export const guides: Guide[] = [
     accent: 'violet',
     md: animationMd,
     pdf: 'Animation-Motion-Cheatsheet-v1.pdf',
+  },
+  // Pinned first: the read-it-at-T-30 sheet. Everything on it exists in longer
+  // form elsewhere; this is the operational version.
+  {
+    id: 'component-round',
+    title: 'The Component Round — one page',
+    subtitle:
+      'The clock, the first ninety seconds, the prop signature, the async block, and the traps ranked. Read this last.',
+    accent: 'indigo',
+    md: componentRoundMd,
   },
   {
     id: 'uie-components',
