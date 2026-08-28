@@ -165,10 +165,12 @@ GET  /v1/runs/{runId}                            → Run          (status, for a
   <rect class="dg-group" x="190" y="86" width="360" height="130" rx="12"></rect>
   <text class="dg-group-t" x="206" y="108">API — STATELESS CRUD</text>
   <rect class="dg-box" x="206" y="118" width="150" height="64" rx="8"></rect>
-  <text class="dg-t dg-c" x="281" y="154.5">API Gateway</text>
+  <text class="dg-t dg-c" x="281" y="146.5">API Gateway</text>
+  <text class="dg-s dg-c" x="281" y="162.5">HTTPS · auth · routing</text>
   <rect class="dg-box" x="376" y="118" width="158" height="64" rx="8"></rect>
-  <text class="dg-t dg-c" x="455" y="146.5">Chat Service</text>
-  <text class="dg-s dg-c" x="455" y="162.5">CRUD + enqueue</text>
+  <text class="dg-t dg-c" x="455" y="138.5">Chat Service</text>
+  <text class="dg-s dg-c" x="455" y="154.5">POST /chats/{id}/messages</text>
+  <text class="dg-s dg-c" x="455" y="170.5">quota check, then enqueue</text>
   <path class="dg-line" d="M 356,150 L 368,150"></path>
   <path class="dg-head" d="M 368,155 L 368,145 L 376,150 Z"></path>
   <rect class="dg-group" x="580" y="86" width="180" height="130" rx="12"></rect>
@@ -179,10 +181,12 @@ GET  /v1/runs/{runId}                            → Run          (status, for a
   <rect class="dg-group" x="790" y="86" width="190" height="130" rx="12"></rect>
   <text class="dg-group-t" x="806" y="108">INFERENCE</text>
   <rect class="dg-box" x="806" y="118" width="158" height="64" rx="8"></rect>
-  <text class="dg-t dg-c" x="885" y="146.5">GPU workers</text>
-  <text class="dg-s dg-c" x="885" y="162.5">continuous batching</text>
-  <path class="dg-line" d="M 160,150 L 198,150"></path>
-  <path class="dg-head" d="M 198,155 L 198,145 L 206,150 Z"></path>
+  <text class="dg-t dg-c" x="885" y="138.5">GPU workers</text>
+  <text class="dg-s dg-c" x="885" y="154.5">continuous batching</text>
+  <text class="dg-s dg-c" x="885" y="170.5">XADD tokens, then produce</text>
+  <path class="dg-line" d="M 160,136 L 198,136"></path>
+  <path class="dg-head" d="M 198,141 L 198,131 L 206,136 Z"></path>
+  <text class="dg-lbl dg-c" x="183" y="128">POST</text>
   <path class="dg-line" d="M 550,150 L 588,150"></path>
   <path class="dg-head" d="M 588,155 L 588,145 L 596,150 Z"></path>
   <path class="dg-line" d="M 760,150 L 798,150"></path>
@@ -194,10 +198,14 @@ GET  /v1/runs/{runId}                            → Run          (status, for a
   <path class="dg-line" d="M 855,244 L 855,282"></path>
   <path class="dg-head" d="M 850,282 L 860,282 L 855,290 Z"></path>
   <text class="dg-lbl dg-c" x="700" y="282">two independent writes</text>
+  <text class="dg-lbl" x="340" y="272">XADD per token</text>
+  <text class="dg-lbl" x="866" y="272">one message</text>
+  <text class="dg-lbl" x="340" y="384">XREAD from last id</text>
+  <text class="dg-lbl" x="866" y="384">consume</text>
   <path class="dg-box" d="M 190,297 L 190,347 A 140,7 0 0 0 470,347 L 470,297 A 140,7 0 0 0 190,297 Z"></path>
   <path class="dg-box" d="M 190,297 A 140,7 0 0 0 470,297" style="fill:none"></path>
-  <text class="dg-t dg-c" x="330" y="314">Redis Streams</text>
-  <text class="dg-s dg-c" x="330" y="330">run:{runId}, XADD per token</text>
+  <text class="dg-t dg-c" x="330" y="314">Redis Streams — token log</text>
+  <text class="dg-s dg-c" x="330" y="330">run:{runId}, one entry per token</text>
   <text class="dg-s dg-c" x="330" y="346">lossy, 10-minute TTL</text>
   <rect class="dg-box" x="730" y="290" width="250" height="64" rx="8"></rect>
   <path class="dg-qbar" d="M 743,299 L 743,345"></path>
@@ -206,19 +214,21 @@ GET  /v1/runs/{runId}                            → Run          (status, for a
   <text class="dg-t dg-c" x="873" y="318.5">Kafka</text>
   <text class="dg-s dg-c" x="873" y="334.5">key = chatId · one message</text>
   <rect class="dg-box" x="190" y="400" width="280" height="64" rx="8"></rect>
-  <text class="dg-t dg-c" x="330" y="428.5">Streaming instances</text>
-  <text class="dg-s dg-c" x="330" y="444.5">stateless · XREAD from last id</text>
+  <text class="dg-t dg-c" x="330" y="420.5">Streaming instances</text>
+  <text class="dg-s dg-c" x="330" y="436.5">GET /runs/{id}/stream — SSE</text>
+  <text class="dg-s dg-c" x="330" y="452.5">holds the socket, owns no run state</text>
   <rect class="dg-box" x="730" y="400" width="250" height="64" rx="8"></rect>
   <text class="dg-t dg-c" x="855" y="428.5">Persister</text>
-  <text class="dg-s dg-c" x="855" y="444.5">batches writes</text>
+  <text class="dg-s dg-c" x="855" y="444.5">consumes Kafka, batch-writes</text>
   <path class="dg-line" d="M 330,354 L 330,392"></path>
   <path class="dg-head" d="M 325,392 L 335,392 L 330,400 Z"></path>
   <path class="dg-line" d="M 855,354 L 855,392"></path>
   <path class="dg-head" d="M 850,392 L 860,392 L 855,400 Z"></path>
   <path class="dg-box" d="M 190,517 L 190,567 A 140,7 0 0 0 470,567 L 470,517 A 140,7 0 0 0 190,517 Z"></path>
   <path class="dg-box" d="M 190,517 A 140,7 0 0 0 470,517" style="fill:none"></path>
-  <text class="dg-t dg-c" x="330" y="542">Redis</text>
-  <text class="dg-s dg-c" x="330" y="558">quota · priority queues · aging</text>
+  <text class="dg-t dg-c" x="330" y="534">Redis — scheduler + quota</text>
+  <text class="dg-s dg-c" x="330" y="550">sorted set per tier, score = enqueue + aging</text>
+  <text class="dg-s dg-c" x="330" y="566">quota counters, sliding window, fails open</text>
   <path class="dg-box" d="M 520,517 L 520,567 A 90,7 0 0 0 700,567 L 700,517 A 90,7 0 0 0 520,517 Z"></path>
   <path class="dg-box" d="M 520,517 A 90,7 0 0 0 700,517" style="fill:none"></path>
   <text class="dg-t dg-c" x="610" y="542">S3</text>
@@ -229,13 +239,17 @@ GET  /v1/runs/{runId}                            → Run          (status, for a
   <text class="dg-s dg-c" x="855" y="558">chats · messages · runs</text>
   <path class="dg-line" d="M 855,464 L 855,502"></path>
   <path class="dg-head" d="M 850,502 L 860,502 L 855,510 Z"></path>
+  <path class="dg-line" d="M 670,182 L 670,206 L 490,206 L 490,478 L 330,478 L 330,502"></path>
+  <path class="dg-head" d="M 325,502 L 335,502 L 330,510 Z"></path>
+  <text class="dg-lbl" x="500" y="455">dequeue</text>
   <path class="dg-line" d="M 455,182 L 455,232 L 178,232 L 178,542 L 182,542"></path>
   <path class="dg-head" d="M 182,547 L 182,537 L 190,542 Z"></path>
-  <path class="dg-line" d="M 534,150 L 560,150 L 560,486 L 710,486 L 710,542 L 722,542"></path>
-  <path class="dg-head" d="M 722,547 L 722,537 L 730,542 Z"></path>
+  <path class="dg-line" d="M 534,150 L 560,150 L 560,486 L 790,486 L 790,502"></path>
+  <path class="dg-head" d="M 785,502 L 795,502 L 790,510 Z"></path>
   <text class="dg-lbl" x="566" y="478">read history</text>
-  <path class="dg-line" d="M 190,432 L 170,432 L 170,200 L 168,200"></path>
-  <path class="dg-head" d="M 168,195 L 168,205 L 160,200 Z"></path>
+  <path class="dg-line" d="M 190,432 L 170,432 L 170,164 L 168,164"></path>
+  <path class="dg-head" d="M 168,159 L 168,169 L 160,164 Z"></path>
+  <text class="dg-lbl dg-c" x="183" y="180">SSE</text>
   <text class="dg-note" x="20" y="610">Redis carries tokens for the live view and is allowed to lose them; Kafka carries one finished message and is not. Different failure, different blast radius.</text>
 </svg>
 </div>
