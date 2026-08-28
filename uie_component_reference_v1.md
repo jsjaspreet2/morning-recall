@@ -8831,6 +8831,10 @@ component rounds at AI companies have started handing out **modules** — a stre
 content hash — graded on the same three axes, and both of those questions are won or lost on a
 primitive that no amount of React practice teaches.
 
+**§P–R are the ones people forget rather than the ones people cannot do:** scrolling the active
+item into view, keeping a callback current without re-subscribing, and coalescing updates that
+arrive faster than the screen refreshes.
+
 ### A. ROVING TABINDEX
 
 **Problem.** A composite widget (tablist, toolbar, tree, radio group) contains many focusable
@@ -9612,6 +9616,326 @@ a hash that identifies *content* and one that identifies *a path*.
 structured key rather than a template string); `localStorage` namespacing; deduping a request
 in-flight map. Drill `cursor-12-merkle-hash` is the version Cursor actually asks.
 
+---
+
+### P. SCROLL THE ACTIVE ITEM INTO VIEW
+
+**Problem.** A combobox, palette or menu with a virtual cursor: arrowing past the visible window
+moves `aria-activedescendant`, the screen reader announces the right option, and the sighted user
+sees nothing move. Every list widget in §03–16 needs this and it is the most commonly forgotten
+line in the whole guide.
+
+**Derivation.** The active item is the one that must be visible, so scrolling is a function of the
+active index — which makes it an effect, not something you do inside the key handler. Do it in the
+handler and you scroll before React has moved the highlight.
+
+```tsx
+useEffect(() => {
+  if (active < 0) return
+  refs.current[active]?.scrollIntoView({ block: 'nearest' })
+}, [active])
+```
+
+**`block: 'nearest'` is the whole technique.** The default is `'start'`, which yanks the item to
+the top of the scroller on every keypress — the list jumps even when the item was already in view.
+`'nearest'` scrolls the minimum distance, so an item already visible does not move at all. That is
+the difference between arrow keys that feel native and arrow keys that feel broken.
+
+**Do not compute `scrollTop` by hand.** `offsetTop - container.scrollTop + clientHeight` math is
+four lines that break the moment there is a sticky header, a border, or a non-`position: relative`
+ancestor. `scrollIntoView` is one line and the browser owns the edge cases.
+
+**Add `behavior: 'smooth'` only for a jump the user did not make** — a "scroll to selected" on
+open. On arrow keys it makes the list lag behind the cursor, and it fights `prefers-reduced-motion`.
+
+---
+
+### Q. THE LATEST-REF PATTERN, AND WHEN NOT TO USE IT
+
+**Problem.** An effect that subscribes to something long-lived — a stream, a socket, an interval —
+needs to call a callback the parent passed. Put the callback in the dependency array and every
+parent render with an inline arrow tears the subscription down and rebuilds it. Leave it out and
+you call a stale closure forever.
+
+**Derivation.** Split the two things the dependency array conflates: *what should re-subscribe*
+versus *what value should be current when I call it*. Only the first belongs in deps.
+
+```tsx
+const onTokenRef = useRef(onToken)
+useEffect(() => {
+  onTokenRef.current = onToken     // after every commit
+})
+
+useEffect(() => {
+  const socket = connect(url)
+  socket.onmessage = (e) => onTokenRef.current(e.data)   // always the latest
+  return () => socket.close()
+}, [url])                          // re-subscribes on url only, which is correct
+```
+
+**Assign in an effect, never during render.** `ref.current = onToken` at the top level of the
+component body is a side effect during render, which react.dev explicitly forbids: React may
+render a component and throw the result away, and under `<StrictMode>` it renders twice. The
+no-dependency-array effect above runs after every commit, which is exactly the guarantee you want.
+
+**Declaration order matters** when two effects are involved: the effect that *writes* the ref must
+be declared above the effect that *reads* it, because React runs them top to bottom.
+
+**When not to reach for it.** If the callback identity changing *should* restart the work, the
+dependency array was right and the ref is a bug that hides a real dependency. The honest test:
+*"if the parent passes a different function, do I want a different subscription?"* If yes, put it
+in deps and tell the caller to memoise. The ref is for callbacks that are notifications, not
+configuration.
+
+**The React 19 note worth one sentence.** `useEffectEvent` is designed for exactly this and removes
+the ref entirely, but it is still experimental — say you know it exists and that you would not ship
+on it yet.
+
+---
+
+### R. COALESCING HIGH-FREQUENCY UPDATES
+
+**Problem.** A stream delivering tokens at 100/sec, a pointermove, a resize observer. One
+`setState` per event is one render per event, and the renders queue behind each other until the
+input lags.
+
+**Derivation.** The screen only updates 60 times a second, so anything faster than that is work
+whose result is never seen. Accumulate in a ref, schedule one paint, and let the frame decide.
+
+```tsx
+const buffer = useRef('')
+const frame = useRef<number | null>(null)
+
+function push(chunk: string) {
+  buffer.current += chunk
+  frame.current ??= requestAnimationFrame(() => {
+    frame.current = null
+    setText(buffer.current)          // one render per frame, not per token
+  })
+}
+
+useEffect(() => () => {
+  if (frame.current !== null) cancelAnimationFrame(frame.current)
+}, [])
+```
+
+**Why a ref for the buffer.** It is written many times between paints and rendering it early is
+precisely what you are avoiding — this is the textbook "mutable value that is not state."
+
+**Why `??=` rather than a boolean flag.** One variable holds both "is a frame scheduled" and "which
+frame to cancel", so the two can never disagree.
+
+**Say the tradeoff, and say it is premature.** React 18 already batches updates inside its own
+event handlers and, since 18, inside promises and timeouts too — so a plain `setText` per token is
+usually fine and this is an optimisation you reach for **after** you measure, not before. What
+scores is naming it as a known lever and saying you would not add it yet: *"tokens arrive faster
+than the display refreshes, so if this profiled badly I would accumulate in a ref and flush once
+per animation frame."* Reaching for it unprompted reads as premature optimisation, which is its
+own negative signal.
+
+---
+
+## 18 — Prop design, decided
+
+**Component API design** is one of the three named grading axes, and it is the one people prepare
+for least — it has no keyboard table to memorise and no ARIA spec to check yourself against. This
+section is the missing checklist: eight forks, each with the test that decides it and the sentence
+to say.
+
+Use it in the first five minutes, out loud, before the body of the component exists. §02 A gives
+you the five decisions about *state*; this gives you the decisions about *surface*.
+
+---
+
+### A. DATA, CHILDREN, OR A RENDER PROP
+
+The first fork, and the one that shapes everything after it.
+
+| Shape | Choose it when | What it costs |
+|---|---|---|
+| `items={[{ value, label }]}` | The list is homogeneous and the component owns the markup | Customising one row means adding a prop |
+| `renderItem={(item, state) => ReactNode}` | Rows vary, but the component still owns behaviour and layout | One more prop; the caller can break your ARIA if you let them render the wrapper |
+| Compound — `<Menu><Menu.Item/></Menu>` | Consumers must interleave, reorder, or nest arbitrary children | Mis-nestable, needs context, hard to virtualise, much more code |
+
+**Default to `items`, and say why.** It is impossible to mis-nest, it virtualises without changing
+the API, and the component can guarantee its own ARIA wiring because it renders every node. The
+compound version hands that guarantee to the caller.
+
+**The upgrade path is the answer to "what if I need a custom row?"** — add `renderItem`, keep the
+wrapper. You render the `<li role="option" aria-selected>`; they render what is inside it. That
+keeps the accessibility contract yours while the content becomes theirs.
+
+> *"I'd take `items` because it makes the ARIA wiring my responsibility rather than the caller's,
+> and it virtualises later without an API change. If rows need to vary I'd add `renderItem` and
+> still own the option wrapper. I'd only go compound if consumers need to interleave arbitrary
+> children — that's a real requirement, and it costs a context and the ability to mis-nest."*
+
+---
+
+### B. ONE CALLBACK OR SEVERAL
+
+**The rule: one callback per piece of state you own. Extra callbacks only for events that are not
+state changes.**
+
+```tsx
+onValueChange(next)                 // the state moved — always this one
+onOpenChange(open)                  // a second piece of state → a second callback
+
+onDismiss(reason: 'timeout' | 'user' | 'action')   // not state; the REASON is the payload
+```
+
+The anti-pattern is a component that fires `onChange`, `onSelect` and `onCommit` for the same
+interaction. The caller cannot tell which to use, and any two of them will drift.
+
+**A `reason` argument is worth more than a second callback.** `onDismiss('timeout')` versus
+`onDismiss('user')` lets the parent log an auto-dismiss differently without you exposing two
+functions that must both fire in the right order. Toast is the standard example, and the same trick
+applies to a modal that can close by Escape, backdrop, or a button.
+
+---
+
+### C. BOOLEANS OR A VARIANT
+
+Four booleans is sixteen states, of which maybe four are legal.
+
+```tsx
+// Illegal states are representable — isPrimary + isDanger, isSm + isLg
+<Button isPrimary isSecondary isDanger isSm isLg />
+
+// Illegal states are unrepresentable
+<Button variant="primary" size="sm" />
+```
+
+**Keep a boolean when the thing is genuinely independent and binary** — `disabled`, `required`,
+`loading`. Reach for a union the moment two booleans are mutually exclusive.
+
+**And use a discriminated union when props travel in sets**, so the type system enforces what a
+comment otherwise would:
+
+```tsx
+type Props =
+  | { mode: 'single'; value: string; onValueChange: (v: string) => void }
+  | { mode: 'multi'; value: string[]; onValueChange: (v: string[]) => void }
+```
+
+Now `mode="single"` with an array value does not compile. Saying *"I'd make the illegal states
+unrepresentable rather than validate them at runtime"* is a strong sentence in any round.
+
+---
+
+### D. CONFIGURE, OR INJECT
+
+The question is whether the component should know **how** or only **what**.
+
+| | Configure — pass data | Inject — pass a function |
+|---|---|---|
+| Looks like | `url="/api/search"` | `fetchResults={(q, signal) => Promise<Item[]>}` |
+| Component knows | the transport | nothing about transport |
+| Testable without a network | no | yes |
+| Works for SSE, socket, cache, mock | no | yes |
+
+**Inject anything that is policy, transport, or I/O.** The component owns rendering and lifecycle;
+the caller owns where bytes come from. That one sentence is the highest-value API line in a
+streaming or async round, and it is why every drill in this repo takes a `fetchX` prop rather than
+a `url`.
+
+**Pass the `AbortSignal` in**, because cancellation is the component's job to *trigger* and the
+caller's job to *honour*. A `fetchResults` that ignores the signal is the caller's bug, and your
+generation guard still saves you.
+
+**Configure when it genuinely is just a value** — `debounceMs`, `minChars`, `placeholder`. If you
+find yourself adding `headers`, `method` and `transformResponse`, you have rebuilt `fetch` badly
+and should have injected.
+
+---
+
+### E. CALLBACK SIGNATURES
+
+**Pass the meaning, not the event.**
+
+```tsx
+onValueChange(e)                       // caller digs through e.target.value
+onValueChange(next: string)            // caller gets what they asked for
+onValueChange(next: string, item: Item) // and the row, when hydrating costs them a lookup
+```
+
+**Never pass an index.** Indexes shift when the list is filtered, sorted, or paginated, and the
+bug appears a week later in someone else's code. Pass the stable `value`, which §02 A already made
+you define.
+
+**Order: the new value first, context second.** `onValueChange(next, meta)` reads correctly and
+lets callers write `onValueChange={setValue}` with no wrapper — a small thing that gets noticed.
+
+---
+
+### F. NAMES THAT DO NOT COLLIDE
+
+| Use | Not | Because |
+|---|---|---|
+| `onValueChange` | `onChange` | Collides with the DOM event if the root is an `<input>`; ambiguous on every other element |
+| `open` / `defaultOpen` | `isOpen` | Pairs with `value` / `defaultValue`, and matches the platform's own `<details open>` |
+| `items` | `data`, `options`, `list` | `data` says nothing; `options` is right only for a listbox |
+| `renderItem` | `itemRenderer`, `children` as function | `render*` reads as a slot; a function child is a puzzle to the next reader |
+
+**The controlled/uncontrolled pair is a naming convention, not just an API one.** `x` plus
+`defaultX` plus `onXChange` is the shape React itself uses, so a reader who has never seen your
+component already knows which prop makes it controlled.
+
+---
+
+### G. ESCAPE HATCHES — one beats ten props
+
+You cannot anticipate every consumer, and every prop you add to try is a prop you maintain forever.
+
+```tsx
+function Toast({ className, style, ...rest }: Props & ComponentPropsWithoutRef<'div'>) {
+  return <div role="status" className={className} style={style} {...rest} />
+}
+```
+
+Three things earn their place:
+
+1. **`className` and `style` passthrough**, so styling needs no new prop.
+2. **`...rest` onto the root**, so `data-*`, `aria-describedby` and event handlers all work.
+3. **A forwarded `ref`**, so callers can focus or measure the node. React 19 lets `ref` be an
+   ordinary prop; below that it is `forwardRef`. Say which you are on.
+
+**Spread `rest` *before* your own critical attributes**, so a caller cannot accidentally clobber
+`role` or `aria-*`. Order in JSX is last-wins, and that ordering is a deliberate choice worth
+narrating.
+
+---
+
+### H. WHAT DOES NOT BELONG IN PROPS
+
+- **Anything derivable.** `isEmpty` when you already have `items`; `count` when you have the array.
+  A prop that can disagree with another prop is a bug with a scheduled delivery date.
+- **State the component should own.** Transient typing state, hover, focus-within. Expose it only
+  if a parent has a real reason to read or set it (§02 A, question 3).
+- **A second source of truth.** Never accept `value` *and* `defaultValue` as both meaningful. One
+  or the other: *"controlled when the parent owns it, uncontrolled with a default when it doesn't,
+  never both."*
+- **Config objects that are rebuilt every render.** `options={{ debounce: 300 }}` is a new object
+  each time, which defeats memoisation and re-runs effects. Take flat scalar props, or document
+  that the object must be memoised — flat props are kinder.
+
+---
+
+### I. THE NINETY-SECOND API SCRIPT
+
+Say this before writing a body. It is the cheapest points in the round.
+
+1. **Name the shape.** *"It takes `items`, it's controlled-or-uncontrolled on `value`, and it
+   reports through `onValueChange`."*
+2. **Name the one injected thing, if any.** *"`fetchResults` is injected with the signal, so the
+   component owns rendering and the caller owns transport."*
+3. **Name what you deliberately left out.** *"No `renderItem` yet — I'd add it the moment rows need
+   to differ, and the wrapper would stay mine so the ARIA contract doesn't leak."*
+4. **Name the escape hatch.** *"`className` and `...rest` go to the root, and I forward the ref."*
+5. **Then type the signature**, and only then the body.
+
+The candidates who score on this axis are not the ones with more props. They are the ones who can
+say why each prop exists and which one they refused to add.
 ---
 
 ## Company signals

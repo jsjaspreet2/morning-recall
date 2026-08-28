@@ -124,7 +124,7 @@ export const guides: Guide[] = [
     id: 'uie-components',
     title: 'UIE Components',
     subtitle:
-      'Fourteen components you will be asked to build — API, ARIA contract, full implementation, and the test plan — plus the fifteen techniques underneath them.',
+      'Fourteen components you will be asked to build — API, ARIA contract, full implementation, and the test plan — plus the eighteen techniques underneath them and the prop-design forks that decide the API.',
     accent: 'indigo',
     md: uieComponentsMd,
   },
