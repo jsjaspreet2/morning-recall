@@ -79,9 +79,53 @@ s.arrow((620,422),(650,422)); s.arrow((800,422),(830,422))
 
 SKEL_CAP = "Draw it cold, then check the badges. The three text lines are the ones with no box to hang on — they get said, not drawn, and they are where most candidates go quiet."
 
+a = Board(750, "Airbnb architecture. Clients on the left. A search tier: search service and pricing service reading a geo-sharded Elasticsearch cluster carrying the availability bitmap, plus a Redis price cache. A booking tier: booking API, Temporal workers, a Postgres reservations store with an exclusion constraint sharded by listing id, the payment processor, and a co-sharded listings store. On the right, a Kafka outbox feeding consumers that update the search index. At the bottom, an external tier polling iCal calendars.")
+a.banner("The search tier never touches the reservations database — it reads an index built from the change stream.")
+a.box(20, 200, 150, 64, "Clients", ["web · iOS · Android"])
+
+a.group(200, 86, 520, 166, "SEARCH — 100k QPS, STALE-TOLERANT")
+a.box(216, 118, 160, 56, "Search Service")
+a.cyl(400, 118, 300, 56, "Elasticsearch", ["geo-sharded · availability bitmap"])
+a.box(216, 194, 160, 50, "Pricing Service")
+a.cyl(400, 194, 300, 50, "Price cache — Redis", ["(listing, date range, guests)"])
+a.arrow((376, 146), (400, 146)); a.arrow((376, 219), (400, 219))
+
+a.group(200, 320, 520, 230, "BOOKING — 23/SEC, STRICTLY CORRECT")
+a.box(216, 352, 160, 56, "Booking API")
+a.box(216, 428, 160, 72, "Temporal workers", ["durable execution"])
+a.cyl(400, 352, 300, 56, "Reservations — Postgres", ["EXCLUDE USING gist, by listing_id"])
+a.box(400, 440, 140, 60, "Payments (PSP)")
+a.cyl(560, 440, 140, 60, "Listings", ["Postgres"])
+a.arrow((296, 408), (296, 428))
+a.arrow((376, 464), (400, 464))
+a.arrow((376, 440), (390, 440), (390, 380), (400, 380))
+a.line((630, 408), (630, 440))
+
+a.queue(770, 352, 200, 56, "Kafka", ["outbox"])
+a.box(770, 440, 200, 72, "Consumers", ["search index update", "notify · calendar push"])
+a.arrow((870, 408), (870, 440))
+a.arrow((700, 380), (770, 380))
+a.arrow((970, 440), (985, 440), (985, 146), (720, 146))
+a.text(760, 138, "index updates (~seconds)", 'dg-lbl')
+
+a.arrow((170, 216), (186, 216), (186, 146), (216, 146))
+a.arrow((170, 248), (194, 248), (194, 380), (216, 380))
+
+a.group(200, 590, 780, 110, "EXTERNAL — WHERE DOUBLE BOOKINGS ACTUALLY COME FROM")
+a.box(216, 622, 180, 56, "iCal poller", ["every few minutes"])
+a.box(430, 622, 200, 56, "Calendar Sync", ["detect, don't prevent"])
+a.arrow((396, 650), (430, 650))
+a.arrow((630, 650), (700, 650), (700, 550))
+a.text(20, 730, "The search tier reads an index, never the reservations database. That gap is what lets 100k QPS coexist with one Postgres constraint doing all the arbitration.", 'dg-note')
+
+ARCH_CAP = ("Two tiers that share no store. The only thing crossing between them is a Kafka outbox read "
+            "seconds later — draw that gap deliberately, because it is what makes a 1000:1 read ratio "
+            "survivable without weakening the one constraint that guarantees correctness.")
+
 PAGE = 'design-airbnb.md'
-place(PAGE, 'flows', b, HLD_CAP, section='## 6 ')
+place(PAGE, 'architecture', a, ARCH_CAP, after_heading='## 6 ')
+place(PAGE, 'flows', b, HLD_CAP)
 place(PAGE, 'skeleton', s, SKEL_CAP, after_heading='## 14 ')
 
-BOARDS = 2
-WARN = b.warn + s.warn
+BOARDS = 3
+WARN = a.warn + b.warn + s.warn

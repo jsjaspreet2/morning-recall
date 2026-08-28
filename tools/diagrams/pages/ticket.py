@@ -44,9 +44,41 @@ s.box(30,408,460,56,"Multi-seat = one transaction",["seats acquired in sorted or
 s.box(510,408,450,56,"Saga: hold → authorize → sell → capture",["reversible actions first"],badge=8)
 SKEL_CAP = "Badge 2 is the sentence that reframes the round: 166 bidders per seat is a contention problem, and no amount of throughput planning touches it. Say it before you draw the waiting room."
 
+a = Board(730, "Ticketmaster architecture. Ten million users hit an edge tier that is both CDN and waiting room: an admission worker issuing signed queue tokens against Redis counters, and a CDN serving the event page and availability blob on a one-to-five second TTL. A read tier holds the availability bitmap in memory and pushes WebSocket deltas. A buy tier, reached only with a session token, runs the booking service and order service against a Postgres inventory sharded one shard per event, plus the payment processor. A Kafka outbox carries deltas back to the read tier.")
+a.banner("Scale by admission, not by capacity: everything past the edge is built for ~2 k/s and will never see more.")
+a.box(20, 150, 150, 64, "10 M users")
+a.group(200, 86, 460, 200, "EDGE — CDN + WAITING ROOM")
+a.box(216, 118, 200, 64, "Admission worker", ["signed queue token"])
+a.cyl(440, 118, 204, 64, "Redis", ["queue:seq · queue:admitted"])
+a.arrow((416, 150), (440, 150))
+a.cyl(216, 206, 428, 56, "CDN", ["event page · availability blob, 1–5 s TTL"])
+a.arrow((170, 182), (193, 182), (193, 150), (216, 150))
+a.group(700, 86, 280, 200, "READ — 5 M QPS")
+a.box(716, 118, 248, 64, "Availability Service", ["bitmap in memory"])
+a.box(716, 206, 248, 56, "WS delta tier", ["version + changes"])
+a.arrow((840, 182), (840, 206))
+a.arrow((644, 234), (676, 234), (676, 150), (716, 150))
+a.group(200, 340, 460, 200, "BUY — ~2 k/s, STRICTLY SERIALIZABLE")
+a.box(216, 372, 180, 64, "Booking Service", ["session token required"])
+a.cyl(420, 372, 224, 64, "Inventory — Postgres", ["one shard per event"])
+a.box(216, 460, 180, 64, "Order Service")
+a.box(420, 460, 224, 64, "Payment (PSP)")
+a.arrow((396, 404), (420, 404)); a.arrow((306, 436), (306, 460)); a.arrow((396, 492), (420, 492))
+a.arrow((306, 286), (306, 340))
+a.queue(200, 580, 444, 56, "Kafka", ["outbox → availability, tickets, analytics"])
+a.arrow((644, 404), (672, 404), (672, 560), (560, 560), (560, 580))
+a.arrow((644, 608), (690, 608), (690, 150), (716, 150))
+a.text(600, 660, "deltas, ~1 s to the edge", 'dg-lbl')
+a.text(20, 700, "The read path never touches the inventory DB, and the admission worker is the only thing standing between the herd and the booking tier.", 'dg-note')
+
+ARCH_CAP = ("The board has two halves and one arrow between them, pointing the cheap way: inventory deltas "
+            "out to the cache, never a read in. Draw the edge first — it is the component that makes every "
+            "number downstream of it small.")
+
 PAGE = 'design-ticketmaster.md'
-place(PAGE, 'flows', b, HLD_CAP, section='## 6 ')
+place(PAGE, 'architecture', a, ARCH_CAP, after_heading='## 6 ')
+place(PAGE, 'flows', b, HLD_CAP)
 place(PAGE, 'skeleton', s, SKEL_CAP, after_heading='## 14 ')
 
-BOARDS = 2
-WARN = b.warn + s.warn
+BOARDS = 3
+WARN = a.warn + b.warn + s.warn

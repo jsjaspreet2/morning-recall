@@ -61,9 +61,39 @@ s.box(340,446,290,40,"fractional index · LWW per property",badge=9)
 s.box(650,446,310,40,"convergence, not linearizability",cls='dg-good',badge=10)
 SKEL_CAP = "Item 1 is a box because it is the answer: get the document model on the board before anything else, and the algorithm argument in §7 writes itself. The two boxes at the bottom are the sentences you close on."
 
+a = Board(530, "Figma architecture. A client holding a scene graph, a WebGL renderer and a pending queue. A Redis registry mapping file id to the server that owns it, on a heartbeat TTL. A file-process tier, one process per open file, holding the in-memory document and acting as the ordering authority. Below it a Kafka op log partitioned by file id, a snapshot job writing immutable blobs to S3 behind a CDN, and Postgres for files, teams and permissions.")
+a.banner("One process owns one file. Everything keys on fileId — the registry, the op log, the snapshot keyspace, the routing decision.")
+a.group(20, 86, 210, 180, "CLIENT")
+a.box(36, 118, 178, 56, "Scene graph + renderer")
+a.box(36, 190, 178, 56, "Pending queue", ["keyed (objectId, key)"])
+a.cyl(280, 150, 200, 56, "Registry — Redis", ["fileId → server, TTL"])
+a.arrow((230, 178), (280, 178)); a.ctext(255, 198, "lookup", 'dg-lbl')
+a.group(540, 86, 440, 140, "FILE PROCESSES — ONE PER OPEN FILE")
+a.box(556, 118, 410, 90, "File process",
+      ["the ordering authority · in-memory document",
+       "version counter · last-writer-wins per property", "the socket set for this file"])
+a.arrow((230, 120), (520, 120), (520, 150), (556, 150))
+a.text(300, 112, "one WebSocket, straight to the owner", 'dg-lbl')
+a.queue(556, 270, 410, 56, "Op log — Kafka", ["partitioned by fileId · the system of record"])
+a.arrow((761, 226), (761, 270))
+a.box(556, 360, 190, 56, "Snapshot job")
+a.cyl(776, 360, 190, 56, "S3 + CDN", ["file/{id}/{version}"])
+a.arrow((746, 388), (776, 388))
+a.arrow((651, 326), (651, 360))
+a.cyl(280, 360, 200, 56, "Postgres", ["files · teams · permissions"])
+a.arrow((556, 180), (530, 180), (530, 388), (480, 388))
+a.arrow((871, 416), (871, 450), (500, 450), (500, 240), (230, 240))
+a.text(560, 442, "snapshot on cold open", 'dg-lbl')
+a.text(20, 500, "Presence is the highest-volume thing in the system and the only thing worth losing, so it never touches disk — in memory in the owning process, TTL-evicted.", 'dg-note')
+
+ARCH_CAP = ("There is no coordination layer on this board, and that is the design: one process owns one "
+            "file, so ordering is free and the op log only has to make it durable. Draw the registry as "
+            "a lookup rather than a proxy — the socket goes straight to the owner.")
+
 PAGE = 'design-figma.md'
-place(PAGE, 'flows', b, HLD_CAP, section='## 6 ')
+place(PAGE, 'architecture', a, ARCH_CAP, after_heading='## 6 ')
+place(PAGE, 'flows', b, HLD_CAP)
 place(PAGE, 'skeleton', s, SKEL_CAP, after_heading='## 14 ')
 
-BOARDS = 2
-WARN = b.warn + s.warn
+BOARDS = 3
+WARN = a.warn + b.warn + s.warn

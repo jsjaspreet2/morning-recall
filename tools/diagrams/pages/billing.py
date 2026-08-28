@@ -52,9 +52,47 @@ s.box(350,388,290,56,"Payment processor",["no transition fires on a 200"],badge=
 s.box(670,388,290,56,"Daily 3-way reconciliation",["an exception queue with an owner"],badge=10)
 SKEL_CAP = "The left column never blocks and the right column never loses. Badge 7 is where they join — say “money moves once an hour, the meter moves twelve thousand times a second” as you draw it."
 
+a = Board(790, "Billing architecture, split by consistency. A request row: API request, inference gateway writing a usage event to a local outbox in the run's transaction, and the GPU pool. On the left, a synchronous tier that fails open: admission service holding in-process leases against a Redis cluster, and the spend-limit rejection. On the right, an asynchronous tier that loses nothing: Kafka usage.raw, rate-and-post workers, ClickHouse. Both meet at an append-only ledger in Postgres and Citus, feeding invoicing, the payment processor, reconciliation and an S3 audit store.")
+a.banner("The vertical split is the consistency split: left of it nothing may block a request, right of it nothing may lose a write.")
+a.box(20, 118, 140, 64, "API request")
+a.box(190, 118, 200, 64, "Inference Gateway", ["outbox in the run's txn"])
+a.box(420, 118, 180, 64, "model / GPU pool")
+a.arrow((160, 150), (190, 150)); a.arrow((390, 150), (420, 150))
+a.group(190, 220, 420, 200, "① SYNCHRONOUS — APPROXIMATE, FAILS OPEN")
+a.box(206, 252, 180, 64, "Admission Service", ["in-process leases"])
+a.cyl(410, 252, 184, 64, "Redis Cluster", ["budget:{org} · resv:{run}"])
+a.arrow((386, 284), (410, 284))
+a.box(206, 340, 388, 60, "429 spend_limit_exceeded", ["overshoot is bounded, not zero"],
+      cls='dg-warn', tcls='dg-warn-t')
+a.arrow((190, 150), (178, 150), (178, 284), (206, 284))
+a.group(650, 220, 330, 290, "② ASYNCHRONOUS — EXACT, LOSES NOTHING")
+a.queue(666, 252, 298, 56, "Kafka usage.raw", ["key org_id · acks=all"])
+a.box(666, 332, 298, 64, "Rate & post workers", ["dedupe on run_id", "price by occurred_at"])
+a.cyl(666, 420, 298, 56, "ClickHouse", ["ORDER BY (org_id, occurred_at)"])
+a.arrow((815, 308), (815, 332)); a.arrow((815, 396), (815, 420))
+a.arrow((340, 182), (340, 200), (815, 200), (815, 252))
+a.ctext(577, 192, "outbox pump", 'dg-lbl')
+a.arrow((666, 360), (630, 360), (630, 300), (594, 300))
+a.text(672, 318, "materialised balance", 'dg-lbl')
+a.cyl(190, 560, 420, 64, "Ledger — Postgres + Citus", ["append-only · hash-chained · by org_id"])
+a.arrow((815, 476), (815, 530), (400, 530), (400, 560))
+a.text(430, 522, "hourly aggregate per org", 'dg-lbl')
+a.box(650, 560, 150, 64, "Invoicing")
+a.box(830, 560, 150, 64, "PSP")
+a.arrow((610, 592), (650, 592)); a.arrow((800, 592), (830, 592))
+a.box(190, 660, 280, 64, "Reconciliation", ["gateway ↔ ledger ↔ settlement"])
+a.cyl(500, 660, 220, 64, "S3 Object Lock", ["audit chain heads"])
+a.arrow((330, 624), (330, 660)); a.arrow((560, 624), (560, 660))
+a.text(20, 760, "Nothing on the request path writes to a database. The first durable, ordered, money-shaped write happens in a worker nobody is waiting on.", 'dg-note')
+
+ARCH_CAP = ("Draw the two dashed boxes before anything inside them. Left of the split nothing may block a "
+            "request and everything is allowed to be approximate; right of it nothing may lose a write. "
+            "The ledger is the only component that belongs to both halves.")
+
 PAGE = 'design-billing.md'
-place(PAGE, 'flows', b, HLD_CAP, section='## 6 ')
+place(PAGE, 'architecture', a, ARCH_CAP, after_heading='## 6 ')
+place(PAGE, 'flows', b, HLD_CAP)
 place(PAGE, 'skeleton', s, SKEL_CAP, after_heading='## 14 ')
 
-BOARDS = 2
-WARN = b.warn + s.warn
+BOARDS = 3
+WARN = a.warn + b.warn + s.warn

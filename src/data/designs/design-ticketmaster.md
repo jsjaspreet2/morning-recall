@@ -142,6 +142,79 @@ POST /v1/orders                            → { orderId, status }
 
 ## 6 · High-level design — two paths that barely touch
 
+<div class="diagram" data-board="architecture">
+<svg viewBox="0 0 1000 730" role="img" aria-label="Ticketmaster architecture. Ten million users hit an edge tier that is both CDN and waiting room: an admission worker issuing signed queue tokens against Redis counters, and a CDN serving the event page and availability blob on a one-to-five second TTL. A read tier holds the availability bitmap in memory and pushes WebSocket deltas. A buy tier, reached only with a session token, runs the booking service and order service against a Postgres inventory sharded one shard per event, plus the payment processor. A Kafka outbox carries deltas back to the read tier.">
+  <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
+  <text class="dg-banner-t dg-c" x="500" y="33.5">Scale by admission, not by capacity: everything past the edge is built for ~2 k/s and will never see more.</text>
+  <rect class="dg-box" x="20" y="150" width="150" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="95" y="186.5">10 M users</text>
+  <rect class="dg-group" x="200" y="86" width="460" height="200" rx="12"></rect>
+  <text class="dg-group-t" x="216" y="108">EDGE — CDN + WAITING ROOM</text>
+  <rect class="dg-box" x="216" y="118" width="200" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="316" y="146.5">Admission worker</text>
+  <text class="dg-s dg-c" x="316" y="162.5">signed queue token</text>
+  <path class="dg-box" d="M 440,125 L 440,175 A 102,7 0 0 0 644,175 L 644,125 A 102,7 0 0 0 440,125 Z"></path>
+  <path class="dg-box" d="M 440,125 A 102,7 0 0 0 644,125" style="fill:none"></path>
+  <text class="dg-t dg-c" x="542" y="150">Redis</text>
+  <text class="dg-s dg-c" x="542" y="166">queue:seq · queue:admitted</text>
+  <path class="dg-line" d="M 416,150 L 432,150"></path>
+  <path class="dg-head" d="M 432,155 L 432,145 L 440,150 Z"></path>
+  <path class="dg-box" d="M 216,213 L 216,255 A 214,7 0 0 0 644,255 L 644,213 A 214,7 0 0 0 216,213 Z"></path>
+  <path class="dg-box" d="M 216,213 A 214,7 0 0 0 644,213" style="fill:none"></path>
+  <text class="dg-t dg-c" x="430" y="234">CDN</text>
+  <text class="dg-s dg-c" x="430" y="250">event page · availability blob, 1–5 s TTL</text>
+  <path class="dg-line" d="M 170,182 L 193,182 L 193,150 L 208,150"></path>
+  <path class="dg-head" d="M 208,155 L 208,145 L 216,150 Z"></path>
+  <rect class="dg-group" x="700" y="86" width="280" height="200" rx="12"></rect>
+  <text class="dg-group-t" x="716" y="108">READ — 5 M QPS</text>
+  <rect class="dg-box" x="716" y="118" width="248" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="840" y="146.5">Availability Service</text>
+  <text class="dg-s dg-c" x="840" y="162.5">bitmap in memory</text>
+  <rect class="dg-box" x="716" y="206" width="248" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="840" y="230.5">WS delta tier</text>
+  <text class="dg-s dg-c" x="840" y="246.5">version + changes</text>
+  <path class="dg-line" d="M 840,182 L 840,198"></path>
+  <path class="dg-head" d="M 835,198 L 845,198 L 840,206 Z"></path>
+  <path class="dg-line" d="M 644,234 L 676,234 L 676,150 L 708,150"></path>
+  <path class="dg-head" d="M 708,155 L 708,145 L 716,150 Z"></path>
+  <rect class="dg-group" x="200" y="340" width="460" height="200" rx="12"></rect>
+  <text class="dg-group-t" x="216" y="362">BUY — ~2 k/s, STRICTLY SERIALIZABLE</text>
+  <rect class="dg-box" x="216" y="372" width="180" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="306" y="400.5">Booking Service</text>
+  <text class="dg-s dg-c" x="306" y="416.5">session token required</text>
+  <path class="dg-box" d="M 420,379 L 420,429 A 112,7 0 0 0 644,429 L 644,379 A 112,7 0 0 0 420,379 Z"></path>
+  <path class="dg-box" d="M 420,379 A 112,7 0 0 0 644,379" style="fill:none"></path>
+  <text class="dg-t dg-c" x="532" y="404">Inventory — Postgres</text>
+  <text class="dg-s dg-c" x="532" y="420">one shard per event</text>
+  <rect class="dg-box" x="216" y="460" width="180" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="306" y="496.5">Order Service</text>
+  <rect class="dg-box" x="420" y="460" width="224" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="532" y="496.5">Payment (PSP)</text>
+  <path class="dg-line" d="M 396,404 L 412,404"></path>
+  <path class="dg-head" d="M 412,409 L 412,399 L 420,404 Z"></path>
+  <path class="dg-line" d="M 306,436 L 306,452"></path>
+  <path class="dg-head" d="M 301,452 L 311,452 L 306,460 Z"></path>
+  <path class="dg-line" d="M 396,492 L 412,492"></path>
+  <path class="dg-head" d="M 412,497 L 412,487 L 420,492 Z"></path>
+  <path class="dg-line" d="M 306,286 L 306,332"></path>
+  <path class="dg-head" d="M 301,332 L 311,332 L 306,340 Z"></path>
+  <rect class="dg-box" x="200" y="580" width="444" height="56" rx="8"></rect>
+  <path class="dg-qbar" d="M 213,589 L 213,627"></path>
+  <path class="dg-qbar" d="M 222,589 L 222,627"></path>
+  <path class="dg-qbar" d="M 231,589 L 231,627"></path>
+  <text class="dg-t dg-c" x="440" y="604.5">Kafka</text>
+  <text class="dg-s dg-c" x="440" y="620.5">outbox → availability, tickets, analytics</text>
+  <path class="dg-line" d="M 644,404 L 672,404 L 672,560 L 560,560 L 560,572"></path>
+  <path class="dg-head" d="M 555,572 L 565,572 L 560,580 Z"></path>
+  <path class="dg-line" d="M 644,608 L 690,608 L 690,150 L 708,150"></path>
+  <path class="dg-head" d="M 708,155 L 708,145 L 716,150 Z"></path>
+  <text class="dg-lbl" x="600" y="660">deltas, ~1 s to the edge</text>
+  <text class="dg-note" x="20" y="700">The read path never touches the inventory DB, and the admission worker is the only thing standing between the herd and the booking tier.</text>
+</svg>
+</div>
+
+<p class="diagram-cap">The board has two halves and one arrow between them, pointing the cheap way: inventory deltas out to the cache, never a read in. Draw the edge first — it is the component that makes every number downstream of it small.</p>
+
 <div class="diagram" data-board="flows">
 <svg viewBox="0 0 1000 662" role="img" aria-label="Ticketmaster high-level design, two paths that barely touch. Ten million users hit an edge that is both CDN and queue admission worker. Left path, browse at five million QPS: an availability service serving a ten-kilobyte bitmap from memory, rebuilt from the inventory change stream and edge-cached for one to five seconds, plus WebSocket deltas applied only when the version is exactly one ahead. Right path, buy at about two thousand a second: booking service requiring a session token, an inventory database with one shard per event and lazy expiry inside the conditional update, an outbox to Kafka, and the payment processor. Deltas flow from the inventory database back to the availability service.">
   <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>

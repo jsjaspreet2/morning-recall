@@ -71,7 +71,12 @@ time — after that the `data-board` id is what finds it. A module must expose
    to prevent.
 3. **No blank lines inside the `<div class="diagram">` block.** A blank line
    closes the HTML block and the rest of the SVG renders as literal text.
-4. **Look at the board before you ship it.** `build.py`'s width guard catches
+4. **Check the element counts `build.py` prints when a spec builds several
+   boards.** A spec with `a` and `a2` in it is one typo away from appending to
+   the wrong board — silent, and it puts arrows on a diagram that never asked
+   for them. The counts make that show up in the build output instead of in a
+   screenshot three days later.
+5. **Look at the board before you ship it.** `build.py`'s width guard catches
    text that overflows its box; it cannot catch an arrow routed through a box,
    two labels colliding, or a diagram that is simply wrong. Every layout bug
    found so far was found by rendering a PNG and looking at it.

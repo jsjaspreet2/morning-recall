@@ -139,6 +139,67 @@ One WebSocket per client per open file. Both document changes and presence ride 
 
 ## 6 · High-level design — flows
 
+<div class="diagram" data-board="architecture">
+<svg viewBox="0 0 1000 530" role="img" aria-label="Figma architecture. A client holding a scene graph, a WebGL renderer and a pending queue. A Redis registry mapping file id to the server that owns it, on a heartbeat TTL. A file-process tier, one process per open file, holding the in-memory document and acting as the ordering authority. Below it a Kafka op log partitioned by file id, a snapshot job writing immutable blobs to S3 behind a CDN, and Postgres for files, teams and permissions.">
+  <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
+  <text class="dg-banner-t dg-c" x="500" y="33.5">One process owns one file. Everything keys on fileId — the registry, the op log, the snapshot keyspace, the routing decision.</text>
+  <rect class="dg-group" x="20" y="86" width="210" height="180" rx="12"></rect>
+  <text class="dg-group-t" x="36" y="108">CLIENT</text>
+  <rect class="dg-box" x="36" y="118" width="178" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="125" y="150.5">Scene graph + renderer</text>
+  <rect class="dg-box" x="36" y="190" width="178" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="125" y="214.5">Pending queue</text>
+  <text class="dg-s dg-c" x="125" y="230.5">keyed (objectId, key)</text>
+  <path class="dg-box" d="M 280,157 L 280,199 A 100,7 0 0 0 480,199 L 480,157 A 100,7 0 0 0 280,157 Z"></path>
+  <path class="dg-box" d="M 280,157 A 100,7 0 0 0 480,157" style="fill:none"></path>
+  <text class="dg-t dg-c" x="380" y="178">Registry — Redis</text>
+  <text class="dg-s dg-c" x="380" y="194">fileId → server, TTL</text>
+  <path class="dg-line" d="M 230,178 L 272,178"></path>
+  <path class="dg-head" d="M 272,183 L 272,173 L 280,178 Z"></path>
+  <text class="dg-lbl dg-c" x="255" y="198">lookup</text>
+  <rect class="dg-group" x="540" y="86" width="440" height="140" rx="12"></rect>
+  <text class="dg-group-t" x="556" y="108">FILE PROCESSES — ONE PER OPEN FILE</text>
+  <rect class="dg-box" x="556" y="118" width="410" height="90" rx="8"></rect>
+  <text class="dg-t dg-c" x="761" y="143.5">File process</text>
+  <text class="dg-s dg-c" x="761" y="159.5">the ordering authority · in-memory document</text>
+  <text class="dg-s dg-c" x="761" y="175.5">version counter · last-writer-wins per property</text>
+  <text class="dg-s dg-c" x="761" y="191.5">the socket set for this file</text>
+  <path class="dg-line" d="M 230,120 L 520,120 L 520,150 L 548,150"></path>
+  <path class="dg-head" d="M 548,155 L 548,145 L 556,150 Z"></path>
+  <text class="dg-lbl" x="300" y="112">one WebSocket, straight to the owner</text>
+  <rect class="dg-box" x="556" y="270" width="410" height="56" rx="8"></rect>
+  <path class="dg-qbar" d="M 569,279 L 569,317"></path>
+  <path class="dg-qbar" d="M 578,279 L 578,317"></path>
+  <path class="dg-qbar" d="M 587,279 L 587,317"></path>
+  <text class="dg-t dg-c" x="779" y="294.5">Op log — Kafka</text>
+  <text class="dg-s dg-c" x="779" y="310.5">partitioned by fileId · the system of record</text>
+  <path class="dg-line" d="M 761,226 L 761,262"></path>
+  <path class="dg-head" d="M 756,262 L 766,262 L 761,270 Z"></path>
+  <rect class="dg-box" x="556" y="360" width="190" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="651" y="392.5">Snapshot job</text>
+  <path class="dg-box" d="M 776,367 L 776,409 A 95,7 0 0 0 966,409 L 966,367 A 95,7 0 0 0 776,367 Z"></path>
+  <path class="dg-box" d="M 776,367 A 95,7 0 0 0 966,367" style="fill:none"></path>
+  <text class="dg-t dg-c" x="871" y="388">S3 + CDN</text>
+  <text class="dg-s dg-c" x="871" y="404">file/{id}/{version}</text>
+  <path class="dg-line" d="M 746,388 L 768,388"></path>
+  <path class="dg-head" d="M 768,393 L 768,383 L 776,388 Z"></path>
+  <path class="dg-line" d="M 651,326 L 651,352"></path>
+  <path class="dg-head" d="M 646,352 L 656,352 L 651,360 Z"></path>
+  <path class="dg-box" d="M 280,367 L 280,409 A 100,7 0 0 0 480,409 L 480,367 A 100,7 0 0 0 280,367 Z"></path>
+  <path class="dg-box" d="M 280,367 A 100,7 0 0 0 480,367" style="fill:none"></path>
+  <text class="dg-t dg-c" x="380" y="388">Postgres</text>
+  <text class="dg-s dg-c" x="380" y="404">files · teams · permissions</text>
+  <path class="dg-line" d="M 556,180 L 530,180 L 530,388 L 488,388"></path>
+  <path class="dg-head" d="M 488,383 L 488,393 L 480,388 Z"></path>
+  <path class="dg-line" d="M 871,416 L 871,450 L 500,450 L 500,240 L 238,240"></path>
+  <path class="dg-head" d="M 238,235 L 238,245 L 230,240 Z"></path>
+  <text class="dg-lbl" x="560" y="442">snapshot on cold open</text>
+  <text class="dg-note" x="20" y="500">Presence is the highest-volume thing in the system and the only thing worth losing, so it never touches disk — in memory in the owning process, TTL-evicted.</text>
+</svg>
+</div>
+
+<p class="diagram-cap">There is no coordination layer on this board, and that is the design: one process owns one file, so ordering is free and the op log only has to make it durable. Draw the registry as a lookup rather than a proxy — the socket goes straight to the owner.</p>
+
 <div class="diagram" data-board="flows">
 <svg viewBox="0 0 1000 578" role="img" aria-label="Figma high-level design. Client column: input, local apply to the scene graph painting inside sixteen milliseconds with no network, a WebGL renderer, and a pending queue keyed by object and property holding unacknowledged values. Server column: one file process per open file acting as the ordering authority with last-writer-wins per property, an op log in Kafka as the system of record, and a snapshot job to S3 and the CDN. A bottom lane shows cold open: snapshot from CDN, decode off the main thread, paint the viewport first, then apply the op tail.">
   <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>

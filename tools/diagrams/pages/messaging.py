@@ -56,9 +56,41 @@ s.box(30,440,460,46,"Read state = per-device cursor",["debounced, lossy — mono
 s.box(510,440,450,46,"Shard by conversation_id",["single-writer ordering · name the retention fork"],badge=10)
 SKEL_CAP = "Badge 4 is the one integer doing four jobs — order, gaps, cursors, dedupe. Say the density fork out loud while you draw it: sortable is free, dense is what forces the counter and the log into one transaction."
 
+a = Board(590, "Messaging architecture. Roughly a billion devices holding one socket each into a fleet of about ten thousand connection gateways. A Redis connection registry maps device to gateway. A message service resolves members to devices and writes to a message log sharded by conversation id, with cursors co-partitioned alongside. A Kafka outbox feeds receipts, search indexing and analytics, and a push tier for offline devices. A separate sync service backed by a Redis conversation list.")
+a.banner("The store is boring and the gateway tier is enormous: 120 writes/sec per shard against ~10 k nodes holding a billion sockets.")
+a.box(20, 240, 150, 64, "Devices", ["~1 B, one socket each"])
+a.group(200, 86, 560, 130, "CONNECTION GATEWAYS — ~10 k NODES")
+for x in (216, 396, 576):
+    a.box(x, 118, 168, 64, "Gateway", ["holds sockets"])
+a.cyl(790, 118, 180, 64, "Connection registry", ["Redis, device → gateway"])
+a.group(200, 260, 560, 180, "MESSAGE SERVICE + STORE")
+a.cyl(216, 292, 280, 64, "Message log", ["sharded by conversation_id", "seq = last_seq + 1"])
+a.box(520, 292, 224, 64, "Message Service", ["members → devices"])
+a.arrow((520, 324), (496, 324))
+a.cyl(216, 376, 280, 50, "Cursors", ["co-partitioned with the log"])
+a.arrow((600, 216), (600, 292)); a.ctext(600, 250, "send", 'dg-lbl')
+a.arrow((680, 292), (680, 216)); a.ctext(680, 250, "deliver", 'dg-lbl')
+a.arrow((744, 310), (776, 310), (776, 150), (790, 150))
+a.queue(790, 292, 180, 56, "Kafka", ["outbox"])
+a.box(790, 376, 180, 64, "Consumers", ["receipts · search · analytics"])
+a.box(790, 470, 180, 56, "APNs / FCM", ["wake-up hint, no body"])
+a.arrow((744, 340), (762, 340), (762, 320), (790, 320))
+a.arrow((880, 348), (880, 376)); a.arrow((880, 440), (880, 470))
+a.box(216, 470, 180, 56, "Sync service", ["per-device watermark"])
+a.cyl(430, 470, 270, 56, "Conversation list", ["Redis zset, convs:{user}"])
+a.arrow((396, 498), (430, 498))
+a.arrow((170, 258), (182, 258), (182, 150), (216, 150))
+a.arrow((170, 290), (194, 290), (194, 498), (216, 498))
+a.text(20, 560, "Delivery is a lookup, not a broadcast — nothing subscribes to a conversation. And nothing is retried at the delivery layer, because sync is authoritative.", 'dg-note')
+
+ARCH_CAP = ("Count the boxes: the store is one cylinder and the gateway tier is a fleet. If you spend the "
+            "round sharding the database you have designed the cheap half — the interesting number is the "
+            "connection count, two orders of magnitude above the write rate.")
+
 PAGE = 'design-messaging.md'
-place(PAGE, 'flows', b, HLD_CAP, section='## 6 ')
+place(PAGE, 'architecture', a, ARCH_CAP, after_heading='## 6 ')
+place(PAGE, 'flows', b, HLD_CAP)
 place(PAGE, 'skeleton', s, SKEL_CAP, after_heading='## 14 ')
 
-BOARDS = 2
-WARN = b.warn + s.warn
+BOARDS = 3
+WARN = a.warn + b.warn + s.warn

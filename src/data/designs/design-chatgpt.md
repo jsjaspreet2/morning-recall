@@ -156,6 +156,92 @@ GET  /v1/runs/{runId}                            → Run          (status, for a
 
 ## 6 · High-level design — flows
 
+<div class="diagram" data-board="architecture">
+<svg viewBox="0 0 1000 640" role="img" aria-label="ChatGPT architecture. A request row: clients, a stateless API tier of gateway and chat service, a scheduler, and a fixed GPU pool. Each GPU makes two independent writes: token-by-token into Redis Streams for the live view, and one finished message into Kafka for durability. Redis Streams feeds a streaming tier of stateless SSE instances; Kafka feeds a persister that batch-writes to ScyllaDB. Redis also holds quota counters and the priority queues; S3 holds cold chats.">
+  <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
+  <text class="dg-banner-t dg-c" x="500" y="33.5">Three tiers, ~50 machines against ~9,000 — and two independent writes out of every GPU, one lossy, one durable.</text>
+  <rect class="dg-box" x="20" y="118" width="140" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="90" y="154.5">Clients</text>
+  <rect class="dg-group" x="190" y="86" width="360" height="130" rx="12"></rect>
+  <text class="dg-group-t" x="206" y="108">API — STATELESS CRUD</text>
+  <rect class="dg-box" x="206" y="118" width="150" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="281" y="154.5">API Gateway</text>
+  <rect class="dg-box" x="376" y="118" width="158" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="455" y="146.5">Chat Service</text>
+  <text class="dg-s dg-c" x="455" y="162.5">CRUD + enqueue</text>
+  <path class="dg-line" d="M 356,150 L 368,150"></path>
+  <path class="dg-head" d="M 368,155 L 368,145 L 376,150 Z"></path>
+  <rect class="dg-group" x="580" y="86" width="180" height="130" rx="12"></rect>
+  <text class="dg-group-t" x="596" y="108">SCHEDULER</text>
+  <rect class="dg-box" x="596" y="118" width="148" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="670" y="146.5">Scheduler</text>
+  <text class="dg-s dg-c" x="670" y="162.5">weights + aging</text>
+  <rect class="dg-group" x="790" y="86" width="190" height="130" rx="12"></rect>
+  <text class="dg-group-t" x="806" y="108">INFERENCE</text>
+  <rect class="dg-box" x="806" y="118" width="158" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="885" y="146.5">GPU workers</text>
+  <text class="dg-s dg-c" x="885" y="162.5">continuous batching</text>
+  <path class="dg-line" d="M 160,150 L 198,150"></path>
+  <path class="dg-head" d="M 198,155 L 198,145 L 206,150 Z"></path>
+  <path class="dg-line" d="M 550,150 L 588,150"></path>
+  <path class="dg-head" d="M 588,155 L 588,145 L 596,150 Z"></path>
+  <path class="dg-line" d="M 760,150 L 798,150"></path>
+  <path class="dg-head" d="M 798,155 L 798,145 L 806,150 Z"></path>
+  <path class="dg-line" d="M 885,216 L 885,244"></path>
+  <path class="dg-line" d="M 330,244 L 885,244"></path>
+  <path class="dg-line" d="M 330,244 L 330,282"></path>
+  <path class="dg-head" d="M 325,282 L 335,282 L 330,290 Z"></path>
+  <path class="dg-line" d="M 855,244 L 855,282"></path>
+  <path class="dg-head" d="M 850,282 L 860,282 L 855,290 Z"></path>
+  <text class="dg-lbl dg-c" x="700" y="282">two independent writes</text>
+  <path class="dg-box" d="M 190,297 L 190,347 A 140,7 0 0 0 470,347 L 470,297 A 140,7 0 0 0 190,297 Z"></path>
+  <path class="dg-box" d="M 190,297 A 140,7 0 0 0 470,297" style="fill:none"></path>
+  <text class="dg-t dg-c" x="330" y="314">Redis Streams</text>
+  <text class="dg-s dg-c" x="330" y="330">run:{runId}, XADD per token</text>
+  <text class="dg-s dg-c" x="330" y="346">lossy, 10-minute TTL</text>
+  <rect class="dg-box" x="730" y="290" width="250" height="64" rx="8"></rect>
+  <path class="dg-qbar" d="M 743,299 L 743,345"></path>
+  <path class="dg-qbar" d="M 752,299 L 752,345"></path>
+  <path class="dg-qbar" d="M 761,299 L 761,345"></path>
+  <text class="dg-t dg-c" x="873" y="318.5">Kafka</text>
+  <text class="dg-s dg-c" x="873" y="334.5">key = chatId · one message</text>
+  <rect class="dg-box" x="190" y="400" width="280" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="330" y="428.5">Streaming instances</text>
+  <text class="dg-s dg-c" x="330" y="444.5">stateless · XREAD from last id</text>
+  <rect class="dg-box" x="730" y="400" width="250" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="855" y="428.5">Persister</text>
+  <text class="dg-s dg-c" x="855" y="444.5">batches writes</text>
+  <path class="dg-line" d="M 330,354 L 330,392"></path>
+  <path class="dg-head" d="M 325,392 L 335,392 L 330,400 Z"></path>
+  <path class="dg-line" d="M 855,354 L 855,392"></path>
+  <path class="dg-head" d="M 850,392 L 860,392 L 855,400 Z"></path>
+  <path class="dg-box" d="M 190,517 L 190,567 A 140,7 0 0 0 470,567 L 470,517 A 140,7 0 0 0 190,517 Z"></path>
+  <path class="dg-box" d="M 190,517 A 140,7 0 0 0 470,517" style="fill:none"></path>
+  <text class="dg-t dg-c" x="330" y="542">Redis</text>
+  <text class="dg-s dg-c" x="330" y="558">quota · priority queues · aging</text>
+  <path class="dg-box" d="M 520,517 L 520,567 A 90,7 0 0 0 700,567 L 700,517 A 90,7 0 0 0 520,517 Z"></path>
+  <path class="dg-box" d="M 520,517 A 90,7 0 0 0 700,517" style="fill:none"></path>
+  <text class="dg-t dg-c" x="610" y="542">S3</text>
+  <text class="dg-s dg-c" x="610" y="558">cold chats</text>
+  <path class="dg-box" d="M 730,517 L 730,567 A 125,7 0 0 0 980,567 L 980,517 A 125,7 0 0 0 730,517 Z"></path>
+  <path class="dg-box" d="M 730,517 A 125,7 0 0 0 980,517" style="fill:none"></path>
+  <text class="dg-t dg-c" x="855" y="542">ScyllaDB</text>
+  <text class="dg-s dg-c" x="855" y="558">chats · messages · runs</text>
+  <path class="dg-line" d="M 855,464 L 855,502"></path>
+  <path class="dg-head" d="M 850,502 L 860,502 L 855,510 Z"></path>
+  <path class="dg-line" d="M 455,182 L 455,232 L 178,232 L 178,542 L 182,542"></path>
+  <path class="dg-head" d="M 182,547 L 182,537 L 190,542 Z"></path>
+  <path class="dg-line" d="M 534,150 L 560,150 L 560,486 L 710,486 L 710,542 L 722,542"></path>
+  <path class="dg-head" d="M 722,547 L 722,537 L 730,542 Z"></path>
+  <text class="dg-lbl" x="566" y="478">read history</text>
+  <path class="dg-line" d="M 190,432 L 170,432 L 170,200 L 168,200"></path>
+  <path class="dg-head" d="M 168,195 L 168,205 L 160,200 Z"></path>
+  <text class="dg-note" x="20" y="610">Redis carries tokens for the live view and is allowed to lose them; Kafka carries one finished message and is not. Different failure, different blast radius.</text>
+</svg>
+</div>
+
+<p class="diagram-cap">The fork under the GPU is the whole board. Two arrows leave every worker, to two different systems, for two different reasons — and neither is a backup for the other. Lose Redis and the animation breaks while the answer is still stored; lose Kafka and the user watches a perfect answer you then fail to keep.</p>
+
 <div class="diagram" data-board="flows">
 <svg viewBox="0 0 1000 872" role="img" aria-label="ChatGPT high-level design. Write path: client, API gateway, chat service, ScyllaDB, with a quota check at the door before enqueue. The chat service enqueues to a scheduler, priority queues by tier, and a fixed pool of inference workers. Each worker makes two independent writes that never meet: token-by-token XADD into Redis Streams for the lossy live view, which the streaming tier tails and forwards over SSE, and one finished message into Kafka keyed by chat id for durability, which a persister batch-writes to ScyllaDB. Read path: client to gateway to chat service to ScyllaDB.">
   <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>

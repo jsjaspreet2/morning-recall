@@ -169,6 +169,83 @@ WS   /v1/subscribe   ← { entity: "team:7", version: 13, delay_ms: 4200 }   // 
 
 ## 6 · High-level design — flows
 
+<div class="diagram" data-board="architecture">
+<svg viewBox="0 0 1000 550" role="img" aria-label="Settings sync architecture. A client holding a resolve function over four layers and a SQLite store of source documents, their versions and a pending patch. A write path: settings API doing compare-and-set on a pointer in Postgres, which holds immutable revisions, the current pointer, membership and an outbox in one transaction, plus a Redis cache of effective documents keyed by aggregate version. The outbox drains to Kafka keyed by entity, then a fanout service, then a WebSocket gateway backed by a Redis connection registry. Version-addressed entity reads are served from a CDN.">
+  <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
+  <text class="dg-banner-t dg-c" x="500" y="33.5">Push is a hint, never a value — kill the socket tier and convergence degrades from ~2 s to ≤60 s, and nothing else changes.</text>
+  <rect class="dg-group" x="20" y="86" width="220" height="180" rx="12"></rect>
+  <text class="dg-group-t" x="36" y="108">CLIENT (IDE)</text>
+  <rect class="dg-box" x="36" y="118" width="188" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="130" y="142.5">resolve()</text>
+  <text class="dg-s dg-c" x="130" y="158.5">four layers, per key</text>
+  <path class="dg-box" d="M 36,197 L 36,239 A 94,7 0 0 0 224,239 L 224,197 A 94,7 0 0 0 36,197 Z"></path>
+  <path class="dg-box" d="M 36,197 A 94,7 0 0 0 224,197" style="fill:none"></path>
+  <text class="dg-t dg-c" x="130" y="210">SQLite</text>
+  <text class="dg-s dg-c" x="130" y="226">source docs + versions</text>
+  <text class="dg-s dg-c" x="130" y="242">pending patch</text>
+  <rect class="dg-group" x="300" y="86" width="400" height="220" rx="12"></rect>
+  <text class="dg-group-t" x="316" y="108">WRITE PATH</text>
+  <rect class="dg-box" x="316" y="118" width="180" height="90" rx="8"></rect>
+  <text class="dg-t dg-c" x="406" y="143.5">Settings API</text>
+  <text class="dg-s dg-c" x="406" y="159.5">CAS on the pointer</text>
+  <text class="dg-s dg-c" x="406" y="175.5">PUT If-Match</text>
+  <text class="dg-s dg-c" x="406" y="191.5">412 + current doc</text>
+  <path class="dg-box" d="M 520,125 L 520,201 A 82,7 0 0 0 684,201 L 684,125 A 82,7 0 0 0 520,125 Z"></path>
+  <path class="dg-box" d="M 520,125 A 82,7 0 0 0 684,125" style="fill:none"></path>
+  <text class="dg-t dg-c" x="602" y="147">Postgres</text>
+  <text class="dg-s dg-c" x="602" y="163">revision (immutable)</text>
+  <text class="dg-s dg-c" x="602" y="179">current (pointer)</text>
+  <text class="dg-s dg-c" x="602" y="195">membership · outbox</text>
+  <path class="dg-line" d="M 496,163 L 512,163"></path>
+  <path class="dg-head" d="M 512,168 L 512,158 L 520,163 Z"></path>
+  <path class="dg-box" d="M 440,227 L 440,269 A 122,7 0 0 0 684,269 L 684,227 A 122,7 0 0 0 440,227 Z"></path>
+  <path class="dg-box" d="M 440,227 A 122,7 0 0 0 684,227" style="fill:none"></path>
+  <text class="dg-t dg-c" x="562" y="248">Redis</text>
+  <text class="dg-s dg-c" x="562" y="264">effective doc, by aggregate_version</text>
+  <rect class="dg-box" x="740" y="118" width="240" height="56" rx="8"></rect>
+  <path class="dg-qbar" d="M 753,127 L 753,165"></path>
+  <path class="dg-qbar" d="M 762,127 L 762,165"></path>
+  <path class="dg-qbar" d="M 771,127 L 771,165"></path>
+  <text class="dg-t dg-c" x="878" y="142.5">Kafka</text>
+  <text class="dg-s dg-c" x="878" y="158.5">keyed by entity</text>
+  <path class="dg-line" d="M 684,146 L 732,146"></path>
+  <path class="dg-head" d="M 732,151 L 732,141 L 740,146 Z"></path>
+  <rect class="dg-box" x="740" y="200" width="240" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="860" y="224.5">Fanout</text>
+  <text class="dg-s dg-c" x="860" y="240.5">team → members, paged</text>
+  <path class="dg-line" d="M 860,174 L 860,192"></path>
+  <path class="dg-head" d="M 855,192 L 865,192 L 860,200 Z"></path>
+  <rect class="dg-box" x="740" y="290" width="240" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="860" y="322.5">WS gateway</text>
+  <path class="dg-box" d="M 740,377 L 740,419 A 120,7 0 0 0 980,419 L 980,377 A 120,7 0 0 0 740,377 Z"></path>
+  <path class="dg-box" d="M 740,377 A 120,7 0 0 0 980,377" style="fill:none"></path>
+  <text class="dg-t dg-c" x="860" y="398">Registry — Redis</text>
+  <text class="dg-s dg-c" x="860" y="414">user → gateway, TTL</text>
+  <path class="dg-line" d="M 860,256 L 860,282"></path>
+  <path class="dg-head" d="M 855,282 L 865,282 L 860,290 Z"></path>
+  <path class="dg-line" d="M 860,346 L 860,370"></path>
+  <path class="dg-line" d="M 740,318 L 278,318 L 278,240 L 248,240"></path>
+  <path class="dg-head" d="M 248,235 L 248,245 L 240,240 Z"></path>
+  <text class="dg-lbl" x="276" y="338">{entity, version} — a hint, not a value</text>
+  <path class="dg-box" d="M 420,407 L 420,449 A 120,7 0 0 0 660,449 L 660,407 A 120,7 0 0 0 420,407 Z"></path>
+  <path class="dg-box" d="M 420,407 A 120,7 0 0 0 660,407" style="fill:none"></path>
+  <text class="dg-t dg-c" x="540" y="428">CDN</text>
+  <text class="dg-s dg-c" x="540" y="444">version-addressed, immutable</text>
+  <path class="dg-line" d="M 240,250 L 262,250 L 262,428 L 412,428"></path>
+  <path class="dg-head" d="M 412,433 L 412,423 L 420,428 Z"></path>
+  <path class="dg-line" d="M 360,208 L 360,290 L 500,290 L 500,392"></path>
+  <path class="dg-head" d="M 495,392 L 505,392 L 500,400 Z"></path>
+  <text class="dg-lbl" x="370" y="286">origin</text>
+  <path class="dg-line" d="M 240,134 L 308,134"></path>
+  <path class="dg-head" d="M 308,139 L 308,129 L 316,134 Z"></path>
+  <path class="dg-line" d="M 316,160 L 248,160"></path>
+  <path class="dg-head" d="M 248,155 L 248,165 L 240,160 Z"></path>
+  <text class="dg-note" x="20" y="520">There is only one recovery path and it is also the normal path: compare the manifest, fetch what moved, re-run resolve(). The socket only makes it faster.</text>
+</svg>
+</div>
+
+<p class="diagram-cap">The socket tier is the only part of this board you could delete and still have a correct system. Draw it last, and label its arrow with what it carries — an entity and a version, never a value.</p>
+
 <div class="diagram" data-board="flows">
 <svg viewBox="0 0 1000 596" role="img" aria-label="Settings sync high-level design. The client holds source documents with their versions, a pending patch, and a resolve function evaluated per key over four layers, and works with the server down. Below: a settings API doing compare-and-set on a pointer, Postgres holding immutable revisions plus the pointer and an outbox in one transaction, a fanout service, and a WebSocket gateway whose push carries only an entity and a version — a hint, not a value.">
   <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>

@@ -61,9 +61,45 @@ s.box(30,458,460,40,"Deletes filtered at read time, never scrubbed",badge=7)
 s.box(510,458,450,40,"Fanout-on-write by default — the inverse of messaging",badge=2)
 SKEL_CAP = "Badge 3 is the whole answer and it is one box: neither pure strategy survives contact with a 100 M-follower account. Get the threshold on the board and the two deep dives write themselves."
 
+a = Board(672, "Feed architecture. Clients on the left. A write tier: tweet service writing to a Cassandra tweet store keyed by tweet id, plus an author timeline index. A fanout tier: Kafka with queues tiered by follower count, fanout workers, and Redis timeline sorted sets. A Cassandra follow graph stored in both directions. A read tier: timeline service merging from the timeline cache, then hydration against a Memcached tweet cache and Redis counts.")
+a.banner("The write path ends at the tweet store; everything after the outbox is asynchronous and best-effort.")
+a.box(20, 200, 150, 64, "Clients")
+
+a.group(200, 86, 470, 166, "WRITE")
+a.box(216, 118, 160, 56, "Tweet Service", ["Snowflake id"])
+a.cyl(400, 118, 250, 56, "Tweet store", ["Cassandra, PK tweet_id"])
+a.arrow((376, 146), (400, 146))
+a.cyl(400, 194, 250, 50, "Author timeline index", ["(author_id, bucket)"])
+
+a.group(700, 86, 280, 264, "FANOUT")
+a.queue(716, 118, 250, 56, "Kafka", ["tiered by follower count"])
+a.box(716, 194, 250, 64, "Fanout workers", ["active users only", "idempotent ZADD"])
+a.cyl(716, 278, 250, 56, "Timeline cache", ["Redis zsets, capped 400"])
+a.arrow((841, 174), (841, 194)); a.arrow((841, 258), (841, 278))
+a.arrow((650, 146), (716, 146))
+a.cyl(400, 300, 250, 56, "Follow graph", ["Cassandra, both directions"])
+a.arrow((716, 226), (680, 226), (680, 272), (525, 272), (525, 300))
+
+a.group(200, 470, 780, 150, "READ — HYDRATION IS THE REAL COST")
+a.box(216, 502, 180, 64, "Timeline Service", ["merge · dedupe · cap"])
+a.box(430, 502, 180, 64, "Hydration")
+a.cyl(650, 502, 160, 64, "Tweet / author cache", ["Memcached"])
+a.cyl(830, 502, 136, 64, "Counts", ["Redis INCR"])
+a.arrow((396, 534), (430, 534)); a.arrow((610, 534), (650, 534))
+a.arrow((520, 566), (520, 592), (898, 592), (898, 566))
+a.arrow((306, 502), (306, 420), (690, 420), (690, 306), (716, 306))
+a.arrow((170, 216), (186, 216), (186, 146), (216, 146))
+a.arrow((170, 248), (194, 248), (194, 534), (216, 534))
+a.text(20, 650, "Losing fanout writes degrades a timeline; it never loses a tweet. Deletes are filtered at read time rather than scrubbed out of timelines.", 'dg-note')
+
+ARCH_CAP = ("The timeline cache is the only box on this board that is allowed to be wrong, and drawing it "
+            "as a cache rather than a store is the argument: that is what lets you cap it at 400, skip "
+            "inactive users entirely, and lose a node without losing a post.")
+
 PAGE = 'design-feed.md'
-place(PAGE, 'flows', b, HLD_CAP, section='## 6 ')
+place(PAGE, 'architecture', a, ARCH_CAP, after_heading='## 6 ')
+place(PAGE, 'flows', b, HLD_CAP)
 place(PAGE, 'skeleton', s, SKEL_CAP, after_heading='## 14 ')
 
-BOARDS = 2
-WARN = b.warn + s.warn
+BOARDS = 3
+WARN = a.warn + b.warn + s.warn

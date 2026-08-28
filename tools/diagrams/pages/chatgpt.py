@@ -63,9 +63,45 @@ s.box(510,472,450,50,"Context: system → summary → last K",["stable prefix fi
 s.box(30,542,930,44,"ScyllaDB partitioned on chatId · a second table for the sidebar · hot/warm/cold at 30 and 180 days",badge=12)
 SKEL_CAP = "Thirteen marks, and the top row carries the argument: ~50 machines against ~9,000 is why the tiers are separate deploys. Say the ratio before you draw the second box."
 
+a = Board(640, "ChatGPT architecture. A request row: clients, a stateless API tier of gateway and chat service, a scheduler, and a fixed GPU pool. Each GPU makes two independent writes: token-by-token into Redis Streams for the live view, and one finished message into Kafka for durability. Redis Streams feeds a streaming tier of stateless SSE instances; Kafka feeds a persister that batch-writes to ScyllaDB. Redis also holds quota counters and the priority queues; S3 holds cold chats.")
+a.banner("Three tiers, ~50 machines against ~9,000 — and two independent writes out of every GPU, one lossy, one durable.")
+a.box(20, 118, 140, 64, "Clients")
+a.group(190, 86, 360, 130, "API — STATELESS CRUD")
+a.box(206, 118, 150, 64, "API Gateway")
+a.box(376, 118, 158, 64, "Chat Service", ["CRUD + enqueue"])
+a.arrow((356, 150), (376, 150))
+a.group(580, 86, 180, 130, "SCHEDULER")
+a.box(596, 118, 148, 64, "Scheduler", ["weights + aging"])
+a.group(790, 86, 190, 130, "INFERENCE")
+a.box(806, 118, 158, 64, "GPU workers", ["continuous batching"])
+a.arrow((160, 150), (206, 150)); a.arrow((550, 150), (596, 150)); a.arrow((760, 150), (806, 150))
+a.line((885, 216), (885, 244)); a.line((330, 244), (885, 244))
+a.arrow((330, 244), (330, 290)); a.arrow((855, 244), (855, 290))
+a.ctext(700, 282, "two independent writes", 'dg-lbl')
+a.cyl(190, 290, 280, 64, "Redis Streams", ["run:{runId}, XADD per token", "lossy, 10-minute TTL"])
+a.queue(730, 290, 250, 64, "Kafka", ["key = chatId · one message"])
+a.box(190, 400, 280, 64, "Streaming instances", ["stateless · XREAD from last id"])
+a.box(730, 400, 250, 64, "Persister", ["batches writes"])
+a.arrow((330, 354), (330, 400)); a.arrow((855, 354), (855, 400))
+a.cyl(190, 510, 280, 64, "Redis", ["quota · priority queues · aging"])
+a.cyl(520, 510, 180, 64, "S3", ["cold chats"])
+a.cyl(730, 510, 250, 64, "ScyllaDB", ["chats · messages · runs"])
+a.arrow((855, 464), (855, 510))
+a.arrow((455, 182), (455, 232), (178, 232), (178, 542), (190, 542))
+a.arrow((534, 150), (560, 150), (560, 486), (710, 486), (710, 542), (730, 542))
+a.text(566, 478, "read history", 'dg-lbl')
+a.arrow((190, 432), (170, 432), (170, 200), (160, 200))
+a.text(20, 610, "Redis carries tokens for the live view and is allowed to lose them; Kafka carries one finished message and is not. Different failure, different blast radius.", 'dg-note')
+
+ARCH_CAP = ("The fork under the GPU is the whole board. Two arrows leave every worker, to two different "
+            "systems, for two different reasons — and neither is a backup for the other. Lose Redis and "
+            "the animation breaks while the answer is still stored; lose Kafka and the user watches a "
+            "perfect answer you then fail to keep.")
+
 PAGE = 'design-chatgpt.md'
-place(PAGE, 'flows', b, HLD_CAP, section='## 6 ')
+place(PAGE, 'architecture', a, ARCH_CAP, after_heading='## 6 ')
+place(PAGE, 'flows', b, HLD_CAP)
 place(PAGE, 'skeleton', s, SKEL_CAP, after_heading='## 14 ')
 
-BOARDS = 2
-WARN = b.warn + s.warn
+BOARDS = 3
+WARN = a.warn + b.warn + s.warn

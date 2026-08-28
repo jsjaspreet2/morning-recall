@@ -26,6 +26,7 @@ if wanted:
         raise SystemExit(f'no such page spec: {", ".join(sorted(missing))}')
 
 problems = 0
+counts = []
 for path in pages:
     spec = importlib.util.spec_from_file_location(f'board_{path.stem}', path)
     module = importlib.util.module_from_spec(spec)
@@ -36,6 +37,18 @@ for path in pages:
     print(f'{path.stem:16} {boards} board(s)  {"OK" if not warn else str(len(warn)) + " OVERFLOW"}')
     for line in warn:
         print(line)
+    counts.append((path.stem, module))
+
+# Element counts per board. A spec that builds several boards is one typo away
+# from appending to the wrong one — `a.` where `a2.` was meant — which is silent
+# and puts arrows on a diagram that never asked for them. Printing the counts
+# makes that show up in a diff instead of in a screenshot three days later.
+print()
+for stem, module in counts:
+    for name in dir(module):
+        b = getattr(module, name)
+        if hasattr(b, 'el') and hasattr(b, 'warn'):
+            print(f'  {stem:16} {name:4} {len(b.el):3} elements')
 
 print(f'\n{len(pages)} page(s) rebuilt.')
 if problems:

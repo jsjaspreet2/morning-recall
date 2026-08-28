@@ -118,6 +118,83 @@ PUT  /channels/{channel_id}/read        { last_message_id }       -> 204
 
 ## 6 · High-level design — flows
 
+<div class="diagram" data-board="architecture">
+<svg viewBox="0 0 1000 512" role="img" aria-label="Discord architecture. Clients holding one WebSocket each. A write tier over HTTP: API service, ScyllaDB for messages partitioned by channel and bucket, Postgres for guild metadata and roles, and ScyllaDB for read state. A guild process tier, one owner per guild, resolving online members and grouping them by gateway node. A gateway fleet of roughly ten thousand nodes holding fifteen million sockets, with a Redis session registry on a heartbeat TTL. Attachments go to S3 and a CDN, never through the gateway.">
+  <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
+  <text class="dg-banner-t dg-c" x="500" y="33.5">Ingest is trivial; fanout is not. One API tier, one process per guild, and ~10 k gateway nodes holding 15 M sockets.</text>
+  <rect class="dg-box" x="20" y="240" width="150" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="95" y="268.5">Clients</text>
+  <text class="dg-s dg-c" x="95" y="284.5">one WebSocket each</text>
+  <path class="dg-box" d="M 20,347 L 20,397 A 75,7 0 0 0 170,397 L 170,347 A 75,7 0 0 0 20,347 Z"></path>
+  <path class="dg-box" d="M 20,347 A 75,7 0 0 0 170,347" style="fill:none"></path>
+  <text class="dg-t dg-c" x="95" y="372">S3 + CDN</text>
+  <text class="dg-s dg-c" x="95" y="388">attachments</text>
+  <path class="dg-line" d="M 95,304 L 95,340"></path>
+  <rect class="dg-group" x="200" y="86" width="420" height="180" rx="12"></rect>
+  <text class="dg-group-t" x="216" y="108">WRITE — OVER HTTP</text>
+  <rect class="dg-box" x="216" y="118" width="180" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="306" y="138.5">API service</text>
+  <text class="dg-s dg-c" x="306" y="154.5">permissions once</text>
+  <text class="dg-s dg-c" x="306" y="170.5">Snowflake id</text>
+  <path class="dg-box" d="M 420,125 L 420,175 A 90,7 0 0 0 600,175 L 600,125 A 90,7 0 0 0 420,125 Z"></path>
+  <path class="dg-box" d="M 420,125 A 90,7 0 0 0 600,125" style="fill:none"></path>
+  <text class="dg-t dg-c" x="510" y="150">ScyllaDB</text>
+  <text class="dg-s dg-c" x="510" y="166">(channel_id, bucket)</text>
+  <path class="dg-line" d="M 396,150 L 412,150"></path>
+  <path class="dg-head" d="M 412,155 L 412,145 L 420,150 Z"></path>
+  <path class="dg-box" d="M 216,207 L 216,243 A 90,7 0 0 0 396,243 L 396,207 A 90,7 0 0 0 216,207 Z"></path>
+  <path class="dg-box" d="M 216,207 A 90,7 0 0 0 396,207" style="fill:none"></path>
+  <text class="dg-t dg-c" x="306" y="225">Postgres</text>
+  <text class="dg-s dg-c" x="306" y="241">guilds · roles</text>
+  <path class="dg-box" d="M 420,207 L 420,243 A 90,7 0 0 0 600,243 L 600,207 A 90,7 0 0 0 420,207 Z"></path>
+  <path class="dg-box" d="M 420,207 A 90,7 0 0 0 600,207" style="fill:none"></path>
+  <text class="dg-t dg-c" x="510" y="225">Read state</text>
+  <text class="dg-s dg-c" x="510" y="241">Scylla, write-behind</text>
+  <rect class="dg-group" x="680" y="86" width="300" height="150" rx="12"></rect>
+  <text class="dg-group-t" x="696" y="108">GUILD PROCESSES</text>
+  <rect class="dg-box" x="696" y="118" width="270" height="90" rx="8"></rect>
+  <text class="dg-t dg-c" x="831" y="143.5">Guild / channel process</text>
+  <text class="dg-s dg-c" x="831" y="159.5">one owner per guild</text>
+  <text class="dg-s dg-c" x="831" y="175.5">resolves ONLINE members</text>
+  <text class="dg-s dg-c" x="831" y="191.5">groups them by gateway node</text>
+  <path class="dg-line" d="M 306,182 L 306,196 L 628,196 L 628,150 L 688,150"></path>
+  <path class="dg-head" d="M 688,155 L 688,145 L 696,150 Z"></path>
+  <text class="dg-lbl dg-c" x="650" y="214">publish</text>
+  <rect class="dg-group" x="200" y="300" width="780" height="130" rx="12"></rect>
+  <text class="dg-group-t" x="216" y="322">GATEWAY FLEET — ~10 k NODES, 15 M SOCKETS</text>
+  <rect class="dg-box" x="216" y="340" width="180" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="306" y="368.5">Gateway node</text>
+  <text class="dg-s dg-c" x="306" y="384.5">stamps a per-session seq</text>
+  <rect class="dg-box" x="406" y="340" width="180" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="496" y="368.5">Gateway node</text>
+  <text class="dg-s dg-c" x="496" y="384.5">stamps a per-session seq</text>
+  <rect class="dg-box" x="596" y="340" width="180" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="686" y="368.5">Gateway node</text>
+  <text class="dg-s dg-c" x="686" y="384.5">stamps a per-session seq</text>
+  <path class="dg-box" d="M 800,347 L 800,397 A 83,7 0 0 0 966,397 L 966,347 A 83,7 0 0 0 800,347 Z"></path>
+  <path class="dg-box" d="M 800,347 A 83,7 0 0 0 966,347" style="fill:none"></path>
+  <text class="dg-t dg-c" x="883" y="372">Session registry</text>
+  <text class="dg-s dg-c" x="883" y="388">Redis, heartbeat TTL</text>
+  <path class="dg-line" d="M 830,236 L 830,283"></path>
+  <path class="dg-line" d="M 306,283 L 830,283"></path>
+  <path class="dg-line" d="M 306,283 L 306,332"></path>
+  <path class="dg-head" d="M 301,332 L 311,332 L 306,340 Z"></path>
+  <path class="dg-line" d="M 496,283 L 496,332"></path>
+  <path class="dg-head" d="M 491,332 L 501,332 L 496,340 Z"></path>
+  <path class="dg-line" d="M 686,283 L 686,332"></path>
+  <path class="dg-head" d="M 681,332 L 691,332 L 686,340 Z"></path>
+  <path class="dg-line" d="M 800,372 L 776,372"></path>
+  <path class="dg-line" d="M 170,258 L 186,258 L 186,150 L 208,150"></path>
+  <path class="dg-head" d="M 208,155 L 208,145 L 216,150 Z"></path>
+  <path class="dg-line" d="M 216,372 L 194,372 L 194,290 L 178,290"></path>
+  <path class="dg-head" d="M 178,285 L 178,295 L 170,290 Z"></path>
+  <text class="dg-s" x="20" y="470">Attachment bytes never pass through the gateway — the message row carries a pointer to S3.</text>
+  <text class="dg-note" x="20" y="492">There is no broker in the delivery path: it would add a durable hop to something explicitly not durable.</text>
+</svg>
+</div>
+
+<p class="diagram-cap">One process per guild is the whole architecture. It is the only component that knows which members are online, so it is the only place the recipient list can be grouped by gateway node — and that grouping is the 100× win.</p>
+
 <div class="diagram" data-board="flows">
 <svg viewBox="0 0 1000 605" role="img" aria-label="Discord high-level design. A write path over HTTP: client to API service, which evaluates permissions once, mints a Snowflake id and writes to ScyllaDB before publishing. The guild process owns one guild, resolves online members and groups them by gateway node, sending one message per node rather than one per session. Three gateway nodes fan out to roughly fifteen million WebSocket clients. A Redis session registry with heartbeat TTL drives routing and presence.">
   <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>

@@ -161,6 +161,95 @@ POST /webhooks/psp                     signature-verified; 200 means "durably qu
 
 ## 6 · High-level design — flows
 
+<div class="diagram" data-board="architecture">
+<svg viewBox="0 0 1000 790" role="img" aria-label="Billing architecture, split by consistency. A request row: API request, inference gateway writing a usage event to a local outbox in the run's transaction, and the GPU pool. On the left, a synchronous tier that fails open: admission service holding in-process leases against a Redis cluster, and the spend-limit rejection. On the right, an asynchronous tier that loses nothing: Kafka usage.raw, rate-and-post workers, ClickHouse. Both meet at an append-only ledger in Postgres and Citus, feeding invoicing, the payment processor, reconciliation and an S3 audit store.">
+  <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
+  <text class="dg-banner-t dg-c" x="500" y="33.5">The vertical split is the consistency split: left of it nothing may block a request, right of it nothing may lose a write.</text>
+  <rect class="dg-box" x="20" y="118" width="140" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="90" y="154.5">API request</text>
+  <rect class="dg-box" x="190" y="118" width="200" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="290" y="146.5">Inference Gateway</text>
+  <text class="dg-s dg-c" x="290" y="162.5">outbox in the run's txn</text>
+  <rect class="dg-box" x="420" y="118" width="180" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="510" y="154.5">model / GPU pool</text>
+  <path class="dg-line" d="M 160,150 L 182,150"></path>
+  <path class="dg-head" d="M 182,155 L 182,145 L 190,150 Z"></path>
+  <path class="dg-line" d="M 390,150 L 412,150"></path>
+  <path class="dg-head" d="M 412,155 L 412,145 L 420,150 Z"></path>
+  <rect class="dg-group" x="190" y="220" width="420" height="200" rx="12"></rect>
+  <text class="dg-group-t" x="206" y="242">① SYNCHRONOUS — APPROXIMATE, FAILS OPEN</text>
+  <rect class="dg-box" x="206" y="252" width="180" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="296" y="280.5">Admission Service</text>
+  <text class="dg-s dg-c" x="296" y="296.5">in-process leases</text>
+  <path class="dg-box" d="M 410,259 L 410,309 A 92,7 0 0 0 594,309 L 594,259 A 92,7 0 0 0 410,259 Z"></path>
+  <path class="dg-box" d="M 410,259 A 92,7 0 0 0 594,259" style="fill:none"></path>
+  <text class="dg-t dg-c" x="502" y="284">Redis Cluster</text>
+  <text class="dg-s dg-c" x="502" y="300">budget:{org} · resv:{run}</text>
+  <path class="dg-line" d="M 386,284 L 402,284"></path>
+  <path class="dg-head" d="M 402,289 L 402,279 L 410,284 Z"></path>
+  <rect class="dg-warn" x="206" y="340" width="388" height="60" rx="8"></rect>
+  <text class="dg-warn-t dg-c" x="400" y="366.5">429 spend_limit_exceeded</text>
+  <text class="dg-s dg-c" x="400" y="382.5">overshoot is bounded, not zero</text>
+  <path class="dg-line" d="M 190,150 L 178,150 L 178,284 L 198,284"></path>
+  <path class="dg-head" d="M 198,289 L 198,279 L 206,284 Z"></path>
+  <rect class="dg-group" x="650" y="220" width="330" height="290" rx="12"></rect>
+  <text class="dg-group-t" x="666" y="242">② ASYNCHRONOUS — EXACT, LOSES NOTHING</text>
+  <rect class="dg-box" x="666" y="252" width="298" height="56" rx="8"></rect>
+  <path class="dg-qbar" d="M 679,261 L 679,299"></path>
+  <path class="dg-qbar" d="M 688,261 L 688,299"></path>
+  <path class="dg-qbar" d="M 697,261 L 697,299"></path>
+  <text class="dg-t dg-c" x="833" y="276.5">Kafka usage.raw</text>
+  <text class="dg-s dg-c" x="833" y="292.5">key org_id · acks=all</text>
+  <rect class="dg-box" x="666" y="332" width="298" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="815" y="352.5">Rate &amp; post workers</text>
+  <text class="dg-s dg-c" x="815" y="368.5">dedupe on run_id</text>
+  <text class="dg-s dg-c" x="815" y="384.5">price by occurred_at</text>
+  <path class="dg-box" d="M 666,427 L 666,469 A 149,7 0 0 0 964,469 L 964,427 A 149,7 0 0 0 666,427 Z"></path>
+  <path class="dg-box" d="M 666,427 A 149,7 0 0 0 964,427" style="fill:none"></path>
+  <text class="dg-t dg-c" x="815" y="448">ClickHouse</text>
+  <text class="dg-s dg-c" x="815" y="464">ORDER BY (org_id, occurred_at)</text>
+  <path class="dg-line" d="M 815,308 L 815,324"></path>
+  <path class="dg-head" d="M 810,324 L 820,324 L 815,332 Z"></path>
+  <path class="dg-line" d="M 815,396 L 815,412"></path>
+  <path class="dg-head" d="M 810,412 L 820,412 L 815,420 Z"></path>
+  <path class="dg-line" d="M 340,182 L 340,200 L 815,200 L 815,244"></path>
+  <path class="dg-head" d="M 810,244 L 820,244 L 815,252 Z"></path>
+  <text class="dg-lbl dg-c" x="577" y="192">outbox pump</text>
+  <path class="dg-line" d="M 666,360 L 630,360 L 630,300 L 602,300"></path>
+  <path class="dg-head" d="M 602,295 L 602,305 L 594,300 Z"></path>
+  <text class="dg-lbl" x="672" y="318">materialised balance</text>
+  <path class="dg-box" d="M 190,567 L 190,617 A 210,7 0 0 0 610,617 L 610,567 A 210,7 0 0 0 190,567 Z"></path>
+  <path class="dg-box" d="M 190,567 A 210,7 0 0 0 610,567" style="fill:none"></path>
+  <text class="dg-t dg-c" x="400" y="592">Ledger — Postgres + Citus</text>
+  <text class="dg-s dg-c" x="400" y="608">append-only · hash-chained · by org_id</text>
+  <path class="dg-line" d="M 815,476 L 815,530 L 400,530 L 400,552"></path>
+  <path class="dg-head" d="M 395,552 L 405,552 L 400,560 Z"></path>
+  <text class="dg-lbl" x="430" y="522">hourly aggregate per org</text>
+  <rect class="dg-box" x="650" y="560" width="150" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="725" y="596.5">Invoicing</text>
+  <rect class="dg-box" x="830" y="560" width="150" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="905" y="596.5">PSP</text>
+  <path class="dg-line" d="M 610,592 L 642,592"></path>
+  <path class="dg-head" d="M 642,597 L 642,587 L 650,592 Z"></path>
+  <path class="dg-line" d="M 800,592 L 822,592"></path>
+  <path class="dg-head" d="M 822,597 L 822,587 L 830,592 Z"></path>
+  <rect class="dg-box" x="190" y="660" width="280" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="330" y="688.5">Reconciliation</text>
+  <text class="dg-s dg-c" x="330" y="704.5">gateway ↔ ledger ↔ settlement</text>
+  <path class="dg-box" d="M 500,667 L 500,717 A 110,7 0 0 0 720,717 L 720,667 A 110,7 0 0 0 500,667 Z"></path>
+  <path class="dg-box" d="M 500,667 A 110,7 0 0 0 720,667" style="fill:none"></path>
+  <text class="dg-t dg-c" x="610" y="692">S3 Object Lock</text>
+  <text class="dg-s dg-c" x="610" y="708">audit chain heads</text>
+  <path class="dg-line" d="M 330,624 L 330,652"></path>
+  <path class="dg-head" d="M 325,652 L 335,652 L 330,660 Z"></path>
+  <path class="dg-line" d="M 560,624 L 560,652"></path>
+  <path class="dg-head" d="M 555,652 L 565,652 L 560,660 Z"></path>
+  <text class="dg-note" x="20" y="760">Nothing on the request path writes to a database. The first durable, ordered, money-shaped write happens in a worker nobody is waiting on.</text>
+</svg>
+</div>
+
+<p class="diagram-cap">Draw the two dashed boxes before anything inside them. Left of the split nothing may block a request and everything is allowed to be approximate; right of it nothing may lose a write. The ledger is the only component that belongs to both halves.</p>
+
 <div class="diagram" data-board="flows">
 <svg viewBox="0 0 1000 712" role="img" aria-label="Billing high-level design, split down the middle. A header band: API request, inference gateway which admits synchronously and writes a usage event to a local outbox in the run's transaction, and the GPU pool. Left column, synchronous and approximate: admission service holding in-process leases, Redis holding budgets and reservations, and a spend-limit rejection whose overshoot is bounded. Right column, asynchronous and exact: Kafka usage.raw, rate-and-post workers that dedupe on run id, and ClickHouse. One arrow crosses the divide, carrying the materialised balance back to Redis. Both halves meet at an append-only ledger in Postgres, below which sit reconciliation, invoicing and the payment processor.">
   <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>

@@ -44,9 +44,41 @@ s.box(30,428,460,44,"delivery is a hint; versions are the truth",cls='dg-good',b
 s.box(510,428,450,44,"the layer is writable, the effect is not",cls='dg-good')
 SKEL_CAP = "Badge 1 goes on the board before any box, and it is four layers deep, evaluated per key. Everything else here exists to get the right inputs into that function and to tell clients when an input moved."
 
+a = Board(550, "Settings sync architecture. A client holding a resolve function over four layers and a SQLite store of source documents, their versions and a pending patch. A write path: settings API doing compare-and-set on a pointer in Postgres, which holds immutable revisions, the current pointer, membership and an outbox in one transaction, plus a Redis cache of effective documents keyed by aggregate version. The outbox drains to Kafka keyed by entity, then a fanout service, then a WebSocket gateway backed by a Redis connection registry. Version-addressed entity reads are served from a CDN.")
+a.banner("Push is a hint, never a value — kill the socket tier and convergence degrades from ~2 s to ≤60 s, and nothing else changes.")
+a.group(20, 86, 220, 180, "CLIENT (IDE)")
+a.box(36, 118, 188, 56, "resolve()", ["four layers, per key"])
+a.cyl(36, 190, 188, 56, "SQLite", ["source docs + versions", "pending patch"])
+a.group(300, 86, 400, 220, "WRITE PATH")
+a.box(316, 118, 180, 90, "Settings API", ["CAS on the pointer", "PUT If-Match", "412 + current doc"])
+a.cyl(520, 118, 164, 90, "Postgres", ["revision (immutable)", "current (pointer)", "membership · outbox"])
+a.arrow((496, 163), (520, 163))
+a.cyl(440, 220, 244, 56, "Redis", ["effective doc, by aggregate_version"])
+a.queue(740, 118, 240, 56, "Kafka", ["keyed by entity"])
+a.arrow((684, 146), (740, 146))
+a.box(740, 200, 240, 56, "Fanout", ["team → members, paged"])
+a.arrow((860, 174), (860, 200))
+a.box(740, 290, 240, 56, "WS gateway")
+a.cyl(740, 370, 240, 56, "Registry — Redis", ["user → gateway, TTL"])
+a.arrow((860, 256), (860, 290)); a.line((860, 346), (860, 370))
+a.arrow((740, 318), (278, 318), (278, 240), (240, 240))
+a.text(276, 338, "{entity, version} — a hint, not a value", 'dg-lbl')
+a.cyl(420, 400, 240, 56, "CDN", ["version-addressed, immutable"])
+a.arrow((240, 250), (262, 250), (262, 428), (420, 428))
+a.arrow((360, 208), (360, 290), (500, 290), (500, 400))
+a.text(370, 286, "origin", 'dg-lbl')
+a.arrow((240, 134), (316, 134))
+a.arrow((316, 160), (240, 160))
+a.text(20, 520, "There is only one recovery path and it is also the normal path: compare the manifest, fetch what moved, re-run resolve(). The socket only makes it faster.", 'dg-note')
+
+ARCH_CAP = ("The socket tier is the only part of this board you could delete and still have a correct "
+            "system. Draw it last, and label its arrow with what it carries — an entity and a version, "
+            "never a value.")
+
 PAGE = 'design-settings-sync.md'
-place(PAGE, 'flows', b, HLD_CAP, section='## 6 ')
+place(PAGE, 'architecture', a, ARCH_CAP, after_heading='## 6 ')
+place(PAGE, 'flows', b, HLD_CAP)
 place(PAGE, 'skeleton', s, SKEL_CAP, after_heading='## 14 ')
 
-BOARDS = 2
-WARN = b.warn + s.warn
+BOARDS = 3
+WARN = a.warn + b.warn + s.warn

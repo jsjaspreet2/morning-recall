@@ -126,6 +126,94 @@ DELETE /v1/bookings/{id}                → cancel
 
 ## 6 · High-level design — flows
 
+<div class="diagram" data-board="architecture">
+<svg viewBox="0 0 1000 750" role="img" aria-label="Airbnb architecture. Clients on the left. A search tier: search service and pricing service reading a geo-sharded Elasticsearch cluster carrying the availability bitmap, plus a Redis price cache. A booking tier: booking API, Temporal workers, a Postgres reservations store with an exclusion constraint sharded by listing id, the payment processor, and a co-sharded listings store. On the right, a Kafka outbox feeding consumers that update the search index. At the bottom, an external tier polling iCal calendars.">
+  <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
+  <text class="dg-banner-t dg-c" x="500" y="33.5">The search tier never touches the reservations database — it reads an index built from the change stream.</text>
+  <rect class="dg-box" x="20" y="200" width="150" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="95" y="228.5">Clients</text>
+  <text class="dg-s dg-c" x="95" y="244.5">web · iOS · Android</text>
+  <rect class="dg-group" x="200" y="86" width="520" height="166" rx="12"></rect>
+  <text class="dg-group-t" x="216" y="108">SEARCH — 100k QPS, STALE-TOLERANT</text>
+  <rect class="dg-box" x="216" y="118" width="160" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="296" y="150.5">Search Service</text>
+  <path class="dg-box" d="M 400,125 L 400,167 A 150,7 0 0 0 700,167 L 700,125 A 150,7 0 0 0 400,125 Z"></path>
+  <path class="dg-box" d="M 400,125 A 150,7 0 0 0 700,125" style="fill:none"></path>
+  <text class="dg-t dg-c" x="550" y="146">Elasticsearch</text>
+  <text class="dg-s dg-c" x="550" y="162">geo-sharded · availability bitmap</text>
+  <rect class="dg-box" x="216" y="194" width="160" height="50" rx="8"></rect>
+  <text class="dg-t dg-c" x="296" y="223.5">Pricing Service</text>
+  <path class="dg-box" d="M 400,201 L 400,237 A 150,7 0 0 0 700,237 L 700,201 A 150,7 0 0 0 400,201 Z"></path>
+  <path class="dg-box" d="M 400,201 A 150,7 0 0 0 700,201" style="fill:none"></path>
+  <text class="dg-t dg-c" x="550" y="219">Price cache — Redis</text>
+  <text class="dg-s dg-c" x="550" y="235">(listing, date range, guests)</text>
+  <path class="dg-line" d="M 376,146 L 392,146"></path>
+  <path class="dg-head" d="M 392,151 L 392,141 L 400,146 Z"></path>
+  <path class="dg-line" d="M 376,219 L 392,219"></path>
+  <path class="dg-head" d="M 392,224 L 392,214 L 400,219 Z"></path>
+  <rect class="dg-group" x="200" y="320" width="520" height="230" rx="12"></rect>
+  <text class="dg-group-t" x="216" y="342">BOOKING — 23/SEC, STRICTLY CORRECT</text>
+  <rect class="dg-box" x="216" y="352" width="160" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="296" y="384.5">Booking API</text>
+  <rect class="dg-box" x="216" y="428" width="160" height="72" rx="8"></rect>
+  <text class="dg-t dg-c" x="296" y="460.5">Temporal workers</text>
+  <text class="dg-s dg-c" x="296" y="476.5">durable execution</text>
+  <path class="dg-box" d="M 400,359 L 400,401 A 150,7 0 0 0 700,401 L 700,359 A 150,7 0 0 0 400,359 Z"></path>
+  <path class="dg-box" d="M 400,359 A 150,7 0 0 0 700,359" style="fill:none"></path>
+  <text class="dg-t dg-c" x="550" y="380">Reservations — Postgres</text>
+  <text class="dg-s dg-c" x="550" y="396">EXCLUDE USING gist, by listing_id</text>
+  <rect class="dg-box" x="400" y="440" width="140" height="60" rx="8"></rect>
+  <text class="dg-t dg-c" x="470" y="474.5">Payments (PSP)</text>
+  <path class="dg-box" d="M 560,447 L 560,493 A 70,7 0 0 0 700,493 L 700,447 A 70,7 0 0 0 560,447 Z"></path>
+  <path class="dg-box" d="M 560,447 A 70,7 0 0 0 700,447" style="fill:none"></path>
+  <text class="dg-t dg-c" x="630" y="470">Listings</text>
+  <text class="dg-s dg-c" x="630" y="486">Postgres</text>
+  <path class="dg-line" d="M 296,408 L 296,420"></path>
+  <path class="dg-head" d="M 291,420 L 301,420 L 296,428 Z"></path>
+  <path class="dg-line" d="M 376,464 L 392,464"></path>
+  <path class="dg-head" d="M 392,469 L 392,459 L 400,464 Z"></path>
+  <path class="dg-line" d="M 376,440 L 390,440 L 390,380 L 392,380"></path>
+  <path class="dg-head" d="M 392,385 L 392,375 L 400,380 Z"></path>
+  <path class="dg-line" d="M 630,408 L 630,440"></path>
+  <rect class="dg-box" x="770" y="352" width="200" height="56" rx="8"></rect>
+  <path class="dg-qbar" d="M 783,361 L 783,399"></path>
+  <path class="dg-qbar" d="M 792,361 L 792,399"></path>
+  <path class="dg-qbar" d="M 801,361 L 801,399"></path>
+  <text class="dg-t dg-c" x="888" y="376.5">Kafka</text>
+  <text class="dg-s dg-c" x="888" y="392.5">outbox</text>
+  <rect class="dg-box" x="770" y="440" width="200" height="72" rx="8"></rect>
+  <text class="dg-t dg-c" x="870" y="464.5">Consumers</text>
+  <text class="dg-s dg-c" x="870" y="480.5">search index update</text>
+  <text class="dg-s dg-c" x="870" y="496.5">notify · calendar push</text>
+  <path class="dg-line" d="M 870,408 L 870,432"></path>
+  <path class="dg-head" d="M 865,432 L 875,432 L 870,440 Z"></path>
+  <path class="dg-line" d="M 700,380 L 762,380"></path>
+  <path class="dg-head" d="M 762,385 L 762,375 L 770,380 Z"></path>
+  <path class="dg-line" d="M 970,440 L 985,440 L 985,146 L 728,146"></path>
+  <path class="dg-head" d="M 728,141 L 728,151 L 720,146 Z"></path>
+  <text class="dg-lbl" x="760" y="138">index updates (~seconds)</text>
+  <path class="dg-line" d="M 170,216 L 186,216 L 186,146 L 208,146"></path>
+  <path class="dg-head" d="M 208,151 L 208,141 L 216,146 Z"></path>
+  <path class="dg-line" d="M 170,248 L 194,248 L 194,380 L 208,380"></path>
+  <path class="dg-head" d="M 208,385 L 208,375 L 216,380 Z"></path>
+  <rect class="dg-group" x="200" y="590" width="780" height="110" rx="12"></rect>
+  <text class="dg-group-t" x="216" y="612">EXTERNAL — WHERE DOUBLE BOOKINGS ACTUALLY COME FROM</text>
+  <rect class="dg-box" x="216" y="622" width="180" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="306" y="646.5">iCal poller</text>
+  <text class="dg-s dg-c" x="306" y="662.5">every few minutes</text>
+  <rect class="dg-box" x="430" y="622" width="200" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="530" y="646.5">Calendar Sync</text>
+  <text class="dg-s dg-c" x="530" y="662.5">detect, don't prevent</text>
+  <path class="dg-line" d="M 396,650 L 422,650"></path>
+  <path class="dg-head" d="M 422,655 L 422,645 L 430,650 Z"></path>
+  <path class="dg-line" d="M 630,650 L 700,650 L 700,558"></path>
+  <path class="dg-head" d="M 705,558 L 695,558 L 700,550 Z"></path>
+  <text class="dg-note" x="20" y="730">The search tier reads an index, never the reservations database. That gap is what lets 100k QPS coexist with one Postgres constraint doing all the arbitration.</text>
+</svg>
+</div>
+
+<p class="diagram-cap">Two tiers that share no store. The only thing crossing between them is a Kafka outbox read seconds later — draw that gap deliberately, because it is what makes a 1000:1 read ratio survivable without weakening the one constraint that guarantees correctness.</p>
+
 <div class="diagram" data-board="flows">
 <svg viewBox="0 0 1000 600" role="img" aria-label="Airbnb high-level design. A search lane carrying 99.9% of traffic: client to search service to Elasticsearch with a geo bounding box and availability bitmap, then hydration. A booking lane: client to booking API to a Temporal workflow whose four steps end at a reservations database with an exclusion constraint. An outbox feeds Kafka, which updates the search index seconds later. A third lane polls external iCal calendars, the real source of double bookings.">
   <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>

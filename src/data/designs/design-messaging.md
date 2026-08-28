@@ -147,6 +147,89 @@ Two consequences that catch people out:
 
 ## 6 · High-level design — flows
 
+<div class="diagram" data-board="architecture">
+<svg viewBox="0 0 1000 590" role="img" aria-label="Messaging architecture. Roughly a billion devices holding one socket each into a fleet of about ten thousand connection gateways. A Redis connection registry maps device to gateway. A message service resolves members to devices and writes to a message log sharded by conversation id, with cursors co-partitioned alongside. A Kafka outbox feeds receipts, search indexing and analytics, and a push tier for offline devices. A separate sync service backed by a Redis conversation list.">
+  <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
+  <text class="dg-banner-t dg-c" x="500" y="33.5">The store is boring and the gateway tier is enormous: 120 writes/sec per shard against ~10 k nodes holding a billion sockets.</text>
+  <rect class="dg-box" x="20" y="240" width="150" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="95" y="268.5">Devices</text>
+  <text class="dg-s dg-c" x="95" y="284.5">~1 B, one socket each</text>
+  <rect class="dg-group" x="200" y="86" width="560" height="130" rx="12"></rect>
+  <text class="dg-group-t" x="216" y="108">CONNECTION GATEWAYS — ~10 k NODES</text>
+  <rect class="dg-box" x="216" y="118" width="168" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="300" y="146.5">Gateway</text>
+  <text class="dg-s dg-c" x="300" y="162.5">holds sockets</text>
+  <rect class="dg-box" x="396" y="118" width="168" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="480" y="146.5">Gateway</text>
+  <text class="dg-s dg-c" x="480" y="162.5">holds sockets</text>
+  <rect class="dg-box" x="576" y="118" width="168" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="660" y="146.5">Gateway</text>
+  <text class="dg-s dg-c" x="660" y="162.5">holds sockets</text>
+  <path class="dg-box" d="M 790,125 L 790,175 A 90,7 0 0 0 970,175 L 970,125 A 90,7 0 0 0 790,125 Z"></path>
+  <path class="dg-box" d="M 790,125 A 90,7 0 0 0 970,125" style="fill:none"></path>
+  <text class="dg-t dg-c" x="880" y="150">Connection registry</text>
+  <text class="dg-s dg-c" x="880" y="166">Redis, device → gateway</text>
+  <rect class="dg-group" x="200" y="260" width="560" height="180" rx="12"></rect>
+  <text class="dg-group-t" x="216" y="282">MESSAGE SERVICE + STORE</text>
+  <path class="dg-box" d="M 216,299 L 216,349 A 140,7 0 0 0 496,349 L 496,299 A 140,7 0 0 0 216,299 Z"></path>
+  <path class="dg-box" d="M 216,299 A 140,7 0 0 0 496,299" style="fill:none"></path>
+  <text class="dg-t dg-c" x="356" y="316">Message log</text>
+  <text class="dg-s dg-c" x="356" y="332">sharded by conversation_id</text>
+  <text class="dg-s dg-c" x="356" y="348">seq = last_seq + 1</text>
+  <rect class="dg-box" x="520" y="292" width="224" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="632" y="320.5">Message Service</text>
+  <text class="dg-s dg-c" x="632" y="336.5">members → devices</text>
+  <path class="dg-line" d="M 520,324 L 504,324"></path>
+  <path class="dg-head" d="M 504,319 L 504,329 L 496,324 Z"></path>
+  <path class="dg-box" d="M 216,383 L 216,419 A 140,7 0 0 0 496,419 L 496,383 A 140,7 0 0 0 216,383 Z"></path>
+  <path class="dg-box" d="M 216,383 A 140,7 0 0 0 496,383" style="fill:none"></path>
+  <text class="dg-t dg-c" x="356" y="401">Cursors</text>
+  <text class="dg-s dg-c" x="356" y="417">co-partitioned with the log</text>
+  <path class="dg-line" d="M 600,216 L 600,284"></path>
+  <path class="dg-head" d="M 595,284 L 605,284 L 600,292 Z"></path>
+  <text class="dg-lbl dg-c" x="600" y="250">send</text>
+  <path class="dg-line" d="M 680,292 L 680,224"></path>
+  <path class="dg-head" d="M 685,224 L 675,224 L 680,216 Z"></path>
+  <text class="dg-lbl dg-c" x="680" y="250">deliver</text>
+  <path class="dg-line" d="M 744,310 L 776,310 L 776,150 L 782,150"></path>
+  <path class="dg-head" d="M 782,155 L 782,145 L 790,150 Z"></path>
+  <rect class="dg-box" x="790" y="292" width="180" height="56" rx="8"></rect>
+  <path class="dg-qbar" d="M 803,301 L 803,339"></path>
+  <path class="dg-qbar" d="M 812,301 L 812,339"></path>
+  <path class="dg-qbar" d="M 821,301 L 821,339"></path>
+  <text class="dg-t dg-c" x="898" y="316.5">Kafka</text>
+  <text class="dg-s dg-c" x="898" y="332.5">outbox</text>
+  <rect class="dg-box" x="790" y="376" width="180" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="880" y="404.5">Consumers</text>
+  <text class="dg-s dg-c" x="880" y="420.5">receipts · search · analytics</text>
+  <rect class="dg-box" x="790" y="470" width="180" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="880" y="494.5">APNs / FCM</text>
+  <text class="dg-s dg-c" x="880" y="510.5">wake-up hint, no body</text>
+  <path class="dg-line" d="M 744,340 L 762,340 L 762,320 L 782,320"></path>
+  <path class="dg-head" d="M 782,325 L 782,315 L 790,320 Z"></path>
+  <path class="dg-line" d="M 880,348 L 880,368"></path>
+  <path class="dg-head" d="M 875,368 L 885,368 L 880,376 Z"></path>
+  <path class="dg-line" d="M 880,440 L 880,462"></path>
+  <path class="dg-head" d="M 875,462 L 885,462 L 880,470 Z"></path>
+  <rect class="dg-box" x="216" y="470" width="180" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="306" y="494.5">Sync service</text>
+  <text class="dg-s dg-c" x="306" y="510.5">per-device watermark</text>
+  <path class="dg-box" d="M 430,477 L 430,519 A 135,7 0 0 0 700,519 L 700,477 A 135,7 0 0 0 430,477 Z"></path>
+  <path class="dg-box" d="M 430,477 A 135,7 0 0 0 700,477" style="fill:none"></path>
+  <text class="dg-t dg-c" x="565" y="498">Conversation list</text>
+  <text class="dg-s dg-c" x="565" y="514">Redis zset, convs:{user}</text>
+  <path class="dg-line" d="M 396,498 L 422,498"></path>
+  <path class="dg-head" d="M 422,503 L 422,493 L 430,498 Z"></path>
+  <path class="dg-line" d="M 170,258 L 182,258 L 182,150 L 208,150"></path>
+  <path class="dg-head" d="M 208,155 L 208,145 L 216,150 Z"></path>
+  <path class="dg-line" d="M 170,290 L 194,290 L 194,498 L 208,498"></path>
+  <path class="dg-head" d="M 208,503 L 208,493 L 216,498 Z"></path>
+  <text class="dg-note" x="20" y="560">Delivery is a lookup, not a broadcast — nothing subscribes to a conversation. And nothing is retried at the delivery layer, because sync is authoritative.</text>
+</svg>
+</div>
+
+<p class="diagram-cap">Count the boxes: the store is one cylinder and the gateway tier is a fleet. If you spend the round sharding the database you have designed the cheap half — the interesting number is the connection count, two orders of magnitude above the write rate.</p>
+
 <div class="diagram" data-board="flows">
 <svg viewBox="0 0 1000 662" role="img" aria-label="Messaging high-level design. Send path: client with a client message id and optimistic echo, connection gateways, message service, and a message store sharded by conversation that assigns a sequence number and appends durably in one atomic step. Deliver path: the message service resolves members to devices, looks each up in a Redis connection registry, groups them by gateway and pushes one batched RPC per gateway; devices with no registry entry get a push notification carrying no body. Reconnect path: backoff with jitter, a sync token, then per-conversation catch-up.">
   <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>

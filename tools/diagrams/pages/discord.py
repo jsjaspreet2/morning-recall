@@ -53,9 +53,46 @@ s.box(660,394,300,50,"Read state",["write-behind · coalescing cache"],badge=9)
 s.box(30,462,930,40,"Degrade in this order: presence → read state → history depth. Never live message delivery.",cls='dg-warn',badge=10)
 SKEL_CAP = "The bottom row is the one candidates skip. Presence, read state and the degradation order are not decoration — presence is the highest-volume event type in the system, and scoping it out is what makes the connection look stateless when it is not."
 
+a = Board(512, "Discord architecture. Clients holding one WebSocket each. A write tier over HTTP: API service, ScyllaDB for messages partitioned by channel and bucket, Postgres for guild metadata and roles, and ScyllaDB for read state. A guild process tier, one owner per guild, resolving online members and grouping them by gateway node. A gateway fleet of roughly ten thousand nodes holding fifteen million sockets, with a Redis session registry on a heartbeat TTL. Attachments go to S3 and a CDN, never through the gateway.")
+a.banner("Ingest is trivial; fanout is not. One API tier, one process per guild, and ~10 k gateway nodes holding 15 M sockets.")
+a.box(20, 240, 150, 64, "Clients", ["one WebSocket each"])
+a.cyl(20, 340, 150, 64, "S3 + CDN", ["attachments"])
+a.line((95, 304), (95, 340))
+
+a.group(200, 86, 420, 180, "WRITE — OVER HTTP")
+a.box(216, 118, 180, 64, "API service", ["permissions once", "Snowflake id"])
+a.cyl(420, 118, 180, 64, "ScyllaDB", ["(channel_id, bucket)"])
+a.arrow((396, 150), (420, 150))
+a.cyl(216, 200, 180, 50, "Postgres", ["guilds · roles"])
+a.cyl(420, 200, 180, 50, "Read state", ["Scylla, write-behind"])
+
+a.group(680, 86, 300, 150, "GUILD PROCESSES")
+a.box(696, 118, 270, 90, "Guild / channel process",
+      ["one owner per guild", "resolves ONLINE members", "groups them by gateway node"])
+a.arrow((306, 182), (306, 196), (628, 196), (628, 150), (696, 150))
+a.ctext(650, 214, "publish", 'dg-lbl')
+
+a.group(200, 300, 780, 130, "GATEWAY FLEET — ~10 k NODES, 15 M SOCKETS")
+for x in (216, 406, 596):
+    a.box(x, 340, 180, 64, "Gateway node", ["stamps a per-session seq"])
+a.cyl(800, 340, 166, 64, "Session registry", ["Redis, heartbeat TTL"])
+a.line((830, 236), (830, 283)); a.line((306, 283), (830, 283))
+for cx in (306, 496, 686):
+    a.arrow((cx, 283), (cx, 340))
+a.line((800, 372), (776, 372))
+a.arrow((170, 258), (186, 258), (186, 150), (216, 150))
+a.arrow((216, 372), (194, 372), (194, 290), (170, 290))
+a.text(20, 470, "Attachment bytes never pass through the gateway — the message row carries a pointer to S3.", 'dg-s')
+a.text(20, 492, "There is no broker in the delivery path: it would add a durable hop to something explicitly not durable.", 'dg-note')
+
+ARCH_CAP = ("One process per guild is the whole architecture. It is the only component that knows which "
+            "members are online, so it is the only place the recipient list can be grouped by gateway "
+            "node — and that grouping is the 100× win.")
+
 PAGE = 'design-discord.md'
-place(PAGE, 'flows', b, HLD_CAP, section='## 6 ')
+place(PAGE, 'architecture', a, ARCH_CAP, after_heading='## 6 ')
+place(PAGE, 'flows', b, HLD_CAP)
 place(PAGE, 'skeleton', s, SKEL_CAP, after_heading='## 14 ')
 
-BOARDS = 2
-WARN = b.warn + s.warn
+BOARDS = 3
+WARN = a.warn + b.warn + s.warn

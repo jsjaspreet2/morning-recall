@@ -53,12 +53,48 @@ s.box(510,308,450,64,"WebSocket push",["the client reconciles on reconnect"],bad
 s.box(30,392,930,50,"Region-sharded ride DB · payment pre-auth at start, async capture at end — the trip never blocks on payment",badge=8)
 SKEL_CAP = "Badge 1 first, out loud: two systems, a thousand-to-one write ratio, and only one of them is allowed to lose data. Draw them as separate diagrams and the rest of the round follows."
 
+a2 = Board(660, "Uber architecture, two systems side by side. A supply tier: driver apps pinging a regional location gateway every four seconds, a location service computing an H3 cell, an in-memory geo index sharded by cell and backed by Redis, and a cold fork to Kafka and the warehouse. A demand tier: rider app, API gateway, ride service returning immediately, a matching service that owns a cell range on the consistent-hash ring and is the only reader of the geo index, and a region-sharded ride database. Kafka carries ride events to push notifications.")
+a2.banner("Two systems with a 1000:1 write ratio: a disposable supply firehose and a durable ride lifecycle. Only one may lose data.")
+a2.group(20, 86, 470, 200, "SUPPLY — 2.5 M WRITES/SEC, DISPOSABLE")
+a2.box(36, 118, 180, 64, "Driver app", ["ping / 4 s"])
+a2.box(256, 118, 218, 64, "Location Gateway", ["WebSocket, regional"])
+a2.arrow((216, 150), (256, 150))
+a2.cyl(36, 206, 218, 64, "Geo index", ["in memory, by cell", "Redis-backed"])
+a2.box(274, 206, 200, 64, "Location Service", ["h3.latLngToCell"])
+a2.arrow((365, 182), (365, 206))
+a2.arrow((274, 238), (254, 238))
+a2.queue(540, 206, 200, 56, "Kafka", ["driver.locations"])
+a2.cyl(780, 206, 200, 56, "S3 / warehouse")
+a2.arrow((490, 234), (540, 234)); a2.arrow((740, 234), (780, 234))
+a2.box(436, 300, 268, 56, "Pricing · Routing", ["signed quote, expiresAt"])
+a2.group(20, 360, 700, 220, "DEMAND — 30 k WRITES/SEC, DURABLE")
+a2.box(36, 392, 160, 64, "Rider app")
+a2.box(236, 392, 160, 64, "API Gateway")
+a2.box(436, 392, 268, 64, "Ride Service", ["201 without a match"])
+a2.arrow((196, 424), (236, 424)); a2.arrow((396, 424), (436, 424))
+a2.box(236, 480, 200, 64, "Matching Service", ["owns a cell range"])
+a2.cyl(476, 480, 228, 64, "Ride DB", ["sharded by region · outbox"])
+a2.arrow((570, 456), (570, 480)); a2.arrow((336, 456), (336, 480)); a2.arrow((436, 512), (476, 512))
+a2.arrow((236, 512), (200, 512), (200, 290), (145, 290), (145, 270))
+a2.text(206, 334, "reads supply", 'dg-lbl')
+a2.arrow((570, 392), (570, 356))
+a2.queue(760, 392, 220, 56, "Kafka", ["ride events"])
+a2.box(760, 480, 220, 64, "Push / notifications", ["connection registry"])
+a2.arrow((704, 420), (760, 420)); a2.arrow((870, 448), (870, 480))
+a2.arrow((760, 512), (720, 512), (720, 610), (116, 610), (116, 456))
+a2.text(20, 640, "The hot path answers one question — who is near here, right now. Never route a matching query through Kafka: it is a log, not an index.", 'dg-note')
+
+ARCH_CAP = ("Two boards' worth of system drawn as two boxes, and the only arrow between them is the matcher "
+            "reading the geo index. That single reader is what makes the matcher a single writer over its "
+            "cell range, which is what removes the distributed lock.")
+
 PAGE = 'design-uber.md'
 # §6 holds two fenced blocks; the later one is replaced first so the
 # earlier one's fence indices are still valid for the call below it.
-place(PAGE, 'demand', b, FLOW_B_CAP, section='## 6 ', nth=1)
-place(PAGE, 'supply', a, FLOW_A_CAP, section='## 6 ', nth=0)
+place(PAGE, 'architecture', a2, ARCH_CAP, after_heading='## 6 ')
+place(PAGE, 'demand', b, FLOW_B_CAP)
+place(PAGE, 'supply', a, FLOW_A_CAP)
 place(PAGE, 'skeleton', s, SKEL_CAP, after_heading='## 14 ')
 
-BOARDS = 3
-WARN = a.warn + b.warn + s.warn
+BOARDS = 4
+WARN = a2.warn + a.warn + b.warn + s.warn

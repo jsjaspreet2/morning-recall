@@ -123,6 +123,88 @@ DELETE /v1/users/{id}/follow        → 204
 
 ## 6 · High-level design — flows
 
+<div class="diagram" data-board="architecture">
+<svg viewBox="0 0 1000 672" role="img" aria-label="Feed architecture. Clients on the left. A write tier: tweet service writing to a Cassandra tweet store keyed by tweet id, plus an author timeline index. A fanout tier: Kafka with queues tiered by follower count, fanout workers, and Redis timeline sorted sets. A Cassandra follow graph stored in both directions. A read tier: timeline service merging from the timeline cache, then hydration against a Memcached tweet cache and Redis counts.">
+  <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
+  <text class="dg-banner-t dg-c" x="500" y="33.5">The write path ends at the tweet store; everything after the outbox is asynchronous and best-effort.</text>
+  <rect class="dg-box" x="20" y="200" width="150" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="95" y="236.5">Clients</text>
+  <rect class="dg-group" x="200" y="86" width="470" height="166" rx="12"></rect>
+  <text class="dg-group-t" x="216" y="108">WRITE</text>
+  <rect class="dg-box" x="216" y="118" width="160" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="296" y="142.5">Tweet Service</text>
+  <text class="dg-s dg-c" x="296" y="158.5">Snowflake id</text>
+  <path class="dg-box" d="M 400,125 L 400,167 A 125,7 0 0 0 650,167 L 650,125 A 125,7 0 0 0 400,125 Z"></path>
+  <path class="dg-box" d="M 400,125 A 125,7 0 0 0 650,125" style="fill:none"></path>
+  <text class="dg-t dg-c" x="525" y="146">Tweet store</text>
+  <text class="dg-s dg-c" x="525" y="162">Cassandra, PK tweet_id</text>
+  <path class="dg-line" d="M 376,146 L 392,146"></path>
+  <path class="dg-head" d="M 392,151 L 392,141 L 400,146 Z"></path>
+  <path class="dg-box" d="M 400,201 L 400,237 A 125,7 0 0 0 650,237 L 650,201 A 125,7 0 0 0 400,201 Z"></path>
+  <path class="dg-box" d="M 400,201 A 125,7 0 0 0 650,201" style="fill:none"></path>
+  <text class="dg-t dg-c" x="525" y="219">Author timeline index</text>
+  <text class="dg-s dg-c" x="525" y="235">(author_id, bucket)</text>
+  <rect class="dg-group" x="700" y="86" width="280" height="264" rx="12"></rect>
+  <text class="dg-group-t" x="716" y="108">FANOUT</text>
+  <rect class="dg-box" x="716" y="118" width="250" height="56" rx="8"></rect>
+  <path class="dg-qbar" d="M 729,127 L 729,165"></path>
+  <path class="dg-qbar" d="M 738,127 L 738,165"></path>
+  <path class="dg-qbar" d="M 747,127 L 747,165"></path>
+  <text class="dg-t dg-c" x="859" y="142.5">Kafka</text>
+  <text class="dg-s dg-c" x="859" y="158.5">tiered by follower count</text>
+  <rect class="dg-box" x="716" y="194" width="250" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="841" y="214.5">Fanout workers</text>
+  <text class="dg-s dg-c" x="841" y="230.5">active users only</text>
+  <text class="dg-s dg-c" x="841" y="246.5">idempotent ZADD</text>
+  <path class="dg-box" d="M 716,285 L 716,327 A 125,7 0 0 0 966,327 L 966,285 A 125,7 0 0 0 716,285 Z"></path>
+  <path class="dg-box" d="M 716,285 A 125,7 0 0 0 966,285" style="fill:none"></path>
+  <text class="dg-t dg-c" x="841" y="306">Timeline cache</text>
+  <text class="dg-s dg-c" x="841" y="322">Redis zsets, capped 400</text>
+  <path class="dg-line" d="M 841,174 L 841,186"></path>
+  <path class="dg-head" d="M 836,186 L 846,186 L 841,194 Z"></path>
+  <path class="dg-line" d="M 841,258 L 841,270"></path>
+  <path class="dg-head" d="M 836,270 L 846,270 L 841,278 Z"></path>
+  <path class="dg-line" d="M 650,146 L 708,146"></path>
+  <path class="dg-head" d="M 708,151 L 708,141 L 716,146 Z"></path>
+  <path class="dg-box" d="M 400,307 L 400,349 A 125,7 0 0 0 650,349 L 650,307 A 125,7 0 0 0 400,307 Z"></path>
+  <path class="dg-box" d="M 400,307 A 125,7 0 0 0 650,307" style="fill:none"></path>
+  <text class="dg-t dg-c" x="525" y="328">Follow graph</text>
+  <text class="dg-s dg-c" x="525" y="344">Cassandra, both directions</text>
+  <path class="dg-line" d="M 716,226 L 680,226 L 680,272 L 525,272 L 525,292"></path>
+  <path class="dg-head" d="M 520,292 L 530,292 L 525,300 Z"></path>
+  <rect class="dg-group" x="200" y="470" width="780" height="150" rx="12"></rect>
+  <text class="dg-group-t" x="216" y="492">READ — HYDRATION IS THE REAL COST</text>
+  <rect class="dg-box" x="216" y="502" width="180" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="306" y="530.5">Timeline Service</text>
+  <text class="dg-s dg-c" x="306" y="546.5">merge · dedupe · cap</text>
+  <rect class="dg-box" x="430" y="502" width="180" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="520" y="538.5">Hydration</text>
+  <path class="dg-box" d="M 650,509 L 650,559 A 80,7 0 0 0 810,559 L 810,509 A 80,7 0 0 0 650,509 Z"></path>
+  <path class="dg-box" d="M 650,509 A 80,7 0 0 0 810,509" style="fill:none"></path>
+  <text class="dg-t dg-c" x="730" y="534">Tweet / author cache</text>
+  <text class="dg-s dg-c" x="730" y="550">Memcached</text>
+  <path class="dg-box" d="M 830,509 L 830,559 A 68,7 0 0 0 966,559 L 966,509 A 68,7 0 0 0 830,509 Z"></path>
+  <path class="dg-box" d="M 830,509 A 68,7 0 0 0 966,509" style="fill:none"></path>
+  <text class="dg-t dg-c" x="898" y="534">Counts</text>
+  <text class="dg-s dg-c" x="898" y="550">Redis INCR</text>
+  <path class="dg-line" d="M 396,534 L 422,534"></path>
+  <path class="dg-head" d="M 422,539 L 422,529 L 430,534 Z"></path>
+  <path class="dg-line" d="M 610,534 L 642,534"></path>
+  <path class="dg-head" d="M 642,539 L 642,529 L 650,534 Z"></path>
+  <path class="dg-line" d="M 520,566 L 520,592 L 898,592 L 898,574"></path>
+  <path class="dg-head" d="M 903,574 L 893,574 L 898,566 Z"></path>
+  <path class="dg-line" d="M 306,502 L 306,420 L 690,420 L 690,306 L 708,306"></path>
+  <path class="dg-head" d="M 708,311 L 708,301 L 716,306 Z"></path>
+  <path class="dg-line" d="M 170,216 L 186,216 L 186,146 L 208,146"></path>
+  <path class="dg-head" d="M 208,151 L 208,141 L 216,146 Z"></path>
+  <path class="dg-line" d="M 170,248 L 194,248 L 194,534 L 208,534"></path>
+  <path class="dg-head" d="M 208,539 L 208,529 L 216,534 Z"></path>
+  <text class="dg-note" x="20" y="650">Losing fanout writes degrades a timeline; it never loses a tweet. Deletes are filtered at read time rather than scrubbed out of timelines.</text>
+</svg>
+</div>
+
+<p class="diagram-cap">The timeline cache is the only box on this board that is allowed to be wrong, and drawing it as a cache rather than a store is the argument: that is what lets you cap it at 400, skip inactive users entirely, and lose a node without losing a post.</p>
+
 <div class="diagram" data-board="flows">
 <svg viewBox="0 0 1000 596" role="img" aria-label="Feed high-level design. Write path: post to the tweet service, Snowflake id, tweet store, acknowledge immediately. An outbox feeds Kafka and fanout workers with tiered queues, which read the social graph and either push into a Redis timeline cache below the follower threshold, or do nothing at all above it. Read path: timeline service merges a sorted-set range with the recent tweets of followed celebrities, then hydrates bodies, authors and counts.">
   <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
