@@ -9847,6 +9847,60 @@ generation guard still saves you.
 find yourself adding `headers`, `method` and `transformResponse`, you have rebuilt `fetch` badly
 and should have injected.
 
+**What should the injected function RETURN?** This is the follow-up, and it is a real fork:
+
+```ts
+fetchOptions: (query: string, signal: AbortSignal) => Promise<ComboboxOption[]>   // domain type
+fetchStream:  (signal: AbortSignal) => Promise<Response>                          // raw transport
+```
+
+The objection to the first is fair: the caller now has to know about `ComboboxOption`. But the
+second does not remove that coupling, it **moves it in the wrong direction** — now the *component*
+has to know the wire format. Is the body JSON? Is it `{ results: [] }` or `{ data: { items: [] } }`?
+You either hardcode one backend's envelope into a UI component, or you add a second prop
+(`parseResponse`) to tell it, which is two props doing the work of one.
+
+**The rule: depend on the shape you render, not the shape the network happens to deliver.**
+`ComboboxOption` is not the backend's type — it is *your* type, exported by your component, and it
+is deliberately tiny: `{ value, label }`. The caller's job is the adapter, and the adapter belongs
+with the caller because they are the only party who knows both sides.
+
+**So when is `Promise<Response>` right?** When there is no complete value to hand over. Ask:
+
+> *What is the smallest complete unit the caller could give me?*
+
+| Answer | Return type |
+|---|---|
+| A finished list — the caller can `await` and hand me results | `Promise<Item[]>` |
+| Nothing is ever finished; the value arrives over time | `Promise<Response>` |
+
+A combobox search resolves once, so the caller can produce the array. A token stream never
+"resolves" — the whole point is incremental arrival, and `Response.body` is the standard way to
+express bytes-over-time. That is the only reason the streaming drills take a `Response`, and it is
+why parsing is the component's job *there* and nobody's job here.
+
+**Testability is the tiebreaker.** `fetchOptions={async () => [{ value: 'a', label: 'A' }]}` is a
+one-line fake. Faking a `Response` means constructing a `ReadableStream` — worth it when you have
+no choice, absurd when you do.
+
+**The fully decoupled version, if they push.** Make the item generic and take accessors, so the
+caller returns *their* type and tells you how to read it:
+
+```ts
+function Combobox<T>({ fetchOptions, getValue, getLabel }: {
+  fetchOptions: (query: string, signal: AbortSignal) => Promise<T[]>
+  getValue: (item: T) => string
+  getLabel: (item: T) => string
+  onSelect?: (value: string, item: T) => void     // hands the whole row back
+})
+```
+
+Now nobody maps anything. The cost is three props instead of one, and worse inference at the call
+site. **Say the trade rather than picking silently:** *"I'd start with `Promise<Item[]>` and a tiny
+exported `Item` type, because the mapping is one line at the call site and the fake is one line in
+a test. If callers need their own row shape back in `onSelect` I'd make it generic with
+`getValue`/`getLabel` accessors — same decoupling, three props instead of one."*
+
 ---
 
 ### E. CALLBACK SIGNATURES
@@ -9936,6 +9990,216 @@ Say this before writing a body. It is the cheapest points in the round.
 
 The candidates who score on this axis are not the ones with more props. They are the ones who can
 say why each prop exists and which one they refused to add.
+---
+
+## 19 — Custom hooks, and the `useChat` shape
+
+A component round is graded on **component API design**. A custom hook is that same axis with the
+DOM removed, which makes it the cleanest place to show the skill — and at AI companies it is now
+the expected shape, because the Vercel AI SDK made `useChat` the thing every reviewer has seen.
+
+The move that scores is not "I extracted a hook." It is **being able to say the return type before
+you write the body**, and to say which things are state, which are actions, and which are derived.
+
+---
+
+### A. WHEN A HOOK EARNS ITS KEEP
+
+Three tests. One is enough; none of them is "the component got long."
+
+| Test | Why it is the bar |
+|---|---|
+| **Two call sites.** The same effect + state appears in a second component | The only test that is purely about reuse, and the weakest reason on its own |
+| **The logic is testable without a DOM.** You could assert on it with `renderHook` and no markup | This is the real one — it means the logic was never about rendering |
+| **The component now reads as markup.** Extracting leaves a body that is JSX plus destructuring | The reviewer's actual experience of your code |
+
+**The anti-test.** If extracting produces a hook with one call site, a seven-value return, and three
+arguments, you have moved code rather than designed an interface. Say so and leave it inline —
+recognising that is a better signal than extracting anyway.
+
+**In a timed round, the honest play is usually: build it inline, then say the sentence.**
+
+> *"This effect is the whole of a `useChat` — it owns the transcript, the request lifecycle and
+> cancellation, and none of it touches the DOM. I'd lift it out as `useChat({ fetchStream })`
+> returning `{ messages, status, send, stop }` and this component becomes markup. I'll leave it
+> inline for now so I can spend the time on the rendering you asked about."*
+
+That costs eight seconds, shows the judgement, and does not spend ten minutes proving it.
+
+---
+
+### B. THE RETURN SHAPE IS THE API
+
+This is where the points are. Four decisions, each with a rule.
+
+**1. Object, not tuple, past two values.** `useState` returns a tuple because there are exactly two
+and you rename both at the call site. Past that, positional returns are unreadable and every new
+value is a breaking change. An object lets callers take only what they use.
+
+```ts
+const [a, b, c, d] = useChat()          // what is d
+const { messages, send } = useChat()    // and the other four cost nothing
+```
+
+**2. One `status` union, not three booleans.** `isLoading`, `isError` and `isDone` can be true at
+once, and two of the eight combinations are legal. This is §18 C applied to a hook.
+
+```ts
+status: 'idle' | 'streaming' | 'done' | 'error'
+```
+
+**3. Actions are stable; values are not.** Wrap every returned function in `useCallback` so a
+consumer can put `send` in a dependency array without an infinite loop. A hook that returns a fresh
+`send` every render pushes the memoisation problem onto every caller.
+
+**4. Derive, never store.** `canRetry`, `isEmpty`, `lastMessage` are functions of `messages` and
+`status`. Storing them is storing something that can disagree with its own inputs (§02 B, question
+3). Return them computed.
+
+---
+
+### C. THE FORK: DOES THE HOOK OWN THE TRANSCRIPT?
+
+The AI SDK ships two hooks and the split between them is the design question, not a detail:
+
+| | `useChat` | `useCompletion` |
+|---|---|---|
+| Owns | the whole message array | one in-flight result |
+| For | multi-turn conversation | a one-shot prompt — rewrite, summarise, autocomplete |
+| Returns | `messages`, `send` | `completion`, `complete` |
+
+**Ask which one the prompt wants before you name your hook.** "Build a chat UI" is `useChat`.
+"Stream the model's answer into this panel" is `useCompletion`, and building the message-array
+version costs you time for state nobody asked for.
+
+**If it owns the transcript, it owns the optimistic append too.** The user's message goes into
+`messages` immediately, with the assistant's placeholder next to it, and the stream fills the
+placeholder. Say that out loud — it is what makes the UI feel instant and it is the reason the
+hook, not the component, has to own the array.
+
+---
+
+### D. A `useChat`, WRITTEN OUT
+
+Everything below is the streaming effect you already know, moved behind an interface. Note that
+**nothing here touches the DOM** — that is the property that made it extractable.
+
+```tsx
+type Message = { id: string; role: 'user' | 'assistant'; content: string }
+type Status = 'idle' | 'streaming' | 'done' | 'error'
+
+export function useChat({
+  fetchStream,                                   // injected — §18 D
+}: {
+  fetchStream: (messages: Message[], signal: AbortSignal) => Promise<Response>
+}) {
+  const [messages, setMessages] = useState<Message[]>([])
+  const [status, setStatus] = useState<Status>('idle')
+  const [error, setError] = useState<Error | null>(null)
+  const controllerRef = useRef<AbortController | null>(null)
+
+  const stop = useCallback(() => {
+    controllerRef.current?.abort()
+    setStatus('idle')
+  }, [])
+
+  const send = useCallback(
+    async (text: string) => {
+      const controller = new AbortController()
+      controllerRef.current = controller
+
+      // Optimistic: the user's turn and an empty assistant turn land together,
+      // so the stream has somewhere to write and the UI never shows a gap.
+      const userMsg: Message = { id: crypto.randomUUID(), role: 'user', content: text }
+      const replyId = crypto.randomUUID()
+      let history: Message[] = []
+      setMessages((m) => {
+        history = [...m, userMsg]
+        return [...history, { id: replyId, role: 'assistant', content: '' }]
+      })
+      setStatus('streaming')
+      setError(null)
+
+      try {
+        const res = await fetchStream(history, controller.signal)
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const reader = res.body!.getReader()
+        const decoder = new TextDecoder()
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (controller.signal.aborted) return
+          if (done) break
+          const chunk = decoder.decode(value, { stream: true })
+          setMessages((m) =>
+            m.map((msg) => (msg.id === replyId ? { ...msg, content: msg.content + chunk } : msg)),
+          )
+        }
+        setStatus('done')
+      } catch (err) {
+        if (controller.signal.aborted) return
+        setStatus('error')
+        setError(err instanceof Error ? err : new Error(String(err)))
+      }
+    },
+    [fetchStream],
+  )
+
+  useEffect(() => () => controllerRef.current?.abort(), [])   // abort on unmount
+
+  return {
+    messages,
+    status,
+    error,
+    send,
+    stop,
+    canSend: status !== 'streaming',        // derived, never stored
+  }
+}
+```
+
+The consumer is then genuinely just markup, which is the payoff to point at:
+
+```tsx
+function Chat({ fetchStream }: Props) {
+  const { messages, status, send, canSend } = useChat({ fetchStream })
+  return (
+    <>
+      <ol>{messages.map((m) => <li key={m.id} data-role={m.role}>{m.content}</li>)}</ol>
+      <Composer onSubmit={send} disabled={!canSend} />
+    </>
+  )
+}
+```
+
+**Three things to narrate while writing it.** The `replyId` is why the stream can append without
+re-finding the last message by index. `fetchStream` takes the history so the hook never has to know
+about system prompts or headers. And the abort lives in the hook, so a consumer cannot forget it.
+
+---
+
+### E. WHAT NOT TO EXTRACT
+
+- **A hook that wraps one `useState`.** `useToggle` is a rename, not an abstraction.
+- **A hook that takes a ref and reads the DOM, when an effect in the component is clearer.** Hooks
+  that measure are fine; hooks that measure *and* decide layout usually want to be a component.
+- **A hook per component.** `useTabsState` used once by `<Tabs>` is the component's body with an
+  extra file and an extra name to keep in sync.
+- **Anything that returns JSX.** That is a component. The `use` prefix is a promise that the thing
+  is callable from any component and returns a value.
+
+---
+
+### F. THE LIBRARY QUESTION, ANSWERED HONESTLY
+
+If they ask what you would ship, say the true thing: **Vercel's AI SDK `useChat` is what I would
+use in production**, it handles transport, tool calls and resumption, and reimplementing it is not
+where the value is. Then say why you built one here anyway: *"the round is asking whether I know
+what is inside it — the optimistic append, the cancellation, and the fact that the assistant
+message is mutated by id rather than by position."*
+
+Naming the library and then showing you understand its internals reads as senior. Naming only the
+library reads as a candidate who has not thought about the failure modes.
 ---
 
 ## Company signals
