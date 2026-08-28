@@ -142,7 +142,7 @@ POST /v1/orders                            → { orderId, status }
 
 ## 6 · High-level design — two paths that barely touch
 
-<div class="diagram">
+<div class="diagram" data-board="flows">
 <svg viewBox="0 0 1000 662" role="img" aria-label="Ticketmaster high-level design, two paths that barely touch. Ten million users hit an edge that is both CDN and queue admission worker. Left path, browse at five million QPS: an availability service serving a ten-kilobyte bitmap from memory, rebuilt from the inventory change stream and edge-cached for one to five seconds, plus WebSocket deltas applied only when the version is exactly one ahead. Right path, buy at about two thousand a second: booking service requiring a session token, an inventory database with one shard per event and lazy expiry inside the conditional update, an outbox to Kafka, and the payment processor. Deltas flow from the inventory database back to the availability service.">
   <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
   <text class="dg-banner-t dg-c" x="500" y="33.5">Two paths that barely touch. 5 M QPS of browse never reaches the inventory DB; ~2 k/s is all the booking tier ever sees.</text>
@@ -512,7 +512,7 @@ Most of these are 15-second items. **That doesn't mean skipping them** — it me
 
 ## 14 · The five-minute skeleton (draw this cold)
 
-<div class="diagram">
+<div class="diagram" data-board="skeleton">
 <svg viewBox="0 0 1000 490" role="img" aria-label="Ticketmaster five-minute skeleton. A banner separating browse from buy, then contention and sharding, the edge waiting room and the read path, the three inventory states and the two ways to acquire seats, multi-seat transactions and the purchase saga.">
   <rect class="dg-banner" x="10" y="10" width="980" height="34" rx="9"></rect>
   <text class="dg-banner-t dg-c" x="500" y="31.5">Minute five: everything below must be on the board. Badge numbers match the list.</text>

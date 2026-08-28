@@ -118,7 +118,7 @@ PUT  /channels/{channel_id}/read        { last_message_id }       -> 204
 
 ## 6 · High-level design — flows
 
-<div class="diagram">
+<div class="diagram" data-board="flows">
 <svg viewBox="0 0 1000 605" role="img" aria-label="Discord high-level design. A write path over HTTP: client to API service, which evaluates permissions once, mints a Snowflake id and writes to ScyllaDB before publishing. The guild process owns one guild, resolves online members and groups them by gateway node, sending one message per node rather than one per session. Three gateway nodes fan out to roughly fifteen million WebSocket clients. A Redis session registry with heartbeat TTL drives routing and presence.">
   <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
   <text class="dg-banner-t dg-c" x="500" y="33.5">Ingest is trivial; fanout is not. Tens of thousands of writes a second become ~15 M sockets and millions of deliveries.</text>
@@ -347,7 +347,7 @@ Interview-performance traps live in `Interview mechanics` — see that page rath
 
 ## 14 · The five-minute skeleton (draw this cold)
 
-<div class="diagram">
+<div class="diagram" data-board="skeleton">
 <svg viewBox="0 0 1000 512" role="img" aria-label="Discord five-minute skeleton. Write row: client, API service, ScyllaDB. Fanout row: guild process, one message per gateway node, gateway nodes stamping a sequence number, clients holding one WebSocket each. A Redis session registry. Margin notes for RESUME, presence, read state and the degradation order.">
   <rect class="dg-banner" x="10" y="10" width="980" height="34" rx="9"></rect>
   <text class="dg-banner-t dg-c" x="500" y="31.5">Minute five: everything below must be on the board. Badge numbers match the list.</text>

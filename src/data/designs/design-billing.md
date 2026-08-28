@@ -161,7 +161,7 @@ POST /webhooks/psp                     signature-verified; 200 means "durably qu
 
 ## 6 · High-level design — flows
 
-<div class="diagram">
+<div class="diagram" data-board="flows">
 <svg viewBox="0 0 1000 712" role="img" aria-label="Billing high-level design, split down the middle. A header band: API request, inference gateway which admits synchronously and writes a usage event to a local outbox in the run's transaction, and the GPU pool. Left column, synchronous and approximate: admission service holding in-process leases, Redis holding budgets and reservations, and a spend-limit rejection whose overshoot is bounded. Right column, asynchronous and exact: Kafka usage.raw, rate-and-post workers that dedupe on run id, and ClickHouse. One arrow crosses the divide, carrying the materialised balance back to Redis. Both halves meet at an append-only ledger in Postgres, below which sit reconciliation, invoicing and the payment processor.">
   <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
   <text class="dg-banner-t dg-c" x="500" y="33.5">The vertical split is the consistency split. Left: sync, approximate, fails open. Right: async, exact, loses nothing.</text>
@@ -556,7 +556,7 @@ The volume is unremarkable — **~55 entries/s, ~1.7B rows/year** — which mean
 
 ## 14 · The five-minute skeleton (draw this cold)
 
-<div class="diagram">
+<div class="diagram" data-board="skeleton">
 <svg viewBox="0 0 1000 470" role="img" aria-label="Billing five-minute skeleton. Paired rows across the sync/async split: gateway and admission service, Redis and the outbox pump to Kafka, rate-and-post workers and ClickHouse, then the hourly ledger aggregation spanning both, and finally invoicing, the payment processor and daily reconciliation.">
   <rect class="dg-banner" x="10" y="10" width="980" height="34" rx="9"></rect>
   <text class="dg-banner-t dg-c" x="500" y="31.5">Minute five: everything below must be on the board. Badge numbers match the list.</text>

@@ -169,7 +169,7 @@ WS   /v1/subscribe   ← { entity: "team:7", version: 13, delay_ms: 4200 }   // 
 
 ## 6 · High-level design — flows
 
-<div class="diagram">
+<div class="diagram" data-board="flows">
 <svg viewBox="0 0 1000 596" role="img" aria-label="Settings sync high-level design. The client holds source documents with their versions, a pending patch, and a resolve function evaluated per key over four layers, and works with the server down. Below: a settings API doing compare-and-set on a pointer, Postgres holding immutable revisions plus the pointer and an outbox in one transaction, a fanout service, and a WebSocket gateway whose push carries only an entity and a version — a hint, not a value.">
   <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
   <text class="dg-banner-t dg-c" x="500" y="33.5">Push is a hint, never a value. Kill the socket tier and convergence degrades from ~2 s to ≤60 s. Nothing else changes.</text>
@@ -519,7 +519,7 @@ Plus the unglamorous ones: outbox depth (the leading indicator for everything ab
 
 ## 14 · The five-minute skeleton (draw this cold)
 
-<div class="diagram">
+<div class="diagram" data-board="skeleton">
 <svg viewBox="0 0 1000 490" role="img" aria-label="Settings sync five-minute skeleton. The resolution function centred at the top over four layers, flanked by the client and the membership entity. Then the two tables and their compare-and-set predicate, the aggregate version, the manifest and If-Match calls, the socket-as-hint rule, the outbox chain, and two closing sentences.">
   <rect class="dg-banner" x="10" y="10" width="980" height="34" rx="9"></rect>
   <text class="dg-banner-t dg-c" x="500" y="31.5">Minute five: everything below must be on the board. Badge numbers match the list.</text>

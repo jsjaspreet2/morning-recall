@@ -126,7 +126,7 @@ DELETE /v1/bookings/{id}                → cancel
 
 ## 6 · High-level design — flows
 
-<div class="diagram">
+<div class="diagram" data-board="flows">
 <svg viewBox="0 0 1000 600" role="img" aria-label="Airbnb high-level design. A search lane carrying 99.9% of traffic: client to search service to Elasticsearch with a geo bounding box and availability bitmap, then hydration. A booking lane: client to booking API to a Temporal workflow whose four steps end at a reservations database with an exclusion constraint. An outbox feeds Kafka, which updates the search index seconds later. A third lane polls external iCal calendars, the real source of double bookings.">
   <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
   <text class="dg-banner-t dg-c" x="500" y="33.5">1000:1 read:write — 100k searches/sec against 23 bookings/sec. Search is the hard problem; correctness is one line of DDL.</text>
@@ -482,7 +482,7 @@ Three consumers, three representations, and conflating them is a modeling mistak
 
 ## 14 · The five-minute skeleton (draw this cold)
 
-<div class="diagram">
+<div class="diagram" data-board="skeleton">
 <svg viewBox="0 0 1000 470" role="img" aria-label="Airbnb five-minute skeleton. Search lane: client, search service, Elasticsearch, hydrate. Booking lane: client, booking API, Temporal workflow, reservations database with an exclusion constraint. Three notes on durable execution, active expiry and derived availability. An external calendar lane, and the three availability layers ordered by freshness.">
   <rect class="dg-banner" x="10" y="10" width="980" height="34" rx="9"></rect>
   <text class="dg-banner-t dg-c" x="500" y="31.5">Minute five: everything below must be on the board. Badge numbers match the list.</text>

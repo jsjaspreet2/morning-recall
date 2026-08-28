@@ -139,7 +139,7 @@ One WebSocket per client per open file. Both document changes and presence ride 
 
 ## 6 · High-level design — flows
 
-<div class="diagram">
+<div class="diagram" data-board="flows">
 <svg viewBox="0 0 1000 578" role="img" aria-label="Figma high-level design. Client column: input, local apply to the scene graph painting inside sixteen milliseconds with no network, a WebGL renderer, and a pending queue keyed by object and property holding unacknowledged values. Server column: one file process per open file acting as the ordering authority with last-writer-wins per property, an op log in Kafka as the system of record, and a snapshot job to S3 and the CDN. A bottom lane shows cold open: snapshot from CDN, decode off the main thread, paint the viewport first, then apply the op tail.">
   <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
   <text class="dg-banner-t dg-c" x="500" y="33.5">Convergence, not linearizability. The document model chose the algorithm — and the local loop never waits for the network.</text>
@@ -390,7 +390,7 @@ Two implementation details worth stating because they are where it actually goes
 
 ## 14 · The five-minute skeleton (draw this cold)
 
-<div class="diagram">
+<div class="diagram" data-board="skeleton">
 <svg viewBox="0 0 1000 500" role="img" aria-label="Figma five-minute skeleton. The document model as a map of object to property to value. Client loop: input, local apply, renderer, pending queue. One WebSocket to one file process, the ordering authority, with a registry, an op log and a snapshot path to the CDN. Presence drawn as a separate lossy arrow, and two decisions written in the corner.">
   <rect class="dg-banner" x="10" y="10" width="980" height="34" rx="9"></rect>
   <text class="dg-banner-t dg-c" x="500" y="31.5">Minute five: everything below must be on the board. Badge numbers match the list.</text>

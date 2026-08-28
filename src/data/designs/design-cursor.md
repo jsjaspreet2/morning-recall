@@ -149,10 +149,139 @@ POST /v1/workspaces/{id}/chunks            → upload only what's missing
 
 ## 6 · High-level design — flows
 
-<div class="diagram">
-<svg viewBox="0 0 1000 838" role="img" aria-label="Tab completion hot path. Client column: keystroke, should-fire filter (which suppresses 20 to 40 percent), debounce 30ms, local context assembly in about 10ms, cache check (a hit renders ghost text at 0ms), then a cancellable request. Server column: regional edge for auth and coalescing, then a small FIM model with continuous batching and a prefix KV cache. The response returns to the client, which renders ghost text only if the cursor has not moved, then logs batched accept-or-dismiss events.">
+<div class="diagram" data-board="architecture">
+<svg viewBox="0 0 1000 776" role="img" aria-label="Cursor Tab architecture. A client tier holding the editor, a context assembler running on a worker thread, a local completion cache, ghost-text decorations and a file watcher. An edge tier with a regional edge doing cached auth and rate limiting, and an auth cache. An inference tier with a regional router, a GPU worker fleet running a small FIM model with continuous batching, a prefix KV cache in GPU memory, and a shared result cache in Redis holding hashed contexts and no user code. Below, an asynchronous indexing tier: index API, AST chunker, embedding service, a Merkle store and a vector index. Below that, a telemetry tier: event collector, a Kafka queue, and a warehouse.">
   <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
-  <text class="dg-banner-t dg-c" x="500" y="34">200 ms, keystroke to ghost text. Every box below is downstream of that one number.</text>
+  <text class="dg-banner-t dg-c" x="500" y="33.5">Three paths leave the editor: one synchronous, budgeted at 200 ms; two asynchronous and off the hot path.</text>
+  <rect class="dg-group" x="20" y="86" width="210" height="332" rx="12"></rect>
+  <text class="dg-group-t" x="36" y="108">CLIENT — THE EDITOR</text>
+  <rect class="dg-box" x="35" y="118" width="180" height="40" rx="8"></rect>
+  <text class="dg-t dg-c" x="125" y="142.5">Editor / extension host</text>
+  <rect class="dg-box" x="35" y="170" width="180" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="125" y="194.5">Context assembler</text>
+  <text class="dg-s dg-c" x="125" y="210.5">worker thread, ~10 ms</text>
+  <path class="dg-box" d="M 35,245 L 35,285 A 90,7 0 0 0 215,285 L 215,245 A 90,7 0 0 0 35,245 Z"></path>
+  <path class="dg-box" d="M 35,245 A 90,7 0 0 0 215,245" style="fill:none"></path>
+  <text class="dg-t dg-c" x="125" y="265">Completion cache</text>
+  <text class="dg-s dg-c" x="125" y="281">LRU · hash(context)</text>
+  <rect class="dg-box" x="35" y="304" width="180" height="40" rx="8"></rect>
+  <text class="dg-t dg-c" x="125" y="328.5">Ghost-text decorations</text>
+  <rect class="dg-box" x="35" y="356" width="180" height="50" rx="8"></rect>
+  <text class="dg-t dg-c" x="125" y="377.5">File watcher</text>
+  <text class="dg-s dg-c" x="125" y="393.5">Merkle tree · .cursorignore</text>
+  <path class="dg-line" d="M 125,158 L 125,162"></path>
+  <path class="dg-head" d="M 120,162 L 130,162 L 125,170 Z"></path>
+  <path class="dg-line" d="M 125,226 L 125,238"></path>
+  <path class="dg-line" d="M 125,292 L 125,304"></path>
+  <rect class="dg-group" x="340" y="86" width="160" height="178" rx="12"></rect>
+  <text class="dg-group-t" x="356" y="108">EDGE</text>
+  <rect class="dg-box" x="354" y="118" width="132" height="72" rx="8"></rect>
+  <text class="dg-t dg-c" x="420" y="142.5">Regional edge</text>
+  <text class="dg-s dg-c" x="420" y="158.5">auth + rate limit</text>
+  <text class="dg-s dg-c" x="420" y="174.5">request coalescing</text>
+  <path class="dg-box" d="M 354,209 L 354,245 A 66,7 0 0 0 486,245 L 486,209 A 66,7 0 0 0 354,209 Z"></path>
+  <path class="dg-box" d="M 354,209 A 66,7 0 0 0 486,209" style="fill:none"></path>
+  <text class="dg-t dg-c" x="420" y="227">Auth cache</text>
+  <text class="dg-s dg-c" x="420" y="243">at the edge</text>
+  <rect class="dg-group" x="610" y="86" width="370" height="262" rx="12"></rect>
+  <text class="dg-group-t" x="626" y="108">INFERENCE</text>
+  <rect class="dg-box" x="625" y="118" width="150" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="700" y="146.5">Router</text>
+  <text class="dg-s dg-c" x="700" y="162.5">by region</text>
+  <path class="dg-box" d="M 795,125 L 795,175 A 85,7 0 0 0 965,175 L 965,125 A 85,7 0 0 0 795,125 Z"></path>
+  <path class="dg-box" d="M 795,125 A 85,7 0 0 0 965,125" style="fill:none"></path>
+  <text class="dg-t dg-c" x="880" y="150">Prefix KV cache</text>
+  <text class="dg-s dg-c" x="880" y="166">in HBM</text>
+  <rect class="dg-box" x="625" y="194" width="340" height="72" rx="8"></rect>
+  <text class="dg-t dg-c" x="795" y="218.5">Inference workers — GPU</text>
+  <text class="dg-s dg-c" x="795" y="234.5">small FIM model · continuous batching</text>
+  <text class="dg-s dg-c" x="795" y="250.5">speculative decoding · single-shot</text>
+  <path class="dg-box" d="M 625,285 L 625,329 A 170,7 0 0 0 965,329 L 965,285 A 170,7 0 0 0 625,285 Z"></path>
+  <path class="dg-box" d="M 625,285 A 170,7 0 0 0 965,285" style="fill:none"></path>
+  <text class="dg-t dg-c" x="795" y="307">Shared result cache</text>
+  <text class="dg-s dg-c" x="795" y="323">Redis · hashed contexts, no user code</text>
+  <path class="dg-line" d="M 700,182 L 700,186"></path>
+  <path class="dg-head" d="M 695,186 L 705,186 L 700,194 Z"></path>
+  <path class="dg-line" d="M 880,194 L 880,182"></path>
+  <path class="dg-line" d="M 795,266 L 795,278"></path>
+  <path class="dg-line" d="M 230,140 L 346,140"></path>
+  <path class="dg-head" d="M 346,145 L 346,135 L 354,140 Z"></path>
+  <text class="dg-lbl dg-c" x="292" y="132">completion request</text>
+  <path class="dg-line" d="M 354,166 L 238,166"></path>
+  <path class="dg-head" d="M 238,161 L 238,171 L 230,166 Z"></path>
+  <text class="dg-lbl dg-c" x="292" y="190">ghost text</text>
+  <path class="dg-line" d="M 486,140 L 617,140"></path>
+  <path class="dg-head" d="M 617,145 L 617,135 L 625,140 Z"></path>
+  <text class="dg-lbl dg-c" x="555" y="132">routed by region</text>
+  <path class="dg-line" d="M 625,166 L 494,166"></path>
+  <path class="dg-head" d="M 494,161 L 494,171 L 486,166 Z"></path>
+  <text class="dg-lbl dg-c" x="555" y="190">tokens</text>
+  <rect class="dg-group" x="250" y="430" width="730" height="180" rx="12"></rect>
+  <text class="dg-group-t" x="266" y="452">INDEXING — ASYNCHRONOUS, OFF THE HOT PATH</text>
+  <rect class="dg-box" x="268" y="462" width="170" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="353" y="486.5">Index API</text>
+  <text class="dg-s dg-c" x="353" y="502.5">Merkle diff</text>
+  <rect class="dg-box" x="468" y="462" width="180" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="558" y="486.5">AST chunker</text>
+  <text class="dg-s dg-c" x="558" y="502.5">chunk on syntax bounds</text>
+  <rect class="dg-box" x="678" y="462" width="180" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="768" y="494.5">Embedding service</text>
+  <path class="dg-box" d="M 268,547 L 268,589 A 85,7 0 0 0 438,589 L 438,547 A 85,7 0 0 0 268,547 Z"></path>
+  <path class="dg-box" d="M 268,547 A 85,7 0 0 0 438,547" style="fill:none"></path>
+  <text class="dg-t dg-c" x="353" y="568">Merkle store</text>
+  <text class="dg-s dg-c" x="353" y="584">per repo, server-side</text>
+  <path class="dg-box" d="M 678,547 L 678,589 A 90,7 0 0 0 858,589 L 858,547 A 90,7 0 0 0 678,547 Z"></path>
+  <path class="dg-box" d="M 678,547 A 90,7 0 0 0 858,547" style="fill:none"></path>
+  <text class="dg-t dg-c" x="768" y="568">Vector index</text>
+  <text class="dg-s dg-c" x="768" y="584">keyed by content hash</text>
+  <path class="dg-line" d="M 438,490 L 460,490"></path>
+  <path class="dg-head" d="M 460,495 L 460,485 L 468,490 Z"></path>
+  <path class="dg-line" d="M 648,490 L 670,490"></path>
+  <path class="dg-head" d="M 670,495 L 670,485 L 678,490 Z"></path>
+  <path class="dg-line" d="M 353,518 L 353,532"></path>
+  <path class="dg-head" d="M 348,532 L 358,532 L 353,540 Z"></path>
+  <path class="dg-line" d="M 768,518 L 768,532"></path>
+  <path class="dg-head" d="M 763,532 L 773,532 L 768,540 Z"></path>
+  <path class="dg-line" d="M 215,381 L 240,381 L 240,490 L 260,490"></path>
+  <path class="dg-head" d="M 260,495 L 260,485 L 268,490 Z"></path>
+  <rect class="dg-group" x="250" y="630" width="730" height="110" rx="12"></rect>
+  <text class="dg-group-t" x="266" y="652">TELEMETRY — WHAT THE NEXT MODEL IS TRAINED ON</text>
+  <rect class="dg-box" x="268" y="662" width="150" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="343" y="686.5">Event collector</text>
+  <text class="dg-s dg-c" x="343" y="702.5">batched</text>
+  <rect class="dg-box" x="448" y="662" width="160" height="56" rx="8"></rect>
+  <path class="dg-qbar" d="M 461,671 L 461,709"></path>
+  <path class="dg-qbar" d="M 470,671 L 470,709"></path>
+  <path class="dg-qbar" d="M 479,671 L 479,709"></path>
+  <text class="dg-t dg-c" x="546" y="686.5">Kafka</text>
+  <text class="dg-s dg-c" x="546" y="702.5">shown · accepted</text>
+  <path class="dg-box" d="M 638,669 L 638,711 A 75,7 0 0 0 788,711 L 788,669 A 75,7 0 0 0 638,669 Z"></path>
+  <path class="dg-box" d="M 638,669 A 75,7 0 0 0 788,669" style="fill:none"></path>
+  <text class="dg-t dg-c" x="713" y="690">Warehouse</text>
+  <text class="dg-s dg-c" x="713" y="706">retained chars</text>
+  <rect class="dg-box" x="818" y="662" width="148" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="892" y="686.5">Offline eval</text>
+  <text class="dg-s dg-c" x="892" y="702.5">→ next model</text>
+  <path class="dg-line" d="M 418,690 L 440,690"></path>
+  <path class="dg-head" d="M 440,695 L 440,685 L 448,690 Z"></path>
+  <path class="dg-line" d="M 608,690 L 630,690"></path>
+  <path class="dg-head" d="M 630,695 L 630,685 L 638,690 Z"></path>
+  <path class="dg-line" d="M 788,690 L 810,690"></path>
+  <path class="dg-head" d="M 810,695 L 810,685 L 818,690 Z"></path>
+  <path class="dg-line" d="M 966,690 L 988,690 L 988,230 L 973,230"></path>
+  <path class="dg-head" d="M 973,225 L 973,235 L 965,230 Z"></path>
+  <path class="dg-line" d="M 125,418 L 125,690 L 260,690"></path>
+  <path class="dg-head" d="M 260,695 L 260,685 L 268,690 Z"></path>
+  <text class="dg-note" x="20" y="762">Neither lower tier is allowed to make the top row slower. Tab reads the editor's own signals and its own local cache — never the vector index.</text>
+</svg>
+</div>
+
+<p class="diagram-cap">The board to draw first, and the one an interviewer is looking for: components you could point at in production. Three arrows leave the client and only the top one has a latency budget — drawing the other two <em>below</em> it, in their own boxes, is how you say “off the hot path” without saying it.</p>
+
+<div class="diagram" data-board="hot-path">
+<svg viewBox="0 0 1000 838" role="img" aria-label="Tab completion hot path. Client column: keystroke, should-fire filter which suppresses twenty to forty percent, debounce, local context assembly in about ten milliseconds, a cache check whose hit renders ghost text at zero milliseconds, then a cancellable request. Server column: regional edge, then a small FIM model. A dashed box lists what the budget makes illegal: no retrieval service, no reranker, no large model. The response returns to the client, which renders ghost text only if the cursor has not moved.">
+  <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
+  <text class="dg-banner-t dg-c" x="500" y="33.5">200 ms, keystroke to ghost text. Every box below is downstream of that one number.</text>
   <text class="dg-lane" x="55" y="78">CLIENT — THE EDITOR, WHERE MOST OF THE WORK HAPPENS</text>
   <text class="dg-lane" x="550" y="78">SERVER</text>
   <path class="dg-div" d="M 505,90 L 505,812"></path>
@@ -162,114 +291,114 @@ POST /v1/workspaces/{id}/chunks            → upload only what's missing
   <text class="dg-s dg-c" x="760" y="172">no large model (≈350 ms just to prefill)</text>
   <text class="dg-s dg-c" x="760" y="189">the budget makes these illegal, not merely expensive</text>
   <rect class="dg-box" x="55" y="100" width="230" height="34" rx="8"></rect>
-  <text class="dg-t dg-c" x="170" y="122">Keystroke</text>
-  <path class="dg-line" d="M 170,134 L 170,151"></path>
+  <text class="dg-t dg-c" x="170" y="121.5">Keystroke</text>
+  <path class="dg-line" d="M 170,134 L 170,150"></path>
   <path class="dg-head" d="M 165,150 L 175,150 L 170,158 Z"></path>
   <rect class="dg-box" x="55" y="158" width="230" height="66" rx="8"></rect>
-  <text class="dg-t dg-c" x="170" y="180">Should-fire filter</text>
-  <text class="dg-s dg-c" x="170" y="196">in a comment? mid-identifier?</text>
-  <text class="dg-s dg-c" x="170" y="211">just dismissed at this position?</text>
-  <path class="dg-line" d="M 285,191 L 303,191"></path>
-  <path class="dg-head" d="M 302,186 L 302,196 L 310,191 Z"></path>
+  <text class="dg-t dg-c" x="170" y="179.5">Should-fire filter</text>
+  <text class="dg-s dg-c" x="170" y="195.5">in a comment? mid-identifier?</text>
+  <text class="dg-s dg-c" x="170" y="211.5">just dismissed at this position?</text>
+  <path class="dg-line" d="M 285,191 L 302,191"></path>
+  <path class="dg-head" d="M 302,196 L 302,186 L 310,191 Z"></path>
   <rect class="dg-warn" x="310" y="171" width="175" height="40" rx="8"></rect>
-  <text class="dg-warn-t dg-c" x="398" y="187">suppress · never fires</text>
-  <text class="dg-s dg-c" x="398" y="202">20–40% of keystrokes</text>
-  <path class="dg-line" d="M 170,224 L 170,241"></path>
+  <text class="dg-warn-t dg-c" x="397.5" y="187.5">suppress · never fires</text>
+  <text class="dg-s dg-c" x="397.5" y="203.5">20–40% of keystrokes</text>
+  <path class="dg-line" d="M 170,224 L 170,240"></path>
   <path class="dg-head" d="M 165,240 L 175,240 L 170,248 Z"></path>
   <rect class="dg-box" x="55" y="248" width="230" height="34" rx="8"></rect>
-  <text class="dg-t dg-c" x="170" y="270">Debounce ~30 ms</text>
-  <path class="dg-line" d="M 170,282 L 170,299"></path>
+  <text class="dg-t dg-c" x="170" y="269.5">Debounce ~30 ms</text>
+  <path class="dg-line" d="M 170,282 L 170,298"></path>
   <path class="dg-head" d="M 165,298 L 175,298 L 170,306 Z"></path>
   <rect class="dg-box" x="55" y="306" width="230" height="72" rx="8"></rect>
-  <text class="dg-t dg-c" x="170" y="328">Assemble context locally</text>
-  <text class="dg-s dg-c" x="170" y="345">prefix + suffix (FIM), recent edits</text>
-  <text class="dg-s dg-c" x="170" y="361">open tabs, LSP symbols in scope</text>
+  <text class="dg-t dg-c" x="170" y="330.5">Assemble context locally</text>
+  <text class="dg-s dg-c" x="170" y="346.5">prefix + suffix (FIM), recent edits</text>
+  <text class="dg-s dg-c" x="170" y="362.5">open tabs, LSP symbols in scope</text>
   <text class="dg-lbl" x="300" y="336">~10 ms · no network</text>
   <text class="dg-lbl" x="300" y="352">2–4k token budget</text>
-  <path class="dg-line" d="M 170,378 L 170,395"></path>
+  <path class="dg-line" d="M 170,378 L 170,394"></path>
   <path class="dg-head" d="M 165,394 L 175,394 L 170,402 Z"></path>
   <rect class="dg-box" x="55" y="402" width="230" height="50" rx="8"></rect>
-  <text class="dg-t dg-c" x="170" y="424">Cache check</text>
-  <text class="dg-s dg-c" x="170" y="441">key = hash(assembled context)</text>
-  <path class="dg-line" d="M 285,427 L 303,427"></path>
-  <path class="dg-head" d="M 302,422 L 302,432 L 310,427 Z"></path>
+  <text class="dg-t dg-c" x="170" y="423.5">Cache check</text>
+  <text class="dg-s dg-c" x="170" y="439.5">key = hash(assembled context)</text>
+  <path class="dg-line" d="M 285,427 L 302,427"></path>
+  <path class="dg-head" d="M 302,432 L 302,422 L 310,427 Z"></path>
   <rect class="dg-good" x="310" y="409" width="175" height="36" rx="8"></rect>
-  <text class="dg-good-t dg-c" x="398" y="431">HIT → ghost text at ~0 ms</text>
-  <path class="dg-line" d="M 170,452 L 170,469"></path>
+  <text class="dg-good-t dg-c" x="397.5" y="431.5">HIT → ghost text at ~0 ms</text>
+  <path class="dg-line" d="M 170,452 L 170,468"></path>
   <path class="dg-head" d="M 165,468 L 175,468 L 170,476 Z"></path>
   <rect class="dg-box" x="55" y="476" width="230" height="50" rx="8"></rect>
-  <text class="dg-t dg-c" x="170" y="498">Send request</text>
-  <text class="dg-s dg-c" x="170" y="515">requestId · abort any in-flight</text>
+  <text class="dg-t dg-c" x="170" y="497.5">Send request</text>
+  <text class="dg-s dg-c" x="170" y="513.5">requestId · abort any in-flight</text>
   <text class="dg-lbl dg-c" x="415" y="493">one request, cancellable</text>
-  <path class="dg-line" d="M 285,501 L 541,501"></path>
-  <path class="dg-head" d="M 541,496 L 541,506 L 550,501 Z"></path>
+  <path class="dg-line" d="M 285,501 L 542,501"></path>
+  <path class="dg-head" d="M 542,506 L 542,496 L 550,501 Z"></path>
   <rect class="dg-box" x="550" y="476" width="420" height="66" rx="8"></rect>
-  <text class="dg-t dg-c" x="760" y="498">Regional edge</text>
-  <text class="dg-s dg-c" x="760" y="515">auth + rate limit, cached at the edge</text>
-  <text class="dg-s dg-c" x="760" y="531">coalesce duplicate in-flight requests</text>
-  <path class="dg-line" d="M 760,542 L 760,559"></path>
+  <text class="dg-t dg-c" x="760" y="497.5">Regional edge</text>
+  <text class="dg-s dg-c" x="760" y="513.5">auth + rate limit, cached at the edge</text>
+  <text class="dg-s dg-c" x="760" y="529.5">coalesce duplicate in-flight requests</text>
+  <path class="dg-line" d="M 760,542 L 760,558"></path>
   <path class="dg-head" d="M 755,558 L 765,558 L 760,566 Z"></path>
   <rect class="dg-box" x="550" y="566" width="420" height="80" rx="8"></rect>
-  <text class="dg-t dg-c" x="760" y="590">Inference — small FIM model</text>
-  <text class="dg-s dg-c" x="760" y="608">continuous batching · prefix KV cache · speculative decoding</text>
-  <text class="dg-s dg-c" x="760" y="625">single-shot at ~30 tokens: no partial-render flicker</text>
-  <path class="dg-line" d="M 760,646 L 760,676 L 170,676 L 170,691"></path>
-  <path class="dg-head" d="M 165,690 L 175,690 L 170,700 Z"></path>
+  <text class="dg-t dg-c" x="760" y="594.5">Inference — small FIM model</text>
+  <text class="dg-s dg-c" x="760" y="610.5">continuous batching · prefix KV cache · speculative decoding</text>
+  <text class="dg-s dg-c" x="760" y="626.5">single-shot at ~30 tokens: no partial-render flicker</text>
+  <path class="dg-line" d="M 760,646 L 760,676 L 170,676 L 170,692"></path>
+  <path class="dg-head" d="M 165,692 L 175,692 L 170,700 Z"></path>
   <text class="dg-note" x="190" y="668">later than ~300 ms → drop it, never render stale</text>
   <rect class="dg-box" x="55" y="700" width="230" height="50" rx="8"></rect>
-  <text class="dg-t dg-c" x="170" y="722">Render ghost text</text>
-  <text class="dg-s dg-c" x="170" y="739">only if the cursor hasn’t moved</text>
-  <path class="dg-line" d="M 170,750 L 170,767"></path>
+  <text class="dg-t dg-c" x="170" y="721.5">Render ghost text</text>
+  <text class="dg-s dg-c" x="170" y="737.5">only if the cursor hasn’t moved</text>
+  <path class="dg-line" d="M 170,750 L 170,766"></path>
   <path class="dg-head" d="M 165,766 L 175,766 L 170,774 Z"></path>
   <rect class="dg-box" x="55" y="774" width="230" height="34" rx="8"></rect>
-  <text class="dg-t dg-c" x="170" y="796">Tab = accept · else dismiss</text>
-  <path class="dg-line" d="M 285,791 L 541,791"></path>
-  <path class="dg-head" d="M 541,786 L 541,796 L 550,791 Z"></path>
+  <text class="dg-t dg-c" x="170" y="795.5">Tab = accept · else dismiss</text>
+  <path class="dg-line" d="M 285,791 L 542,791"></path>
+  <path class="dg-head" d="M 542,796 L 542,786 L 550,791 Z"></path>
   <rect class="dg-box" x="550" y="772" width="420" height="38" rx="8"></rect>
-  <text class="dg-t dg-c" x="760" y="796">Events, batched — acceptance + retained characters</text>
+  <text class="dg-t dg-c" x="760" y="795.5">Events, batched — acceptance + retained characters</text>
   <text class="dg-note" x="55" y="830">Server unavailable → fail silent. No toast, no per-keystroke retry: the editor must feel exactly like a normal editor.</text>
 </svg>
 </div>
 
-<p class="diagram-cap">The whole round in one board. Two columns from minute zero, the budget written across the top, and the two branches that carry the economics — the filter that suppresses a third of all keystrokes, and the cache that answers in zero.</p>
+<p class="diagram-cap">The same system as a sequence, because the two branches are the economics and no architecture board can show a branch: the filter that suppresses a third of all keystrokes, and the cache that answers in zero.</p>
 
-<div class="diagram">
-<svg viewBox="0 0 1000 242" role="img" aria-label="Indexing pipeline, asynchronous and separate from the Tab hot path. Client side: a file watcher that respects .cursorignore feeds a Merkle tree of file hashes. Server side: a root-hash diff returns only the missing subtrees, an AST chunker splits on syntax boundaries, and chunks are embedded into a vector index keyed by content hash.">
+<div class="diagram" data-board="indexing">
+<svg viewBox="0 0 1000 242" role="img" aria-label="Indexing pipeline, asynchronous and separate from the Tab hot path. Client side: a file watcher respecting .cursorignore feeds a Merkle tree of file hashes. Server side: a root-hash diff returns only the missing subtrees, an AST chunker splits on syntax boundaries, and chunks are embedded into a vector index keyed by content hash.">
   <rect class="dg-banner" x="10" y="10" width="980" height="34" rx="9"></rect>
-  <text class="dg-banner-t dg-c" x="500" y="32">Indexing — a separate, asynchronous lifecycle. Tab never waits on it.</text>
+  <text class="dg-banner-t dg-c" x="500" y="31.5">Indexing — a separate, asynchronous lifecycle. Tab never waits on it.</text>
   <text class="dg-lane" x="20" y="68">CLIENT</text>
   <text class="dg-lane" x="420" y="68">SERVER</text>
   <path class="dg-div" d="M 400,78 L 400,158"></path>
   <rect class="dg-box" x="20" y="88" width="160" height="56" rx="8"></rect>
-  <text class="dg-t dg-c" x="100" y="112">File watcher</text>
-  <text class="dg-s dg-c" x="100" y="129">respects .cursorignore</text>
-  <path class="dg-line" d="M 180,116 L 196,116"></path>
-  <path class="dg-head" d="M 196,111 L 196,121 L 205,116 Z"></path>
+  <text class="dg-t dg-c" x="100" y="112.5">File watcher</text>
+  <text class="dg-s dg-c" x="100" y="128.5">respects .cursorignore</text>
+  <path class="dg-line" d="M 180,116 L 197,116"></path>
+  <path class="dg-head" d="M 197,121 L 197,111 L 205,116 Z"></path>
   <rect class="dg-box" x="205" y="88" width="160" height="56" rx="8"></rect>
-  <text class="dg-t dg-c" x="285" y="112">Merkle tree</text>
-  <text class="dg-s dg-c" x="285" y="129">of file hashes</text>
-  <path class="dg-line" d="M 365,116 L 411,116"></path>
-  <path class="dg-head" d="M 411,111 L 411,121 L 420,116 Z"></path>
+  <text class="dg-t dg-c" x="285" y="112.5">Merkle tree</text>
+  <text class="dg-s dg-c" x="285" y="128.5">of file hashes</text>
+  <path class="dg-line" d="M 365,116 L 412,116"></path>
+  <path class="dg-head" d="M 412,121 L 412,111 L 420,116 Z"></path>
   <rect class="dg-box" x="420" y="88" width="170" height="56" rx="8"></rect>
-  <text class="dg-t dg-c" x="505" y="112">Root-hash diff</text>
-  <text class="dg-s dg-c" x="505" y="129">→ missing subtrees only</text>
-  <path class="dg-line" d="M 590,116 L 611,116"></path>
-  <path class="dg-head" d="M 611,111 L 611,121 L 620,116 Z"></path>
+  <text class="dg-t dg-c" x="505" y="112.5">Root-hash diff</text>
+  <text class="dg-s dg-c" x="505" y="128.5">→ missing subtrees only</text>
+  <path class="dg-line" d="M 590,116 L 612,116"></path>
+  <path class="dg-head" d="M 612,121 L 612,111 L 620,116 Z"></path>
   <rect class="dg-box" x="620" y="88" width="160" height="56" rx="8"></rect>
-  <text class="dg-t dg-c" x="700" y="112">AST chunker</text>
-  <text class="dg-s dg-c" x="700" y="129">chunk on syntax bounds</text>
-  <path class="dg-line" d="M 780,116 L 801,116"></path>
-  <path class="dg-head" d="M 801,111 L 801,121 L 810,116 Z"></path>
+  <text class="dg-t dg-c" x="700" y="112.5">AST chunker</text>
+  <text class="dg-s dg-c" x="700" y="128.5">chunk on syntax bounds</text>
+  <path class="dg-line" d="M 780,116 L 802,116"></path>
+  <path class="dg-head" d="M 802,121 L 802,111 L 810,116 Z"></path>
   <rect class="dg-box" x="810" y="88" width="170" height="56" rx="8"></rect>
-  <text class="dg-t dg-c" x="895" y="112">Embed → vector index</text>
-  <text class="dg-s dg-c" x="895" y="129">keyed by content hash</text>
+  <text class="dg-t dg-c" x="895" y="112.5">Embed → vector index</text>
+  <text class="dg-s dg-c" x="895" y="128.5">keyed by content hash</text>
   <text class="dg-s" x="20" y="182">▸  A one-line change in a 100k-file monorepo uploads one chunk — that is the entire point of the Merkle diff.</text>
   <text class="dg-s" x="20" y="204">▸  Vectors are keyed by content hash, not file path, so identical code across branches and forks dedupes for free.</text>
   <text class="dg-s" x="20" y="226">▸  Local edits update a local index immediately; the server index catches up. Tab’s context never comes from here.</text>
 </svg>
 </div>
 
-<p class="diagram-cap">Drawn beside the hot path, not inside it. If your board makes indexing look like a step in the completion flow, you have designed the wrong system — say “separate lifecycle” out loud as you draw the gap between them.</p>
+<p class="diagram-cap">Drawn beside the hot path, not inside it. If your board makes indexing look like a step in the completion flow you have designed the wrong system — say “separate lifecycle” out loud as you draw the gap between them.</p>
 
 ### Flow A — a keystroke becomes a suggestion
 
@@ -469,7 +598,7 @@ Note what's *absent*: no transactional store, no cross-shard consistency, no dur
 
 ## 14 · The five-minute skeleton (draw this cold)
 
-<div class="diagram">
+<div class="diagram" data-board="skeleton">
 <svg viewBox="0 0 1000 516" role="img" aria-label="Cursor Tab five-minute skeleton. A banner scoping to the 200 millisecond budget, then the QPS and waste figures, why the budget makes a RAG pipeline illegal, client-side context assembly, the should-fire filter, the three caches, the small FIM model and its serving stack, cancellation, indexing as a separate lifecycle, the privacy ladder, and the metrics that matter.">
   <rect class="dg-banner" x="10" y="10" width="980" height="34" rx="9"></rect>
   <text class="dg-banner-t dg-c" x="500" y="31.5">Minute five: everything below must be on the board. Badge numbers match the list.</text>

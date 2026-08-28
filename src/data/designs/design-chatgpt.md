@@ -156,7 +156,7 @@ GET  /v1/runs/{runId}                            → Run          (status, for a
 
 ## 6 · High-level design — flows
 
-<div class="diagram">
+<div class="diagram" data-board="flows">
 <svg viewBox="0 0 1000 872" role="img" aria-label="ChatGPT high-level design. Write path: client, API gateway, chat service, ScyllaDB, with a quota check at the door before enqueue. The chat service enqueues to a scheduler, priority queues by tier, and a fixed pool of inference workers. Each worker makes two independent writes that never meet: token-by-token XADD into Redis Streams for the lossy live view, which the streaming tier tails and forwards over SSE, and one finished message into Kafka keyed by chat id for durability, which a persister batch-writes to ScyllaDB. Read path: client to gateway to chat service to ScyllaDB.">
   <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
   <text class="dg-banner-t dg-c" x="500" y="33.5">Two independent writes out of the GPU — different systems, different reasons, and neither is a backup for the other.</text>
@@ -700,7 +700,7 @@ Then the compliance edge that comes with it: **deletion must reach all three tie
 
 ## 14 · The five-minute skeleton (draw this cold)
 
-<div class="diagram">
+<div class="diagram" data-board="skeleton">
 <svg viewBox="0 0 1000 606" role="img" aria-label="ChatGPT five-minute skeleton. A numbers banner, then the three tiers, the Run entity, the two-call submit and stream split, SSE, the Redis stream path, the two cheap writes on completion, cancellation, shedding, prefill versus decode, metering, context assembly and the storage layout.">
   <rect class="dg-banner" x="10" y="10" width="980" height="34" rx="9"></rect>
   <text class="dg-banner-t dg-c" x="500" y="31.5">Minute five: everything below must be on the board. Badge numbers match the list.</text>

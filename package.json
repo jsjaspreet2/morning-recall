@@ -8,6 +8,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
+    "diagrams": "python3 tools/diagrams/build.py",
+    "diagrams:verify": "node tools/diagrams/verify.mjs",
     "audio:voices": "node scripts/audio/voices.mjs",
     "audio:synth": "node scripts/audio/synth.mjs",
     "audio:feed": "node scripts/audio/feed.mjs",

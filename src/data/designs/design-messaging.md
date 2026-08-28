@@ -147,7 +147,7 @@ Two consequences that catch people out:
 
 ## 6 · High-level design — flows
 
-<div class="diagram">
+<div class="diagram" data-board="flows">
 <svg viewBox="0 0 1000 662" role="img" aria-label="Messaging high-level design. Send path: client with a client message id and optimistic echo, connection gateways, message service, and a message store sharded by conversation that assigns a sequence number and appends durably in one atomic step. Deliver path: the message service resolves members to devices, looks each up in a Redis connection registry, groups them by gateway and pushes one batched RPC per gateway; devices with no registry entry get a push notification carrying no body. Reconnect path: backoff with jitter, a sync token, then per-conversation catch-up.">
   <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
   <text class="dg-banner-t dg-c" x="500" y="33.5">The store is boring; the gateway tier is enormous. 120 writes/sec per shard against ~10,000 nodes holding a billion sockets.</text>
@@ -592,7 +592,7 @@ What actually differs is a retention policy **plus three subsystems that exist o
 
 ## 14 · The five-minute skeleton (draw this cold)
 
-<div class="diagram">
+<div class="diagram" data-board="skeleton">
 <svg viewBox="0 0 1000 510" role="img" aria-label="Messaging five-minute skeleton. A banner naming fanout and guarantees as the problem. Send row: client with a client message id, gateway, message service, and the conversation shard assigning a sequence. Rows for exactly-once impossibility, durability before delivery, the connection registry, fanout-on-read, offline push, per-device cursors and sharding by conversation.">
   <rect class="dg-banner" x="10" y="10" width="980" height="34" rx="9"></rect>
   <text class="dg-banner-t dg-c" x="500" y="31.5">Minute five: everything below must be on the board. Badge numbers match the list.</text>

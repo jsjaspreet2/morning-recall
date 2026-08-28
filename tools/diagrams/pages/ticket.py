@@ -1,0 +1,52 @@
+import pathlib
+import sys
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
+from dgl import Board          # noqa: E402
+from splice import place       # noqa: E402
+
+b=Board(662,"Ticketmaster high-level design, two paths that barely touch. Ten million users hit an edge that is both CDN and queue admission worker. Left path, browse at five million QPS: an availability service serving a ten-kilobyte bitmap from memory, rebuilt from the inventory change stream and edge-cached for one to five seconds, plus WebSocket deltas applied only when the version is exactly one ahead. Right path, buy at about two thousand a second: booking service requiring a session token, an inventory database with one shard per event and lazy expiry inside the conditional update, an outbox to Kafka, and the payment processor. Deltas flow from the inventory database back to the availability service.")
+b.banner("Two paths that barely touch. 5 M QPS of browse never reaches the inventory DB; ~2 k/s is all the booking tier ever sees.")
+b.box(30,90,150,64,"10 M users")
+b.box(230,90,460,64,"EDGE — CDN + queue / admission worker",["the only thing between the herd and the booking tier"])
+b.box(730,90,230,64,"Admission control",["scale by admitting, not by capacity"],cls='dg-good',tcls='dg-good-t')
+b.arrow((180,122),(230,122))
+b.lane(30,190,"BROWSE — 5 M QPS, STALE-TOLERANT")
+b.lane(700,190,"BUY — ~2 k/s, STRICTLY SERIALIZABLE")
+b.arrow((330,154),(330,200),label="~5 M QPS",lx=345,ly=182,lcls='dg-lbl')
+b.arrow((590,154),(590,200),label="~2 k/s admitted",lx=605,ly=182,lcls='dg-lbl')
+b.box(30,200,400,90,"Availability Service",["10 KB bitmap + version, served from memory","rebuilt from the inventory change stream","edge cache 1–5 s TTL — that TTL absorbs the QPS"])
+b.arrow((230,290),(230,334))
+b.box(30,334,400,76,"WebSocket deltas",["{version, changes: [[ordinal, status]]}","apply only if version == local + 1, else resync"])
+b.box(530,200,430,76,"Booking Service",["session token required — this is what makes the queue real","seats acquired in sorted seat_id order"])
+b.arrow((745,276),(745,320))
+b.box(530,320,430,76,"Inventory DB",["one shard per event · a single writer","AVAILABLE / HELD / SOLD · lazy expiry in the predicate"])
+b.arrow((745,396),(745,436))
+b.box(530,436,430,60,"outbox → Kafka",["orders · notifications · analytics · async capture"])
+b.arrow((745,496),(745,536))
+b.box(530,536,430,50,"Payment Service (PSP)",["authorize under its own idempotency key"])
+b.arrow((530,358),(480,358),(480,245),(430,245))
+b.text(486,232,"deltas",'dg-lbl')
+b.text(30,620,"The read path never touches the inventory DB. That is what lets 5 M QPS coexist with a single writer per event.",'dg-s')
+b.text(30,642,"Abandonment: nothing happens. No job runs, no timer fires — the seat is reclaimed by whichever writer next evaluates the expiry predicate.",'dg-note')
+HLD_CAP = "The two columns share one arrow, and it points the cheap way: inventory deltas out to the cache, never a read in. Scaling by admission rather than by capacity is the architectural move — everything right of the edge is built for 2 k/s and will never see more."
+
+s=Board(490,"Ticketmaster five-minute skeleton. A banner separating browse from buy, then contention and sharding, the edge waiting room and the read path, the three inventory states and the two ways to acquire seats, multi-seat transactions and the purchase saga.")
+s.banner("Minute five: everything below must be on the board. Badge numbers match the list.",y=10,h=34)
+s.box(30,68,930,40,"Browse: 5 M QPS, stale-OK. Buy: 60 k total writes, strictly serializable. Separate them completely.",cls='dg-good',badge=1)
+s.box(30,140,460,56,"Contention 166:1",["the ratio is the problem, not the volume"],badge=2)
+s.box(510,140,450,56,"Shard by event_id",["the hot shard is intentional · dedicate capacity"],badge=9)
+s.box(30,216,460,76,"Edge waiting room",["Redis INCR → signed token → drain at measured capacity","session token required by the booking API"],badge=3)
+s.box(510,216,450,76,"Read path",["10 KB bitmap + version, edge-cached 1–5 s","WebSocket deltas · resync on a version gap"],badge=4)
+s.box(30,312,460,76,"Inventory — three states",["a hold is a row with hold_expires_at","lazy expiry inside the conditional update; the sweeper is cosmetic"],badge=5)
+s.box(510,312,450,76,"Acquiring seats",["user-selected → optimistic conditional update","best-available → FOR UPDATE SKIP LOCKED"],badge=6)
+s.box(30,408,460,56,"Multi-seat = one transaction",["seats acquired in sorted order, or you deadlock"],badge=7)
+s.box(510,408,450,56,"Saga: hold → authorize → sell → capture",["reversible actions first"],badge=8)
+SKEL_CAP = "Badge 2 is the sentence that reframes the round: 166 bidders per seat is a contention problem, and no amount of throughput planning touches it. Say it before you draw the waiting room."
+
+PAGE = 'design-ticketmaster.md'
+place(PAGE, 'flows', b, HLD_CAP, section='## 6 ')
+place(PAGE, 'skeleton', s, SKEL_CAP, after_heading='## 14 ')
+
+BOARDS = 2
+WARN = b.warn + s.warn

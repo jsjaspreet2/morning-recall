@@ -132,7 +132,7 @@ Draw two flows, not one box diagram. Boxes without a flow read as memorization.
 
 ### Flow A — the supply firehose (write-heavy, disposable)
 
-<div class="diagram">
+<div class="diagram" data-board="supply">
 <svg viewBox="0 0 1000 366" role="img" aria-label="Uber supply firehose. Driver app pings every four seconds over a WebSocket to a regional location gateway, then the location service computes an H3 cell. The path forks: a hot in-memory geo index sharded by cell, where ninety percent of pings overwrite in place, and a cold Kafka path to S3 and the warehouse that is never in the matching path.">
   <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
   <text class="dg-banner-t dg-c" x="500" y="33.5">The hot path answers one question — who is near here, right now. Never route matching through Kafka.</text>
@@ -184,7 +184,7 @@ Draw two flows, not one box diagram. Boxes without a flow read as memorization.
 
 ### Flow B — the demand path (low volume, transactional)
 
-<div class="diagram">
+<div class="diagram" data-board="demand">
 <svg viewBox="0 0 1000 620" role="img" aria-label="Uber demand path. Rider app to API gateway to ride service, which returns 201 without waiting for a match and writes to a region-sharded ride database with an outbox. The ride service enqueues to the matching service, which owns a cell range on the consistent-hash ring and is the only reader of the geo index. The matcher runs a funnel from k-ring to real road ETAs, offers with a fifteen-second TTL, and finally commits a conditional update that enforces exactly one driver.">
   <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
   <text class="dg-banner-t dg-c" x="500" y="33.5">The matcher is the only component that reads the supply index and writes the ride state machine — one owner, no lock.</text>
@@ -511,7 +511,7 @@ The rider needs "driver assigned," "driver arriving," and a moving dot at ~1Hz. 
 
 ## 14 · The five-minute skeleton (what you must be able to draw cold)
 
-<div class="diagram">
+<div class="diagram" data-board="skeleton">
 <svg viewBox="0 0 1000 460" role="img" aria-label="Uber five-minute skeleton. A banner naming the thousand-to-one ratio between the supply firehose and the ride lifecycle, then supply and demand, the matcher's cell ownership and the matching funnel, the offer TTL and the WebSocket push, and the region-sharded ride database with its payment saga.">
   <rect class="dg-banner" x="10" y="10" width="980" height="34" rx="9"></rect>
   <text class="dg-banner-t dg-c" x="500" y="31.5">Minute five: everything below must be on the board. Badge numbers match the list.</text>

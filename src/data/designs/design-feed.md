@@ -123,7 +123,7 @@ DELETE /v1/users/{id}/follow        → 204
 
 ## 6 · High-level design — flows
 
-<div class="diagram">
+<div class="diagram" data-board="flows">
 <svg viewBox="0 0 1000 596" role="img" aria-label="Feed high-level design. Write path: post to the tweet service, Snowflake id, tweet store, acknowledge immediately. An outbox feeds Kafka and fanout workers with tiered queues, which read the social graph and either push into a Redis timeline cache below the follower threshold, or do nothing at all above it. Read path: timeline service merges a sorted-set range with the recent tweets of followed celebrities, then hydrates bodies, authors and counts.">
   <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
   <text class="dg-banner-t dg-c" x="500" y="33.5">6k writes/sec, ×200 amplification. Neither pure strategy works — push below the threshold, pull above it, merge at read.</text>
@@ -476,7 +476,7 @@ There's no cross-shard transaction anywhere in this design, which is worth notic
 
 ## 14 · The five-minute skeleton (draw this cold)
 
-<div class="diagram">
+<div class="diagram" data-board="skeleton">
 <svg viewBox="0 0 1000 520" role="img" aria-label="Feed five-minute skeleton. An amplification banner, a write row from tweet service through Kafka and fanout workers into the Redis timeline cache, the social graph and the hybrid threshold, the free celebrity pull, then a read row: timeline lookup, merge, hydrate, cursor.">
   <rect class="dg-banner" x="10" y="10" width="980" height="34" rx="9"></rect>
   <text class="dg-banner-t dg-c" x="500" y="31.5">Minute five: everything below must be on the board. Badge numbers match the list.</text>

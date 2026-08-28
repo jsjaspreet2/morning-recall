@@ -248,56 +248,35 @@ The site renders these through `react-markdown` with `remark-gfm`, `rehype-raw`,
 
 ## Diagrams
 
-The high-level design section is the one place ASCII art fails: box-drawing arrows lose the
-branches, and the whole point of §6 is that the flow forks. Write it as inline SVG instead —
-`rehype-raw` renders it, and `design-cursor.md` §6 is the worked example to copy.
-
-```html
-<div class="diagram">
-<svg viewBox="0 0 1000 838" role="img" aria-label="one sentence per lane, describing the flow">
-  ...
-</svg>
-</div>
-
-<p class="diagram-cap">What to say out loud when you draw this.</p>
-```
-
-Rules that are not optional:
-
-1. **No blank lines inside the `<div>`.** A blank line closes the HTML block and the rest of the
-   SVG renders as literal text.
-2. **No colours, weights or anchors as attributes.** Everything comes from the `dg-*` classes in
-   `src/index.css` (`dg-box`, `dg-banner`, `dg-good`, `dg-warn`, `dg-ghost`, `dg-line`, `dg-head`,
-   `dg-div`, `dg-t`, `dg-s`, `dg-lbl`, `dg-lane`, `dg-note`, `dg-c`), so one copy of the markup
-   reads in both themes.
-3. **Arrowheads are explicit `<path>` triangles, never `<marker>` defs.** Markers survive the
-   parse5 → hast → React round-trip only if every camelCased attribute maps cleanly, and a
-   silently headless arrow is the exact failure the diagram exists to prevent. Down-arrow ending at
-   *(x, y)*: `M x-5,y-8 L x+5,y-8 L x,y Z`. Right-arrow: `M x-8,y-5 L x-8,y+5 L x,y Z`.
-4. **Two lanes, client left, server right**, split by a `dg-div` dash — the same board the guide
-   tells you to draw from minute zero. The lane that looks empty is where the negative-space box
-   goes: what the budget makes *illegal* is usually the best thing on the diagram.
-5. **Geometry attributes stay inline** (`x`, `y`, `width`, `height`, `rx`, `d`, `viewBox`), so a box
-   moves by editing one number.
-
-**Two boards per page.** §6 gets the flows. §14 gets a *skeleton* board: the same system stripped
-to what must be on a whiteboard at minute five, with a numbered `dg-num` badge on each box keyed to
-the numbered list below it — so the page doubles as a self-check after drawing it cold. Items with
-no box to hang on (a ratio, a rule, a sentence you have to say) become labelled tiles under a lane
-reading *"in the margin — said, not drawn."* That gap is usually where candidates go quiet.
-
-Sizing: `viewBox` is 1000 units wide; the wrapper scrolls below 680px rather than shrinking the
-board to a picture of a board. Budget roughly 5.5px per character at `dg-s` and 6.3px at `dg-t`
-when checking that a label fits its box.
-
-Verify before pushing — the render path and the geometry are separate failure modes:
+Boards are **generated, not hand-written**. Specs live in `tools/diagrams/pages/`
+and the finished SVG is written into the markdown, which stays what the site
+renders. Full guide: `tools/diagrams/README.md`.
 
 ```bash
-# 1. does it survive the pipeline? (arrowhead count, viewBox, no escaped markup)
-node -e "..."           # see the check in git history, or just diff the rendered page
-# 2. does it look right? standalone-SVG it with the light tokens inlined, then:
-qlmanage -t -s 1600 -o out diagram.svg
+npm run diagrams              # rebuild every board (idempotent)
+npm run diagrams cursor       # one page
+npm run diagrams:verify       # render every page through the real pipeline
+python3 tools/diagrams/render.py design-cursor.md 0 /tmp/boards   # look at one
 ```
+
+A page carries up to three kinds of board:
+
+1. **Architecture** — §6's first board, and the one an interviewer means by
+   "high-level design": components you could point at in production. `group()`
+   for tiers, `box()` for services, `cyl()` for anything that survives a
+   restart, `queue()` for logs. Arrows carry the protocol, not a step number.
+   `design-cursor.md` is the worked example.
+2. **Flow** — a sequence, and only where the branches carry the argument, since
+   an architecture board cannot show a branch. Cursor's hot path earns one
+   because the should-fire filter and the cache hit are the economics.
+3. **Skeleton** — §14, the system stripped to what belongs on a whiteboard at
+   minute five, with a numbered badge per box keyed to the list below it, so the
+   page doubles as a self-check after drawing it cold. Items with no box to hang
+   on become tiles under a lane reading *"in the margin — said, not drawn."*
+   That band is usually where candidates go quiet.
+
+ASCII art is not an option for any of these: box-drawing arrows lose branches,
+and §6 forks.
 
 ---
 
