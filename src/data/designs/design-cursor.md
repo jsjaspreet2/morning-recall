@@ -156,7 +156,8 @@ POST /v1/workspaces/{id}/chunks            → upload only what's missing
   <rect class="dg-group" x="20" y="86" width="210" height="332" rx="12"></rect>
   <text class="dg-group-t" x="36" y="108">CLIENT — THE EDITOR</text>
   <rect class="dg-box" x="35" y="118" width="180" height="40" rx="8"></rect>
-  <text class="dg-t dg-c" x="125" y="142.5">Editor / extension host</text>
+  <text class="dg-t dg-c" x="125" y="134.5">Editor / extension host</text>
+  <text class="dg-s dg-c" x="125" y="150.5">HTTPS, abortable</text>
   <rect class="dg-box" x="35" y="170" width="180" height="56" rx="8"></rect>
   <text class="dg-t dg-c" x="125" y="194.5">Context assembler</text>
   <text class="dg-s dg-c" x="125" y="210.5">worker thread, ~10 ms</text>
@@ -176,9 +177,10 @@ POST /v1/workspaces/{id}/chunks            → upload only what's missing
   <rect class="dg-group" x="340" y="86" width="160" height="178" rx="12"></rect>
   <text class="dg-group-t" x="356" y="108">EDGE</text>
   <rect class="dg-box" x="354" y="118" width="132" height="72" rx="8"></rect>
-  <text class="dg-t dg-c" x="420" y="142.5">Regional edge</text>
-  <text class="dg-s dg-c" x="420" y="158.5">auth + rate limit</text>
-  <text class="dg-s dg-c" x="420" y="174.5">request coalescing</text>
+  <text class="dg-t dg-c" x="420" y="134.5">Regional edge</text>
+  <text class="dg-s dg-c" x="420" y="150.5">POST /completion</text>
+  <text class="dg-s dg-c" x="420" y="166.5">auth + rate limit</text>
+  <text class="dg-s dg-c" x="420" y="182.5">request coalescing</text>
   <path class="dg-box" d="M 354,209 L 354,245 A 66,7 0 0 0 486,245 L 486,209 A 66,7 0 0 0 354,209 Z"></path>
   <path class="dg-box" d="M 354,209 A 66,7 0 0 0 486,209" style="fill:none"></path>
   <text class="dg-t dg-c" x="420" y="227">Auth cache</text>
@@ -219,8 +221,9 @@ POST /v1/workspaces/{id}/chunks            → upload only what's missing
   <rect class="dg-group" x="250" y="430" width="730" height="180" rx="12"></rect>
   <text class="dg-group-t" x="266" y="452">INDEXING — ASYNCHRONOUS, OFF THE HOT PATH</text>
   <rect class="dg-box" x="268" y="462" width="170" height="56" rx="8"></rect>
-  <text class="dg-t dg-c" x="353" y="486.5">Index API</text>
-  <text class="dg-s dg-c" x="353" y="502.5">Merkle diff</text>
+  <text class="dg-t dg-c" x="353" y="478.5">Index API</text>
+  <text class="dg-s dg-c" x="353" y="494.5">POST /index</text>
+  <text class="dg-s dg-c" x="353" y="510.5">Merkle diff</text>
   <rect class="dg-box" x="468" y="462" width="180" height="56" rx="8"></rect>
   <text class="dg-t dg-c" x="558" y="486.5">AST chunker</text>
   <text class="dg-s dg-c" x="558" y="502.5">chunk on syntax bounds</text>
@@ -247,8 +250,9 @@ POST /v1/workspaces/{id}/chunks            → upload only what's missing
   <rect class="dg-group" x="250" y="630" width="730" height="110" rx="12"></rect>
   <text class="dg-group-t" x="266" y="652">TELEMETRY — WHAT THE NEXT MODEL IS TRAINED ON</text>
   <rect class="dg-box" x="268" y="662" width="150" height="56" rx="8"></rect>
-  <text class="dg-t dg-c" x="343" y="686.5">Event collector</text>
-  <text class="dg-s dg-c" x="343" y="702.5">batched</text>
+  <text class="dg-t dg-c" x="343" y="678.5">Event collector</text>
+  <text class="dg-s dg-c" x="343" y="694.5">POST /events</text>
+  <text class="dg-s dg-c" x="343" y="710.5">batched</text>
   <rect class="dg-box" x="448" y="662" width="160" height="56" rx="8"></rect>
   <path class="dg-qbar" d="M 461,671 L 461,709"></path>
   <path class="dg-qbar" d="M 470,671 L 470,709"></path>

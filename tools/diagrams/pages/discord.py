@@ -55,12 +55,13 @@ SKEL_CAP = "The bottom row is the one candidates skip. Presence, read state and 
 
 a = Board(512, "Discord architecture. Clients holding one WebSocket each. A write tier over HTTP: API service, ScyllaDB for messages partitioned by channel and bucket, Postgres for guild metadata and roles, and ScyllaDB for read state. A guild process tier, one owner per guild, resolving online members and grouping them by gateway node. A gateway fleet of roughly ten thousand nodes holding fifteen million sockets, with a Redis session registry on a heartbeat TTL. Attachments go to S3 and a CDN, never through the gateway.")
 a.banner("Ingest is trivial; fanout is not. One API tier, one process per guild, and ~10 k gateway nodes holding 15 M sockets.")
-a.box(20, 240, 150, 64, "Clients", ["one WebSocket each"])
+a.box(20, 240, 150, 64, "Clients", ["WSS to receive", "HTTPS to send"])
 a.cyl(20, 340, 150, 64, "S3 + CDN", ["attachments"])
 a.line((95, 304), (95, 340))
 
 a.group(200, 86, 420, 180, "WRITE — OVER HTTP")
-a.box(216, 118, 180, 64, "API service", ["permissions once", "Snowflake id"])
+a.box(216, 118, 180, 64, "API service",
+      ["POST /channels/{id}/messages", "permissions once · Snowflake"])
 a.cyl(420, 118, 180, 64, "ScyllaDB", ["(channel_id, bucket)"])
 a.arrow((396, 150), (420, 150))
 a.cyl(216, 200, 180, 50, "Postgres", ["guilds · roles"])
@@ -74,7 +75,8 @@ a.ctext(650, 214, "publish", 'dg-lbl')
 
 a.group(200, 300, 780, 130, "GATEWAY FLEET — ~10 k NODES, 15 M SOCKETS")
 for x in (216, 406, 596):
-    a.box(x, 340, 180, 64, "Gateway node", ["stamps a per-session seq"])
+    a.box(x, 340, 180, 64, "Gateway node",
+          ["WSS · IDENTIFY / RESUME", "heartbeat ~40 s · stamps seq"])
 a.cyl(800, 340, 166, 64, "Session registry", ["Redis, heartbeat TTL"])
 a.line((830, 236), (830, 283)); a.line((306, 283), (830, 283))
 for cx in (306, 496, 686):

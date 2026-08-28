@@ -16,7 +16,7 @@ a = Board(776, "Cursor Tab architecture. A client tier holding the editor, a con
 a.banner("Three paths leave the editor: one synchronous, budgeted at 200 ms; two asynchronous and off the hot path.")
 
 a.group(20, 86, 210, 332, "CLIENT — THE EDITOR")
-a.box(35, 118, 180, 40, "Editor / extension host")
+a.box(35, 118, 180, 40, "Editor / extension host", ["HTTPS, abortable"])
 a.box(35, 170, 180, 56, "Context assembler", ["worker thread, ~10 ms"])
 a.cyl(35, 238, 180, 54, "Completion cache", ["LRU · hash(context)"])
 a.box(35, 304, 180, 40, "Ghost-text decorations")
@@ -26,7 +26,8 @@ a.line((125, 226), (125, 238))
 a.line((125, 292), (125, 304))
 
 a.group(340, 86, 160, 178, "EDGE")
-a.box(354, 118, 132, 72, "Regional edge", ["auth + rate limit", "request coalescing"])
+a.box(354, 118, 132, 72, "Regional edge",
+      ["POST /completion", "auth + rate limit", "request coalescing"])
 a.cyl(354, 202, 132, 50, "Auth cache", ["at the edge"])
 
 a.group(610, 86, 370, 262, "INFERENCE")
@@ -45,7 +46,7 @@ a.arrow((486, 140), (625, 140)); a.ctext(555, 132, "routed by region", 'dg-lbl')
 a.arrow((625, 166), (486, 166)); a.ctext(555, 190, "tokens", 'dg-lbl')
 
 a.group(250, 430, 730, 180, "INDEXING — ASYNCHRONOUS, OFF THE HOT PATH")
-a.box(268, 462, 170, 56, "Index API", ["Merkle diff"])
+a.box(268, 462, 170, 56, "Index API", ["POST /index", "Merkle diff"])
 a.box(468, 462, 180, 56, "AST chunker", ["chunk on syntax bounds"])
 a.box(678, 462, 180, 56, "Embedding service")
 a.cyl(268, 540, 170, 56, "Merkle store", ["per repo, server-side"])
@@ -55,7 +56,7 @@ a.arrow((353, 518), (353, 540)); a.arrow((768, 518), (768, 540))
 a.arrow((215, 381), (240, 381), (240, 490), (268, 490))
 
 a.group(250, 630, 730, 110, "TELEMETRY — WHAT THE NEXT MODEL IS TRAINED ON")
-a.box(268, 662, 150, 56, "Event collector", ["batched"])
+a.box(268, 662, 150, 56, "Event collector", ["POST /events", "batched"])
 a.queue(448, 662, 160, 56, "Kafka", ["shown · accepted"])
 a.cyl(638, 662, 150, 56, "Warehouse", ["retained chars"])
 a.box(818, 662, 148, 56, "Offline eval", ["→ next model"])

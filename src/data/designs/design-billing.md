@@ -168,8 +168,9 @@ POST /webhooks/psp                     signature-verified; 200 means "durably qu
   <rect class="dg-box" x="20" y="118" width="140" height="64" rx="8"></rect>
   <text class="dg-t dg-c" x="90" y="154.5">API request</text>
   <rect class="dg-box" x="190" y="118" width="200" height="64" rx="8"></rect>
-  <text class="dg-t dg-c" x="290" y="146.5">Inference Gateway</text>
-  <text class="dg-s dg-c" x="290" y="162.5">outbox in the run's txn</text>
+  <text class="dg-t dg-c" x="290" y="138.5">Inference Gateway</text>
+  <text class="dg-s dg-c" x="290" y="154.5">usage event → outbox, same txn</text>
+  <text class="dg-s dg-c" x="290" y="170.5">one per run, at completion</text>
   <rect class="dg-box" x="420" y="118" width="180" height="64" rx="8"></rect>
   <text class="dg-t dg-c" x="510" y="154.5">model / GPU pool</text>
   <path class="dg-line" d="M 160,150 L 182,150"></path>
@@ -179,8 +180,9 @@ POST /webhooks/psp                     signature-verified; 200 means "durably qu
   <rect class="dg-group" x="190" y="220" width="420" height="200" rx="12"></rect>
   <text class="dg-group-t" x="206" y="242">① SYNCHRONOUS — APPROXIMATE, FAILS OPEN</text>
   <rect class="dg-box" x="206" y="252" width="180" height="64" rx="8"></rect>
-  <text class="dg-t dg-c" x="296" y="280.5">Admission Service</text>
-  <text class="dg-s dg-c" x="296" y="296.5">in-process leases</text>
+  <text class="dg-t dg-c" x="296" y="272.5">Admission Service</text>
+  <text class="dg-s dg-c" x="296" y="288.5">in-process leases</text>
+  <text class="dg-s dg-c" x="296" y="304.5">reserves the worst case</text>
   <path class="dg-box" d="M 410,259 L 410,309 A 92,7 0 0 0 594,309 L 594,259 A 92,7 0 0 0 410,259 Z"></path>
   <path class="dg-box" d="M 410,259 A 92,7 0 0 0 594,259" style="fill:none"></path>
   <text class="dg-t dg-c" x="502" y="284">Redis Cluster</text>
@@ -198,19 +200,21 @@ POST /webhooks/psp                     signature-verified; 200 means "durably qu
   <path class="dg-qbar" d="M 679,261 L 679,299"></path>
   <path class="dg-qbar" d="M 688,261 L 688,299"></path>
   <path class="dg-qbar" d="M 697,261 L 697,299"></path>
-  <text class="dg-t dg-c" x="833" y="276.5">Kafka usage.raw</text>
-  <text class="dg-s dg-c" x="833" y="292.5">key org_id · acks=all</text>
-  <rect class="dg-box" x="666" y="332" width="298" height="64" rx="8"></rect>
-  <text class="dg-t dg-c" x="815" y="352.5">Rate &amp; post workers</text>
-  <text class="dg-s dg-c" x="815" y="368.5">dedupe on run_id</text>
-  <text class="dg-s dg-c" x="815" y="384.5">price by occurred_at</text>
+  <text class="dg-t dg-c" x="833" y="268.5">Kafka usage.raw</text>
+  <text class="dg-s dg-c" x="833" y="284.5">key org_id · acks=all</text>
+  <text class="dg-s dg-c" x="833" y="300.5">input · cached · output · reasoning</text>
+  <rect class="dg-box" x="666" y="332" width="298" height="72" rx="8"></rect>
+  <text class="dg-t dg-c" x="815" y="348.5">Rate &amp; post workers</text>
+  <text class="dg-s dg-c" x="815" y="364.5">dedupe on run_id</text>
+  <text class="dg-s dg-c" x="815" y="380.5">prices all four token kinds</text>
+  <text class="dg-s dg-c" x="815" y="396.5">at the price effective at occurred_at</text>
   <path class="dg-box" d="M 666,427 L 666,469 A 149,7 0 0 0 964,469 L 964,427 A 149,7 0 0 0 666,427 Z"></path>
   <path class="dg-box" d="M 666,427 A 149,7 0 0 0 964,427" style="fill:none"></path>
   <text class="dg-t dg-c" x="815" y="448">ClickHouse</text>
   <text class="dg-s dg-c" x="815" y="464">ORDER BY (org_id, occurred_at)</text>
   <path class="dg-line" d="M 815,308 L 815,324"></path>
   <path class="dg-head" d="M 810,324 L 820,324 L 815,332 Z"></path>
-  <path class="dg-line" d="M 815,396 L 815,412"></path>
+  <path class="dg-line" d="M 815,404 L 815,412"></path>
   <path class="dg-head" d="M 810,412 L 820,412 L 815,420 Z"></path>
   <path class="dg-line" d="M 340,182 L 340,200 L 815,200 L 815,244"></path>
   <path class="dg-head" d="M 810,244 L 820,244 L 815,252 Z"></path>
@@ -244,6 +248,7 @@ POST /webhooks/psp                     signature-verified; 200 means "durably qu
   <path class="dg-head" d="M 325,652 L 335,652 L 330,660 Z"></path>
   <path class="dg-line" d="M 560,624 L 560,652"></path>
   <path class="dg-head" d="M 555,652 L 565,652 L 560,660 Z"></path>
+  <text class="dg-s" x="20" y="738">Prompt tokens are metered once, at completion, in the same event as the output — never at submission. At admission they only size the reservation.</text>
   <text class="dg-note" x="20" y="760">Nothing on the request path writes to a database. The first durable, ordered, money-shaped write happens in a worker nobody is waiting on.</text>
 </svg>
 </div>
@@ -257,8 +262,9 @@ POST /webhooks/psp                     signature-verified; 200 means "durably qu
   <rect class="dg-box" x="30" y="90" width="140" height="60" rx="8"></rect>
   <text class="dg-t dg-c" x="100" y="124.5">API request</text>
   <rect class="dg-box" x="200" y="90" width="420" height="60" rx="8"></rect>
-  <text class="dg-t dg-c" x="410" y="116.5">Inference Gateway</text>
-  <text class="dg-s dg-c" x="410" y="132.5">admit sync ≤5 ms · usage → local outbox in the run's txn</text>
+  <text class="dg-t dg-c" x="410" y="108.5">Inference Gateway</text>
+  <text class="dg-s dg-c" x="410" y="124.5">admit sync ≤5 ms · usage → local outbox in the run's txn</text>
+  <text class="dg-s dg-c" x="410" y="140.5">one event per run, at completion — never at submit</text>
   <rect class="dg-box" x="650" y="90" width="310" height="60" rx="8"></rect>
   <text class="dg-t dg-c" x="805" y="116.5">model / GPU pool</text>
   <text class="dg-s dg-c" x="805" y="132.5">the ChatGPT page</text>
@@ -290,8 +296,9 @@ POST /webhooks/psp                     signature-verified; 200 means "durably qu
   <path class="dg-line" d="M 580,150 L 580,192"></path>
   <path class="dg-head" d="M 575,192 L 585,192 L 580,200 Z"></path>
   <rect class="dg-box" x="540" y="200" width="420" height="56" rx="8"></rect>
-  <text class="dg-t dg-c" x="750" y="224.5">Kafka usage.raw</text>
-  <text class="dg-s dg-c" x="750" y="240.5">key = org_id · acks=all · 7-day retention</text>
+  <text class="dg-t dg-c" x="750" y="216.5">Kafka usage.raw</text>
+  <text class="dg-s dg-c" x="750" y="232.5">key = org_id · acks=all · 7-day retention</text>
+  <text class="dg-s dg-c" x="750" y="248.5">input · cached · output · reasoning tokens</text>
   <path class="dg-line" d="M 750,256 L 750,282"></path>
   <path class="dg-head" d="M 745,282 L 755,282 L 750,290 Z"></path>
   <rect class="dg-box" x="540" y="290" width="420" height="72" rx="8"></rect>

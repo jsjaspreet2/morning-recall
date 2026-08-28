@@ -131,9 +131,10 @@ DELETE /v1/users/{id}/follow        → 204
   <text class="dg-t dg-c" x="95" y="236.5">Clients</text>
   <rect class="dg-group" x="200" y="86" width="470" height="166" rx="12"></rect>
   <text class="dg-group-t" x="216" y="108">WRITE</text>
-  <rect class="dg-box" x="216" y="118" width="160" height="56" rx="8"></rect>
-  <text class="dg-t dg-c" x="296" y="142.5">Tweet Service</text>
-  <text class="dg-s dg-c" x="296" y="158.5">Snowflake id</text>
+  <rect class="dg-box" x="216" y="118" width="180" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="306" y="134.5">Tweet Service</text>
+  <text class="dg-s dg-c" x="306" y="150.5">POST /v1/tweets</text>
+  <text class="dg-s dg-c" x="306" y="166.5">Idempotency-Key · Snowflake id</text>
   <path class="dg-box" d="M 400,125 L 400,167 A 125,7 0 0 0 650,167 L 650,125 A 125,7 0 0 0 400,125 Z"></path>
   <path class="dg-box" d="M 400,125 A 125,7 0 0 0 650,125" style="fill:none"></path>
   <text class="dg-t dg-c" x="525" y="146">Tweet store</text>
@@ -175,10 +176,12 @@ DELETE /v1/users/{id}/follow        → 204
   <rect class="dg-group" x="200" y="470" width="780" height="150" rx="12"></rect>
   <text class="dg-group-t" x="216" y="492">READ — HYDRATION IS THE REAL COST</text>
   <rect class="dg-box" x="216" y="502" width="180" height="64" rx="8"></rect>
-  <text class="dg-t dg-c" x="306" y="530.5">Timeline Service</text>
-  <text class="dg-s dg-c" x="306" y="546.5">merge · dedupe · cap</text>
+  <text class="dg-t dg-c" x="306" y="522.5">Timeline Service</text>
+  <text class="dg-s dg-c" x="306" y="538.5">GET /v1/timeline?cursor=</text>
+  <text class="dg-s dg-c" x="306" y="554.5">merge · dedupe · cap</text>
   <rect class="dg-box" x="430" y="502" width="180" height="64" rx="8"></rect>
-  <text class="dg-t dg-c" x="520" y="538.5">Hydration</text>
+  <text class="dg-t dg-c" x="520" y="530.5">Hydration</text>
+  <text class="dg-s dg-c" x="520" y="546.5">multi-get by id</text>
   <path class="dg-box" d="M 650,509 L 650,559 A 80,7 0 0 0 810,559 L 810,509 A 80,7 0 0 0 650,509 Z"></path>
   <path class="dg-box" d="M 650,509 A 80,7 0 0 0 810,509" style="fill:none"></path>
   <text class="dg-t dg-c" x="730" y="534">Tweet / author cache</text>

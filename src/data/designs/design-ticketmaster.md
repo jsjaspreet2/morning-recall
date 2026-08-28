@@ -151,8 +151,9 @@ POST /v1/orders                            → { orderId, status }
   <rect class="dg-group" x="200" y="86" width="460" height="200" rx="12"></rect>
   <text class="dg-group-t" x="216" y="108">EDGE — CDN + WAITING ROOM</text>
   <rect class="dg-box" x="216" y="118" width="200" height="64" rx="8"></rect>
-  <text class="dg-t dg-c" x="316" y="146.5">Admission worker</text>
-  <text class="dg-s dg-c" x="316" y="162.5">signed queue token</text>
+  <text class="dg-t dg-c" x="316" y="138.5">Admission worker</text>
+  <text class="dg-s dg-c" x="316" y="154.5">POST /queue → signed token</text>
+  <text class="dg-s dg-c" x="316" y="170.5">GET /queue/{token} · poll or SSE</text>
   <path class="dg-box" d="M 440,125 L 440,175 A 102,7 0 0 0 644,175 L 644,125 A 102,7 0 0 0 440,125 Z"></path>
   <path class="dg-box" d="M 440,125 A 102,7 0 0 0 644,125" style="fill:none"></path>
   <text class="dg-t dg-c" x="542" y="150">Redis</text>
@@ -161,8 +162,9 @@ POST /v1/orders                            → { orderId, status }
   <path class="dg-head" d="M 432,155 L 432,145 L 440,150 Z"></path>
   <path class="dg-box" d="M 216,213 L 216,255 A 214,7 0 0 0 644,255 L 644,213 A 214,7 0 0 0 216,213 Z"></path>
   <path class="dg-box" d="M 216,213 A 214,7 0 0 0 644,213" style="fill:none"></path>
-  <text class="dg-t dg-c" x="430" y="234">CDN</text>
-  <text class="dg-s dg-c" x="430" y="250">event page · availability blob, 1–5 s TTL</text>
+  <text class="dg-t dg-c" x="430" y="226">CDN</text>
+  <text class="dg-s dg-c" x="430" y="242">GET /events/{id}/availability</text>
+  <text class="dg-s dg-c" x="430" y="258">event page · blob, 1–5 s TTL</text>
   <path class="dg-line" d="M 170,182 L 193,182 L 193,150 L 208,150"></path>
   <path class="dg-head" d="M 208,155 L 208,145 L 216,150 Z"></path>
   <rect class="dg-group" x="700" y="86" width="280" height="200" rx="12"></rect>
@@ -171,8 +173,9 @@ POST /v1/orders                            → { orderId, status }
   <text class="dg-t dg-c" x="840" y="146.5">Availability Service</text>
   <text class="dg-s dg-c" x="840" y="162.5">bitmap in memory</text>
   <rect class="dg-box" x="716" y="206" width="248" height="56" rx="8"></rect>
-  <text class="dg-t dg-c" x="840" y="230.5">WS delta tier</text>
-  <text class="dg-s dg-c" x="840" y="246.5">version + changes</text>
+  <text class="dg-t dg-c" x="840" y="222.5">WS delta tier</text>
+  <text class="dg-s dg-c" x="840" y="238.5">WSS /availability/stream</text>
+  <text class="dg-s dg-c" x="840" y="254.5">version + changes</text>
   <path class="dg-line" d="M 840,182 L 840,198"></path>
   <path class="dg-head" d="M 835,198 L 845,198 L 840,206 Z"></path>
   <path class="dg-line" d="M 644,234 L 676,234 L 676,150 L 708,150"></path>
@@ -180,14 +183,16 @@ POST /v1/orders                            → { orderId, status }
   <rect class="dg-group" x="200" y="340" width="460" height="200" rx="12"></rect>
   <text class="dg-group-t" x="216" y="362">BUY — ~2 k/s, STRICTLY SERIALIZABLE</text>
   <rect class="dg-box" x="216" y="372" width="180" height="64" rx="8"></rect>
-  <text class="dg-t dg-c" x="306" y="400.5">Booking Service</text>
-  <text class="dg-s dg-c" x="306" y="416.5">session token required</text>
+  <text class="dg-t dg-c" x="306" y="392.5">Booking Service</text>
+  <text class="dg-s dg-c" x="306" y="408.5">POST /v1/holds</text>
+  <text class="dg-s dg-c" x="306" y="424.5">session token · Idem-Key</text>
   <path class="dg-box" d="M 420,379 L 420,429 A 112,7 0 0 0 644,429 L 644,379 A 112,7 0 0 0 420,379 Z"></path>
   <path class="dg-box" d="M 420,379 A 112,7 0 0 0 644,379" style="fill:none"></path>
   <text class="dg-t dg-c" x="532" y="404">Inventory — Postgres</text>
   <text class="dg-s dg-c" x="532" y="420">one shard per event</text>
   <rect class="dg-box" x="216" y="460" width="180" height="64" rx="8"></rect>
-  <text class="dg-t dg-c" x="306" y="496.5">Order Service</text>
+  <text class="dg-t dg-c" x="306" y="488.5">Order Service</text>
+  <text class="dg-s dg-c" x="306" y="504.5">POST /v1/orders</text>
   <rect class="dg-box" x="420" y="460" width="224" height="64" rx="8"></rect>
   <text class="dg-t dg-c" x="532" y="496.5">Payment (PSP)</text>
   <path class="dg-line" d="M 396,404 L 412,404"></path>

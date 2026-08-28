@@ -136,13 +136,16 @@ DELETE /v1/bookings/{id}                → cancel
   <rect class="dg-group" x="200" y="86" width="520" height="166" rx="12"></rect>
   <text class="dg-group-t" x="216" y="108">SEARCH — 100k QPS, STALE-TOLERANT</text>
   <rect class="dg-box" x="216" y="118" width="160" height="56" rx="8"></rect>
-  <text class="dg-t dg-c" x="296" y="150.5">Search Service</text>
+  <text class="dg-t dg-c" x="296" y="134.5">Search Service</text>
+  <text class="dg-s dg-c" x="296" y="150.5">GET /v1/search</text>
+  <text class="dg-s dg-c" x="296" y="166.5">viewport bbox + dates</text>
   <path class="dg-box" d="M 400,125 L 400,167 A 150,7 0 0 0 700,167 L 700,125 A 150,7 0 0 0 400,125 Z"></path>
   <path class="dg-box" d="M 400,125 A 150,7 0 0 0 700,125" style="fill:none"></path>
   <text class="dg-t dg-c" x="550" y="146">Elasticsearch</text>
   <text class="dg-s dg-c" x="550" y="162">geo-sharded · availability bitmap</text>
   <rect class="dg-box" x="216" y="194" width="160" height="50" rx="8"></rect>
-  <text class="dg-t dg-c" x="296" y="223.5">Pricing Service</text>
+  <text class="dg-t dg-c" x="296" y="215.5">Pricing Service</text>
+  <text class="dg-s dg-c" x="296" y="231.5">per-night + fees</text>
   <path class="dg-box" d="M 400,201 L 400,237 A 150,7 0 0 0 700,237 L 700,201 A 150,7 0 0 0 400,201 Z"></path>
   <path class="dg-box" d="M 400,201 A 150,7 0 0 0 700,201" style="fill:none"></path>
   <text class="dg-t dg-c" x="550" y="219">Price cache — Redis</text>
@@ -154,10 +157,13 @@ DELETE /v1/bookings/{id}                → cancel
   <rect class="dg-group" x="200" y="320" width="520" height="230" rx="12"></rect>
   <text class="dg-group-t" x="216" y="342">BOOKING — 23/SEC, STRICTLY CORRECT</text>
   <rect class="dg-box" x="216" y="352" width="160" height="56" rx="8"></rect>
-  <text class="dg-t dg-c" x="296" y="384.5">Booking API</text>
+  <text class="dg-t dg-c" x="296" y="368.5">Booking API</text>
+  <text class="dg-s dg-c" x="296" y="384.5">POST /v1/bookings</text>
+  <text class="dg-s dg-c" x="296" y="400.5">Idempotency-Key</text>
   <rect class="dg-box" x="216" y="428" width="160" height="72" rx="8"></rect>
-  <text class="dg-t dg-c" x="296" y="460.5">Temporal workers</text>
-  <text class="dg-s dg-c" x="296" y="476.5">durable execution</text>
+  <text class="dg-t dg-c" x="296" y="452.5">Temporal workers</text>
+  <text class="dg-s dg-c" x="296" y="468.5">durable execution</text>
+  <text class="dg-s dg-c" x="296" y="484.5">signals + 24 h timers</text>
   <path class="dg-box" d="M 400,359 L 400,401 A 150,7 0 0 0 700,401 L 700,359 A 150,7 0 0 0 400,359 Z"></path>
   <path class="dg-box" d="M 400,359 A 150,7 0 0 0 700,359" style="fill:none"></path>
   <text class="dg-t dg-c" x="550" y="380">Reservations — Postgres</text>
@@ -199,8 +205,9 @@ DELETE /v1/bookings/{id}                → cancel
   <rect class="dg-group" x="200" y="590" width="780" height="110" rx="12"></rect>
   <text class="dg-group-t" x="216" y="612">EXTERNAL — WHERE DOUBLE BOOKINGS ACTUALLY COME FROM</text>
   <rect class="dg-box" x="216" y="622" width="180" height="56" rx="8"></rect>
-  <text class="dg-t dg-c" x="306" y="646.5">iCal poller</text>
-  <text class="dg-s dg-c" x="306" y="662.5">every few minutes</text>
+  <text class="dg-t dg-c" x="306" y="638.5">iCal poller</text>
+  <text class="dg-s dg-c" x="306" y="654.5">HTTP GET .ics</text>
+  <text class="dg-s dg-c" x="306" y="670.5">every few minutes</text>
   <rect class="dg-box" x="430" y="622" width="200" height="56" rx="8"></rect>
   <text class="dg-t dg-c" x="530" y="646.5">Calendar Sync</text>
   <text class="dg-s dg-c" x="530" y="662.5">detect, don't prevent</text>

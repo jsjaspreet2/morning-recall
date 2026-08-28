@@ -135,11 +135,13 @@ POST /v1/offers/{offerId}       → accept | decline
   <rect class="dg-group" x="20" y="86" width="470" height="200" rx="12"></rect>
   <text class="dg-group-t" x="36" y="108">SUPPLY — 2.5 M WRITES/SEC, DISPOSABLE</text>
   <rect class="dg-box" x="36" y="118" width="180" height="64" rx="8"></rect>
-  <text class="dg-t dg-c" x="126" y="146.5">Driver app</text>
-  <text class="dg-s dg-c" x="126" y="162.5">ping / 4 s</text>
+  <text class="dg-t dg-c" x="126" y="138.5">Driver app</text>
+  <text class="dg-s dg-c" x="126" y="154.5">WSS · ping / 4 s</text>
+  <text class="dg-s dg-c" x="126" y="170.5">lat, lng, heading, ts</text>
   <rect class="dg-box" x="256" y="118" width="218" height="64" rx="8"></rect>
-  <text class="dg-t dg-c" x="365" y="146.5">Location Gateway</text>
-  <text class="dg-s dg-c" x="365" y="162.5">WebSocket, regional</text>
+  <text class="dg-t dg-c" x="365" y="138.5">Location Gateway</text>
+  <text class="dg-s dg-c" x="365" y="154.5">WebSocket, regional</text>
+  <text class="dg-s dg-c" x="365" y="170.5">202 ack, no payload</text>
   <path class="dg-line" d="M 216,150 L 248,150"></path>
   <path class="dg-head" d="M 248,155 L 248,145 L 256,150 Z"></path>
   <path class="dg-box" d="M 36,213 L 36,263 A 109,7 0 0 0 254,263 L 254,213 A 109,7 0 0 0 36,213 Z"></path>
@@ -168,17 +170,20 @@ POST /v1/offers/{offerId}       → accept | decline
   <path class="dg-line" d="M 740,234 L 772,234"></path>
   <path class="dg-head" d="M 772,239 L 772,229 L 780,234 Z"></path>
   <rect class="dg-box" x="436" y="300" width="268" height="56" rx="8"></rect>
-  <text class="dg-t dg-c" x="570" y="324.5">Pricing · Routing</text>
-  <text class="dg-s dg-c" x="570" y="340.5">signed quote, expiresAt</text>
+  <text class="dg-t dg-c" x="570" y="316.5">Pricing · Routing</text>
+  <text class="dg-s dg-c" x="570" y="332.5">POST /v1/fare-quotes</text>
+  <text class="dg-s dg-c" x="570" y="348.5">signed quote, expiresAt</text>
   <rect class="dg-group" x="20" y="360" width="700" height="220" rx="12"></rect>
   <text class="dg-group-t" x="36" y="382">DEMAND — 30 k WRITES/SEC, DURABLE</text>
   <rect class="dg-box" x="36" y="392" width="160" height="64" rx="8"></rect>
-  <text class="dg-t dg-c" x="116" y="428.5">Rider app</text>
+  <text class="dg-t dg-c" x="116" y="420.5">Rider app</text>
+  <text class="dg-s dg-c" x="116" y="436.5">HTTPS + WSS</text>
   <rect class="dg-box" x="236" y="392" width="160" height="64" rx="8"></rect>
   <text class="dg-t dg-c" x="316" y="428.5">API Gateway</text>
   <rect class="dg-box" x="436" y="392" width="268" height="64" rx="8"></rect>
-  <text class="dg-t dg-c" x="570" y="420.5">Ride Service</text>
-  <text class="dg-s dg-c" x="570" y="436.5">201 without a match</text>
+  <text class="dg-t dg-c" x="570" y="412.5">Ride Service</text>
+  <text class="dg-s dg-c" x="570" y="428.5">POST /v1/rides · Idempotency-Key</text>
+  <text class="dg-s dg-c" x="570" y="444.5">201 without a match</text>
   <path class="dg-line" d="M 196,424 L 228,424"></path>
   <path class="dg-head" d="M 228,429 L 228,419 L 236,424 Z"></path>
   <path class="dg-line" d="M 396,424 L 428,424"></path>
@@ -208,8 +213,9 @@ POST /v1/offers/{offerId}       → accept | decline
   <text class="dg-t dg-c" x="888" y="416.5">Kafka</text>
   <text class="dg-s dg-c" x="888" y="432.5">ride events</text>
   <rect class="dg-box" x="760" y="480" width="220" height="64" rx="8"></rect>
-  <text class="dg-t dg-c" x="870" y="508.5">Push / notifications</text>
-  <text class="dg-s dg-c" x="870" y="524.5">connection registry</text>
+  <text class="dg-t dg-c" x="870" y="500.5">Push / notifications</text>
+  <text class="dg-s dg-c" x="870" y="516.5">WS /v1/rides/{id}/events</text>
+  <text class="dg-s dg-c" x="870" y="532.5">connection registry</text>
   <path class="dg-line" d="M 704,420 L 752,420"></path>
   <path class="dg-head" d="M 752,425 L 752,415 L 760,420 Z"></path>
   <path class="dg-line" d="M 870,448 L 870,472"></path>

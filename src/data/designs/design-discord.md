@@ -123,8 +123,9 @@ PUT  /channels/{channel_id}/read        { last_message_id }       -> 204
   <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
   <text class="dg-banner-t dg-c" x="500" y="33.5">Ingest is trivial; fanout is not. One API tier, one process per guild, and ~10 k gateway nodes holding 15 M sockets.</text>
   <rect class="dg-box" x="20" y="240" width="150" height="64" rx="8"></rect>
-  <text class="dg-t dg-c" x="95" y="268.5">Clients</text>
-  <text class="dg-s dg-c" x="95" y="284.5">one WebSocket each</text>
+  <text class="dg-t dg-c" x="95" y="260.5">Clients</text>
+  <text class="dg-s dg-c" x="95" y="276.5">WSS to receive</text>
+  <text class="dg-s dg-c" x="95" y="292.5">HTTPS to send</text>
   <path class="dg-box" d="M 20,347 L 20,397 A 75,7 0 0 0 170,397 L 170,347 A 75,7 0 0 0 20,347 Z"></path>
   <path class="dg-box" d="M 20,347 A 75,7 0 0 0 170,347" style="fill:none"></path>
   <text class="dg-t dg-c" x="95" y="372">S3 + CDN</text>
@@ -134,8 +135,8 @@ PUT  /channels/{channel_id}/read        { last_message_id }       -> 204
   <text class="dg-group-t" x="216" y="108">WRITE — OVER HTTP</text>
   <rect class="dg-box" x="216" y="118" width="180" height="64" rx="8"></rect>
   <text class="dg-t dg-c" x="306" y="138.5">API service</text>
-  <text class="dg-s dg-c" x="306" y="154.5">permissions once</text>
-  <text class="dg-s dg-c" x="306" y="170.5">Snowflake id</text>
+  <text class="dg-s dg-c" x="306" y="154.5">POST /channels/{id}/messages</text>
+  <text class="dg-s dg-c" x="306" y="170.5">permissions once · Snowflake</text>
   <path class="dg-box" d="M 420,125 L 420,175 A 90,7 0 0 0 600,175 L 600,125 A 90,7 0 0 0 420,125 Z"></path>
   <path class="dg-box" d="M 420,125 A 90,7 0 0 0 600,125" style="fill:none"></path>
   <text class="dg-t dg-c" x="510" y="150">ScyllaDB</text>
@@ -163,14 +164,17 @@ PUT  /channels/{channel_id}/read        { last_message_id }       -> 204
   <rect class="dg-group" x="200" y="300" width="780" height="130" rx="12"></rect>
   <text class="dg-group-t" x="216" y="322">GATEWAY FLEET — ~10 k NODES, 15 M SOCKETS</text>
   <rect class="dg-box" x="216" y="340" width="180" height="64" rx="8"></rect>
-  <text class="dg-t dg-c" x="306" y="368.5">Gateway node</text>
-  <text class="dg-s dg-c" x="306" y="384.5">stamps a per-session seq</text>
+  <text class="dg-t dg-c" x="306" y="360.5">Gateway node</text>
+  <text class="dg-s dg-c" x="306" y="376.5">WSS · IDENTIFY / RESUME</text>
+  <text class="dg-s dg-c" x="306" y="392.5">heartbeat ~40 s · stamps seq</text>
   <rect class="dg-box" x="406" y="340" width="180" height="64" rx="8"></rect>
-  <text class="dg-t dg-c" x="496" y="368.5">Gateway node</text>
-  <text class="dg-s dg-c" x="496" y="384.5">stamps a per-session seq</text>
+  <text class="dg-t dg-c" x="496" y="360.5">Gateway node</text>
+  <text class="dg-s dg-c" x="496" y="376.5">WSS · IDENTIFY / RESUME</text>
+  <text class="dg-s dg-c" x="496" y="392.5">heartbeat ~40 s · stamps seq</text>
   <rect class="dg-box" x="596" y="340" width="180" height="64" rx="8"></rect>
-  <text class="dg-t dg-c" x="686" y="368.5">Gateway node</text>
-  <text class="dg-s dg-c" x="686" y="384.5">stamps a per-session seq</text>
+  <text class="dg-t dg-c" x="686" y="360.5">Gateway node</text>
+  <text class="dg-s dg-c" x="686" y="376.5">WSS · IDENTIFY / RESUME</text>
+  <text class="dg-s dg-c" x="686" y="392.5">heartbeat ~40 s · stamps seq</text>
   <path class="dg-box" d="M 800,347 L 800,397 A 83,7 0 0 0 966,397 L 966,347 A 83,7 0 0 0 800,347 Z"></path>
   <path class="dg-box" d="M 800,347 A 83,7 0 0 0 966,347" style="fill:none"></path>
   <text class="dg-t dg-c" x="883" y="372">Session registry</text>

@@ -187,8 +187,8 @@ WS   /v1/subscribe   ← { entity: "team:7", version: 13, delay_ms: 4200 }   // 
   <text class="dg-group-t" x="316" y="108">WRITE PATH</text>
   <rect class="dg-box" x="316" y="118" width="180" height="90" rx="8"></rect>
   <text class="dg-t dg-c" x="406" y="143.5">Settings API</text>
-  <text class="dg-s dg-c" x="406" y="159.5">CAS on the pointer</text>
-  <text class="dg-s dg-c" x="406" y="175.5">PUT If-Match</text>
+  <text class="dg-s dg-c" x="406" y="159.5">GET /v1/manifest — ~200 B</text>
+  <text class="dg-s dg-c" x="406" y="175.5">PUT If-Match · CAS</text>
   <text class="dg-s dg-c" x="406" y="191.5">412 + current doc</text>
   <path class="dg-box" d="M 520,125 L 520,201 A 82,7 0 0 0 684,201 L 684,125 A 82,7 0 0 0 520,125 Z"></path>
   <path class="dg-box" d="M 520,125 A 82,7 0 0 0 684,125" style="fill:none"></path>
@@ -216,7 +216,8 @@ WS   /v1/subscribe   ← { entity: "team:7", version: 13, delay_ms: 4200 }   // 
   <path class="dg-line" d="M 860,174 L 860,192"></path>
   <path class="dg-head" d="M 855,192 L 865,192 L 860,200 Z"></path>
   <rect class="dg-box" x="740" y="290" width="240" height="56" rx="8"></rect>
-  <text class="dg-t dg-c" x="860" y="322.5">WS gateway</text>
+  <text class="dg-t dg-c" x="860" y="314.5">WS gateway</text>
+  <text class="dg-s dg-c" x="860" y="330.5">WSS · {entity, version}</text>
   <path class="dg-box" d="M 740,377 L 740,419 A 120,7 0 0 0 980,419 L 980,377 A 120,7 0 0 0 740,377 Z"></path>
   <path class="dg-box" d="M 740,377 A 120,7 0 0 0 980,377" style="fill:none"></path>
   <text class="dg-t dg-c" x="860" y="398">Registry — Redis</text>
@@ -229,8 +230,9 @@ WS   /v1/subscribe   ← { entity: "team:7", version: 13, delay_ms: 4200 }   // 
   <text class="dg-lbl" x="276" y="338">{entity, version} — a hint, not a value</text>
   <path class="dg-box" d="M 420,407 L 420,449 A 120,7 0 0 0 660,449 L 660,407 A 120,7 0 0 0 420,407 Z"></path>
   <path class="dg-box" d="M 420,407 A 120,7 0 0 0 660,407" style="fill:none"></path>
-  <text class="dg-t dg-c" x="540" y="428">CDN</text>
-  <text class="dg-s dg-c" x="540" y="444">version-addressed, immutable</text>
+  <text class="dg-t dg-c" x="540" y="420">CDN</text>
+  <text class="dg-s dg-c" x="540" y="436">GET /entity/{type}/{id}?v=</text>
+  <text class="dg-s dg-c" x="540" y="452">immutable, max-age 1 y</text>
   <path class="dg-line" d="M 240,250 L 262,250 L 262,428 L 412,428"></path>
   <path class="dg-head" d="M 412,433 L 412,423 L 420,428 Z"></path>
   <path class="dg-line" d="M 360,208 L 360,290 L 500,290 L 500,392"></path>

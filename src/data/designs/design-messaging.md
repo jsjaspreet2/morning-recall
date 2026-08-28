@@ -152,19 +152,23 @@ Two consequences that catch people out:
   <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
   <text class="dg-banner-t dg-c" x="500" y="33.5">The store is boring and the gateway tier is enormous: 120 writes/sec per shard against ~10 k nodes holding a billion sockets.</text>
   <rect class="dg-box" x="20" y="240" width="150" height="64" rx="8"></rect>
-  <text class="dg-t dg-c" x="95" y="268.5">Devices</text>
-  <text class="dg-s dg-c" x="95" y="284.5">~1 B, one socket each</text>
+  <text class="dg-t dg-c" x="95" y="260.5">Devices</text>
+  <text class="dg-s dg-c" x="95" y="276.5">~1 B devices</text>
+  <text class="dg-s dg-c" x="95" y="292.5">one WSS each</text>
   <rect class="dg-group" x="200" y="86" width="560" height="130" rx="12"></rect>
   <text class="dg-group-t" x="216" y="108">CONNECTION GATEWAYS — ~10 k NODES</text>
   <rect class="dg-box" x="216" y="118" width="168" height="64" rx="8"></rect>
-  <text class="dg-t dg-c" x="300" y="146.5">Gateway</text>
-  <text class="dg-s dg-c" x="300" y="162.5">holds sockets</text>
+  <text class="dg-t dg-c" x="300" y="138.5">Gateway</text>
+  <text class="dg-s dg-c" x="300" y="154.5">holds sockets</text>
+  <text class="dg-s dg-c" x="300" y="170.5">WSS · heartbeat TTL</text>
   <rect class="dg-box" x="396" y="118" width="168" height="64" rx="8"></rect>
-  <text class="dg-t dg-c" x="480" y="146.5">Gateway</text>
-  <text class="dg-s dg-c" x="480" y="162.5">holds sockets</text>
+  <text class="dg-t dg-c" x="480" y="138.5">Gateway</text>
+  <text class="dg-s dg-c" x="480" y="154.5">holds sockets</text>
+  <text class="dg-s dg-c" x="480" y="170.5">WSS · heartbeat TTL</text>
   <rect class="dg-box" x="576" y="118" width="168" height="64" rx="8"></rect>
-  <text class="dg-t dg-c" x="660" y="146.5">Gateway</text>
-  <text class="dg-s dg-c" x="660" y="162.5">holds sockets</text>
+  <text class="dg-t dg-c" x="660" y="138.5">Gateway</text>
+  <text class="dg-s dg-c" x="660" y="154.5">holds sockets</text>
+  <text class="dg-s dg-c" x="660" y="170.5">WSS · heartbeat TTL</text>
   <path class="dg-box" d="M 790,125 L 790,175 A 90,7 0 0 0 970,175 L 970,125 A 90,7 0 0 0 790,125 Z"></path>
   <path class="dg-box" d="M 790,125 A 90,7 0 0 0 970,125" style="fill:none"></path>
   <text class="dg-t dg-c" x="880" y="150">Connection registry</text>
@@ -177,8 +181,9 @@ Two consequences that catch people out:
   <text class="dg-s dg-c" x="356" y="332">sharded by conversation_id</text>
   <text class="dg-s dg-c" x="356" y="348">seq = last_seq + 1</text>
   <rect class="dg-box" x="520" y="292" width="224" height="64" rx="8"></rect>
-  <text class="dg-t dg-c" x="632" y="320.5">Message Service</text>
-  <text class="dg-s dg-c" x="632" y="336.5">members → devices</text>
+  <text class="dg-t dg-c" x="632" y="312.5">Message Service</text>
+  <text class="dg-s dg-c" x="632" y="328.5">members → devices</text>
+  <text class="dg-s dg-c" x="632" y="344.5">one batched RPC/gateway</text>
   <path class="dg-line" d="M 520,324 L 504,324"></path>
   <path class="dg-head" d="M 504,319 L 504,329 L 496,324 Z"></path>
   <path class="dg-box" d="M 216,383 L 216,419 A 140,7 0 0 0 496,419 L 496,383 A 140,7 0 0 0 216,383 Z"></path>
@@ -212,8 +217,9 @@ Two consequences that catch people out:
   <path class="dg-line" d="M 880,440 L 880,462"></path>
   <path class="dg-head" d="M 875,462 L 885,462 L 880,470 Z"></path>
   <rect class="dg-box" x="216" y="470" width="180" height="56" rx="8"></rect>
-  <text class="dg-t dg-c" x="306" y="494.5">Sync service</text>
-  <text class="dg-s dg-c" x="306" y="510.5">per-device watermark</text>
+  <text class="dg-t dg-c" x="306" y="486.5">Sync service</text>
+  <text class="dg-s dg-c" x="306" y="502.5">GET /v1/sync</text>
+  <text class="dg-s dg-c" x="306" y="518.5">per-device watermark</text>
   <path class="dg-box" d="M 430,477 L 430,519 A 135,7 0 0 0 700,519 L 700,477 A 135,7 0 0 0 430,477 Z"></path>
   <path class="dg-box" d="M 430,477 A 135,7 0 0 0 700,477" style="fill:none"></path>
   <text class="dg-t dg-c" x="565" y="498">Conversation list</text>

@@ -49,6 +49,11 @@ class Board:
     def _label(self, x, y, w, h, title, subs=(), tcls='dg-t', scls='dg-s'):
         cx = x + w / 2
         block = 13 + 16 * len(subs)
+        # The width guard cannot see text spilling out of the *bottom* of a box,
+        # which is what happens the moment a sub-line is added to a box that was
+        # already full. Centred content fits exactly while block <= h - 2.
+        if block > h - 2:
+            self.warn.append(f'    TOO TALL {block} > {h - 2}: {title!r} with {len(subs)} sub-lines')
         top = y + (h - block) / 2 + 11
         if title:
             self._(f'<text class="{tcls} dg-c" x="{cx:g}" y="{top:g}">{esc(title)}</text>')
