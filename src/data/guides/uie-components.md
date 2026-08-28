@@ -10098,6 +10098,14 @@ export function useChat({
   const [error, setError] = useState<Error | null>(null)
   const controllerRef = useRef<AbortController | null>(null)
 
+  // A mirror of `messages` that is correct synchronously. One write path, so the
+  // two can never disagree.
+  const messagesRef = useRef<Message[]>([])
+  const commit = useCallback((next: Message[]) => {
+    messagesRef.current = next
+    setMessages(next)
+  }, [])
+
   const stop = useCallback(() => {
     controllerRef.current?.abort()
     setStatus('idle')
@@ -10110,13 +10118,13 @@ export function useChat({
 
       // Optimistic: the user's turn and an empty assistant turn land together,
       // so the stream has somewhere to write and the UI never shows a gap.
-      const userMsg: Message = { id: crypto.randomUUID(), role: 'user', content: text }
+      // `history` comes from the ref, not from state — see the warning below.
       const replyId = crypto.randomUUID()
-      let history: Message[] = []
-      setMessages((m) => {
-        history = [...m, userMsg]
-        return [...history, { id: replyId, role: 'assistant', content: '' }]
-      })
+      const history: Message[] = [
+        ...messagesRef.current,
+        { id: crypto.randomUUID(), role: 'user', content: text },
+      ]
+      commit([...history, { id: replyId, role: 'assistant', content: '' }])
       setStatus('streaming')
       setError(null)
 
@@ -10131,8 +10139,10 @@ export function useChat({
           if (controller.signal.aborted) return
           if (done) break
           const chunk = decoder.decode(value, { stream: true })
-          setMessages((m) =>
-            m.map((msg) => (msg.id === replyId ? { ...msg, content: msg.content + chunk } : msg)),
+          commit(
+            messagesRef.current.map((msg) =>
+              msg.id === replyId ? { ...msg, content: msg.content + chunk } : msg,
+            ),
           )
         }
         setStatus('done')
@@ -10142,7 +10152,7 @@ export function useChat({
         setError(err instanceof Error ? err : new Error(String(err)))
       }
     },
-    [fetchStream],
+    [fetchStream, commit],
   )
 
   useEffect(() => () => controllerRef.current?.abort(), [])   // abort on unmount
@@ -10172,9 +10182,22 @@ function Chat({ fetchStream }: Props) {
 }
 ```
 
-**Three things to narrate while writing it.** The `replyId` is why the stream can append without
-re-finding the last message by index. `fetchStream` takes the history so the hook never has to know
-about system prompts or headers. And the abort lives in the hook, so a consumer cannot forget it.
+**The trap that makes this worth building once.** A state updater does **not** run when you call
+it — React defers it. So the obvious version is broken, and broken invisibly:
+
+```tsx
+setMessages((m) => { history = [...m, userMsg]; return [...history, placeholder] })
+const res = await fetchStream(history, signal)     // history is STILL []
+```
+
+The transcript renders perfectly and the model answers a question it was never sent. Hence the ref
+mirror, updated synchronously with one `commit` write path. **The one-line alternative is putting
+`messages` in `send`'s dependency array** — also correct, and it costs you a `send` whose identity
+changes every turn, which any consumer holding it in a dep array will feel. Pick one and say why.
+
+**Three more things to narrate.** The `replyId` is why the stream can append without re-finding the
+last message by index. `fetchStream` takes the history so the hook never has to know about system
+prompts or headers. And the abort lives in the hook, so a consumer cannot forget it.
 
 ---
 
