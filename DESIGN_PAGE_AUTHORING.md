@@ -117,11 +117,13 @@ page; renumbering to make room for it would invalidate all of them for no gain. 
 Use `## N · Title` for sections and `### Title` for subsections — those are the two levels the
 sidebar TOC surfaces. **§15 is the last section.**
 
-**§16 · Active recall is retired — don't write one.** Earlier pages carry a table of 12–25 cold
-prompts with section pointers; those stay where they are and don't need removing. But it turned out
-to be the part of a page nobody uses, and it's the most expensive part to generate, so **new pages
-end at §15 and edits to existing pages leave the section alone rather than extending it.** Spaced
-recall lives in the site's own prompt deck, not at the bottom of a problem page.
+**§16 · Active recall is gone — don't write one.** Seven pages used to end with a table of
+12–25 cold prompts and section pointers. Those tables were **deleted on 2026-08-30**: they were
+the part of a page nobody read and the most expensive part to generate. Every design page now
+ends at §15, and none of them is an example to copy. The site has no recall deck of any kind —
+see `BUILD_SPEC.md` — so there is nowhere for a generated prompt to go and nothing to keep in
+sync. Don't write recall prompts, tables of cold questions, or flashcards, here or anywhere else
+in this repo. (`git log -- src/data/designs/` has the old tables if that judgment ever reverses.)
 
 ---
 
@@ -329,6 +331,7 @@ Run this against the finished page. Each line maps to a standing rule above.
 > last, referencing the deep dives by section number. Every deep dive opens with why the obvious
 > answer fails and closes with what the replacement costs. Every flow ends in a failure path. Do not
 > restate anything from `00-interview-mechanics.md` — link to it. §15 must be organized around one
-> named governing axis, and **the page ends there — no §16 active-recall section, even though the
-> existing pages have one.** Then add the `META` entry in `src/data/designs.ts` and run the self-check
+> named governing axis, and **the page ends there — no §16 active-recall section, and no recall
+> prompts anywhere.** Then add the `META` entry in
+> `src/data/designs.ts` and run the self-check
 > list.

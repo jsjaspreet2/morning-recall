@@ -561,26 +561,3 @@ Two implementation details worth stating because they are where it actually goes
 | **A multiplayer level or CAD editor** | Map of objects, but with **geometric constraints between them** | LWW per property, plus **constraint solving** | Property-level LWW can produce a document that converges and is *invalid* — two users each satisfying one constraint. Introduces validation as a first-class server concern |
 | **A single-player editor with sync** | Same map, but **one writer at a time** | No algorithm at all — last device to save wins | Collapses §7, §8, and §11 into a version number. Useful to state, because it isolates what multiplayer actually costs |
 | **Layered configuration** (IDE settings) | **No shared structure at all** — several separately-owned documents merged at read time | A precedence function, not a merge algorithm | The inverse of this page, and **its own page — see IDE settings sync**. Nobody writes the same document, so there is no convergence problem; what's called a conflict is an unwritten precedence rule |
-
----
-
-## 16 · Active recall — answer these cold, no scrolling
-
-1. Why is convergence a weaker requirement than linearizability, and what specifically does the design buy with the slack? → §2
-2. What is the unit of conflict, and what would break if it were the object instead? → §4
-3. Why must `ObjectID` be minted by the client? → §4
-4. Give the two reasons OT is the wrong tool here — one about the algorithm, one about the data model. → §7
-5. In what sense is this "not a true CRDT," and what does the server's centrality let you delete? → §7
-6. Two users concurrently set `fill` on one rectangle. Precisely what happens, and what is lost? → §7
-7. Name the two independent failures of storing sibling order as array indices. → §8
-8. Why is a 64-bit float an inadequate fractional index, and what is used instead? → §8
-9. Why are parent and sibling position stored as a single property? → §8
-10. Where do ordering cycles come from once parenting is just a property, and who rejects them? → §8
-11. Roughly how many DOM nodes can be painted at 60 Hz, and how far is a real file from that? → §9
-12. Name three things the browser gives you free that a custom renderer has to rebuild. → §9
-13. Why does open return a URL rather than bytes, and why must the snapshot be immutable? → §10
-14. Why is snapshot cadence driven by operation count rather than elapsed time? → §10
-15. Give the three specific reasons stateless servers plus Redis is the wrong topology. → §11
-16. A file's owning process dies mid-edit. Walk the recovery, and say what the user sees. → §11
-17. Presence and document edits ride the same socket. Name every guarantee that differs between them. → §3, §5
-18. Why is multiplayer undo not a stack? → §13

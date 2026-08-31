@@ -531,24 +531,3 @@ Interview-performance traps live in `Interview mechanics` — see that page rath
 | **Twitch chat** | Yes | 10⁵–10⁶ | **Only the hot tier exists.** Sharded fanout is the default, not a tier, and delivery becomes explicitly lossy — dropping chat messages under load is correct |
 | **Twitter feed** | No | 10³–10⁸ | A different archetype. Absent readers make fanout-on-write vs on-read the whole question, and the hybrid for celebrities is the answer this page's `§8` rejects |
 | **A trading broadcast** | Yes | 10²–10⁴ | Same fanout, but ordering and latency become hard requirements rather than product ones, so the coalescing and lossiness in `§9` are all forbidden |
-
----
-
-## 16 · Active recall — answer these cold, no scrolling
-
-1. Why is the message write rate the misleading number, and which number replaces it? → §3
-2. State the contrast with WhatsApp in one sentence, in both directions. → header, §8
-3. Why does a per-user inbox — the correct feed answer — actively hurt here? → §8
-4. What is the single highest-leverage optimisation in the fanout path, and roughly what factor does it buy? → §8
-5. Why do sends go over HTTP when the client already has a socket open? → §5
-6. What does the `nonce` do, and name both things it buys. → §5
-7. Give the arithmetic that makes presence the largest event stream. → §3, §9
-8. Why is heartbeat-with-TTL the only correct presence model, rather than an optimisation? → §9
-9. Name the three deliberate lossinesses in the presence design, and what each buys. → §9
-10. Why is a routine deploy the load that sizes the gateway? → §7
-11. What exactly does `RESUME` replace, and what new correctness risk does the `seq` introduce? → §5, §7
-12. Why `(channel_id, bucket)` rather than `channel_id`, and what goes wrong if the bucket is too fine? → §12
-13. What was the reported reason for the Cassandra → ScyllaDB move, and what is it *not*? → §11
-14. Describe request coalescing, and name the other place on this page that has the same shape. → §10, §8
-15. In flow A, the store write succeeds and the publish fails. What happens, and why is the reverse ordering unrecoverable? → §6
-16. Name the degradation order, and defend the last item. → §14, §2

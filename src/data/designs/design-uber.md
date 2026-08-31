@@ -684,32 +684,3 @@ The rider needs "driver assigned," "driver arriving," and a moving dot at ~1Hz. 
 | **Find My Friends** | Location ingest, geo index | No matching. Read-heavy instead of write-heavy. Privacy/permissions become the design center |
 | **Yelp / nearby search** | Geo index, k-ring | Static data → PostGIS/Elasticsearch geo queries are now *correct*. Read-optimized, index rarely mutates |
 | **Google Maps live traffic** | The location firehose | No demand side at all. It's an aggregation + graph-weighting pipeline |
-
----
-
-## 16 · Active recall — answer these cold, no scrolling
-
-**Protocol:** answer **out loud**, in full sentences, as though someone asked. Only after attempting, check the section pointer. Fluent-in-your-head and fluent-out-loud are different skills and only one of them is graded. Full schedule in `00-interview-mechanics.md` §8.
-
-| # | Prompt | Check |
-|---|---|---|
-| 1 | Why does a composite B-tree index on `(lat, lng)` not solve nearest-driver search? | §7 |
-| 2 | What's the write volume for location updates, and what one number do you derive it from? | §3 |
-| 3 | Give the specific property of hexagons that makes H3 better than S2 here. Where does it matter twice? | §7, §11 |
-| 4 | A driver sits at a red light for 60s pinging every 4s. How many index mutations should occur, and why? | §7 |
-| 5 | Two riders, one nearest driver, simultaneous requests. Give two solutions and say why one is better. | §8 |
-| 6 | Why is a DB conditional update still necessary if a single matcher owns the cell? | §9 |
-| 7 | Why haversine before road-network routing, if haversine is the wrong distance? | §8 |
-| 8 | What's wrong with greedy nearest-driver assignment? What replaces it and what does it cost? | §8 |
-| 9 | Rider's phone loses signal for 90s mid-trip. Trace what happens and how state converges. | §10 |
-| 10 | Why is the fare quote a separate resource with an expiry and a signature? | §5, §11 |
-| 11 | Card capture fails at trip end. What is the ride's status one second later, and why? | §9 |
-| 12 | Why shard the ride DB by region rather than by ride_id hash? Name the cost. | §9 |
-| 13 | Where does Kafka belong in this design, and where would putting it be a mistake? | §6 |
-| 14 | Name the two idempotency keys in this system and what each protects against. | §5, §9 |
-| 15 | Why can't you have the lock-free matcher *and* a stateless matching service? | §7 |
-| 16 | Where does the fare quote live, and what does signing buy vs. cost versus storing it? | §9 |
-| 17 | Gossip vs consensus for ring membership: which do you take, and what does it cost you? | §9 |
-| 18 | If two matchers can transiently own the same cell, what stops a double-assignment? | §9 |
-| 19 | Give the exact Redis key, member, and command for the supply index — including the argument order gotcha. | §7 |
-| 20 | How is single-use enforced on a fare quote, and why does that specific command matter? | §7 |

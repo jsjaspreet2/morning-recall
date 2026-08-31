@@ -695,33 +695,3 @@ Note what's *absent*: no transactional store, no cross-shard consistency, no dur
 | **Async / offline** | PR review, batch refactor | No interactivity at all. Batch APIs at ~50% cost, and evaluation becomes nearly the whole design |
 
 **The general lesson, and the reason this page pairs with the RAG one:** *the latency budget is not a requirement you satisfy at the end — it's the input that determines which architectures are legal.* At 200ms retrieval is illegal; at 10s it's mandatory. Same product, same company, same codebase, opposite designs.
-
----
-
-## 16 · Active recall — answer these cold, no scrolling
-
-**Protocol:** out loud, in full sentences. Check the pointer only after attempting. Schedule in `00-interview-mechanics.md` §8.
-
-| # | Prompt | Check |
-|---|---|---|
-| 1 | Name the four surfaces and their latency budgets. Why scope to Tab? | §0, §15 |
-| 2 | Price the standard RAG pipeline against a 200ms budget, stage by stage. | §3 |
-| 3 | What fraction of inference is wasted, and what three design decisions does that justify? | §3, §10 |
-| 4 | Why is the request volume so much higher than DAU suggests? | §3 |
-| 5 | Rank the context signals by value. Why is embedding search *last* here and *first* in RAG? | §7 |
-| 6 | What is FIM and why does chat-style left-to-right completion get this wrong? | §4 |
-| 7 | Why chunk code on AST boundaries rather than fixed size? | §4, §6 |
-| 8 | Why must context ordering stay stable across keystrokes? | §7, §9 |
-| 9 | Explain Merkle sync. What does a one-line change in a 100k-file repo cost? | §8 |
-| 10 | Give the three privacy postures. Why is Tab unaffected by privacy mode? | §8 |
-| 11 | Why is a small model *better* here rather than just faster? | §9 |
-| 12 | Name three inference-serving optimizations and what each one buys. | §9 |
-| 13 | Cancellation stops the render. What else must it do, and why does it dominate cost? | §9, §10 |
-| 14 | What does the should-fire filter suppress, and how does it compare to inference optimization? | §10 |
-| 15 | Three cache layers: key, hit rate, and which one can leak. | §10 |
-| 16 | Why is acceptance rate gameable? What's the better metric? | §11 |
-| 17 | Describe the training feedback loop's selection bias and how you'd counter it. | §11 |
-| 18 | Service is down. What does the user see, and what must the client not do? | §6 |
-| 19 | Why is there no database on the completion path? What's the only network hop? | §12 |
-| 20 | What is the "apply problem," and which surface has it? | §15 |
-| 21 | State the general lesson connecting this page to the RAG page in one sentence. | §15 |

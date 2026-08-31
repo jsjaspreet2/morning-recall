@@ -701,39 +701,3 @@ Three consumers, three representations, and conflating them is a modeling mistak
 | **Doctor appointments** | Interval booking | Variable durations, provider-specific rules, and **the interval isn't chosen by the customer** — it's derived from the appointment type |
 
 **The general lesson:** *the conflict shape determines the mechanism.* Point + contended → row locks and admission control. Interval + uncontended → an overlap constraint. Fungible → a counter. Identify which box you're in during the first minute and the mechanism follows.
-
----
-
-## 16 · Active recall — answer these cold, no scrolling
-
-**Protocol:** out loud, in full sentences. Check the pointer only after attempting. Schedule in `00-interview-mechanics.md` §8.
-
-| # | Prompt | Check |
-|---|---|---|
-| 1 | Give the read:write ratio and the contention ratio. What do they jointly tell you to work on? | §3 |
-| 2 | Why is a stay a range type rather than two date columns? Name two things you'd lose. | §4, §8 |
-| 3 | What does `'[)'` mean and what breaks with `'[]'`? | §4, §8 |
-| 4 | Write the exclusion constraint and read it aloud in English. | §8 |
-| 5 | Why does the constraint beat `SELECT overlapping` then `INSERT`? | §8 |
-| 6 | Ticketmaster argued against a sweeper. Why can't that argument apply here? | §8 |
-| 7 | Three ways to filter availability in search — name each and its specific failure. | §7 |
-| 8 | Describe the availability bitmap: size, the exact bit test, and what it fixes about pagination. | §7 |
-| 9 | Elasticsearch has no bitmap-AND filter. Give the two ways to express it and which you'd ship. | §7 |
-| 10 | Why is Elasticsearch's geo index right here when H3-in-memory was right for Uber? | §7 |
-| 11 | Why can't prices be precomputed into the search index, and what does that make awkward? | §7 |
-| 12 | What does Temporal give you, and what does it explicitly *not* give you? | §9 |
-| 13 | Why does durable orchestration fit this booking flow but not a ticketing checkout? Give four dimensions. | §9 |
-| 14 | Trace the compensations for: auth fails, confirm fails after auth, capture fails at check-in. | §9 |
-| 15 | What is the dominant real-world source of double-bookings, and why can't you prevent it? | §10 |
-| 16 | Name the three availability representations and which one is authoritative. | §11 |
-| 17 | A 3-night minimum with a 2-night gap. What's available, and why does it matter? | §11 |
-| 18 | Why must the partition key contain everything the exclusion constraint spans? | §12 |
-| 19 | Place Ticketmaster, Airbnb, hotels, and flash sales on the two-axis grid and give each mechanism. | §15 |
-| 20 | How do hotels invert the core invariant, and why is that acceptable there? | §15 |
-| 21 | Request-to-book holds dates for 24 hours. What's the product consequence? | §6 |
-| 22 | What is a viewport bbox, why a rectangle rather than a radius, and what does it enable architecturally? | §6, §12 |
-| 23 | What is literally running during a 24-hour host-approval wait? Trace resume by signal and by timeout. | §9 |
-| 24 | Host approves at 23h59m; the timer fires at 24h00m. What resolves that race? | §9 |
-| 25 | Give the test for whether an action belongs in the workflow or on the event stream. | §9 |
-| 26 | Why authorize *before* the 24-hour approval wait rather than after? | §6, §9 |
-| 27 | Ticketmaster is read-dominant too. So what actually distinguishes the two write paths? | §3 |

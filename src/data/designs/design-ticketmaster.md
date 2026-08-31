@@ -671,38 +671,3 @@ Most of these are 15-second items. **That doesn't mean skipping them** — it me
 | **OpenTable** | Slot inventory, holds | Low contention, so most of §8 is unnecessary. Complexity moves to table-combination logic and turn-time prediction |
 | **StubHub / resale** | Inventory, payment | Two-sided: sellers create inventory continuously. Listings go stale across venues; the hard problem is cross-listing sync, not onsale burst |
 | **IPO allocation / lottery** | Queue, fairness | No real-time element at all. Batch allocation, and fairness becomes the *entire* problem rather than a section |
-
----
-
-## 16 · Active recall — answer these cold, no scrolling
-
-**Protocol:** answer **out loud**, in full sentences, as though someone asked. Only after attempting, check the section pointer. Full schedule in `00-interview-mechanics.md` §8.
-
-| # | Prompt | Check |
-|---|---|---|
-| 1 | How many successful writes does a 60k-seat onsale generate, and why does that number change the design? | §3 |
-| 2 | What's the contention ratio, and what does it imply that raw volume doesn't? | §3 |
-| 3 | Give three ways to expire a hold. Which keeps correctness out of the background job, and how? | §7 |
-| 4 | Why is a distributed lock a strictly worse hold than a database row? | §7 |
-| 5 | Two request shapes need two concurrency strategies. Name both, and say why the wrong pairing produces a retry storm. | §8 |
-| 6 | What does `SKIP LOCKED` do, what does it cost you, and why is the cost acceptable here? | §8 |
-| 7 | Why must the waiting room live at the edge? What makes it enforceable rather than decorative? | §9 |
-| 8 | FIFO vs lottery admission: which is fairer, which *feels* fairer, and why is that gap a design problem? | §9 |
-| 9 | How do you serve 5M QPS of seat availability? What's the payload, and what's the staleness contract? | §10 |
-| 10 | A user clicks a seat that's already sold. Whose job is it to catch that, and what should the UX be? | §10 |
-| 11 | State the order of operations for hold → payment → sale, and what breaks if you invert any two. | §11 |
-| 12 | Payment capture fails *after* the sale commits. What's the state of the ticket, and why? | §11 |
-| 13 | Why shard by `event_id` knowing it creates a hot shard? What's the mitigation, and why is it not architectural? | §12 |
-| 14 | What single property of the inventory makes a flash sale dramatically easier than an onsale? | §15 |
-| 15 | Which is the CAP choice on the write path, and how do you scope it so it doesn't infect the read path? | §2 |
-| 16 | A user abandons at the payment screen. Walk through what happens to that seat, step by step. | §6, §7 |
-| 17 | "Ticketmaster runs thousands of events at once — surely the write path needs sharding for volume?" Answer it with numbers. | Header, §3 |
-| 18 | Sharding for throughput vs sharding for isolation: different key, count, and failure behavior. Give all three. | §12 |
-| 19 | Why does an event's shard capacity determine your admission rate? State the causal chain. | §3, §9, §12 |
-| 20 | Why does seat inventory need a relational store specifically? Name the two features. | §12 |
-| 21 | Redis dies mid-onsale. What happens to people in the queue, and to people already admitted? Why the difference? | §12 |
-| 21b | Which rewind is worse — the position counter or the admitted watermark — and why is it the counterintuitive one? | §12 |
-| 21c | At what arrival rate does a single `INCR` counter stop working, and what fraction of real events reach it? | §9 |
-| 21d | If you escalate to block reservation, why can't the admission controller drive off watermark arithmetic? | §9 |
-| 22 | Why is the queue token stateless but the session token backed by a deny-list? | §12 |
-| 23 | Name both queue counters, their exact keys, and the comparison that decides admission. | §9 |
