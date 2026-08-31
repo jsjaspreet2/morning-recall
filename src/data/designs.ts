@@ -124,6 +124,20 @@ const META: Record<string, Meta> = {
       'Lossy, at-least-once usage events have to converge on an exact number of dollars — and the money leaves through a third party you do not control. The inverse of ChatGPT: the same two token counts, but dropping one is revenue rather than a metric.',
     accent: 'emerald',
   },
+  checkout: {
+    label: 'Amazon checkout',
+    archetype: 'Multi-service order orchestration',
+    tension:
+      'One user action has to commit across inventory, payment, and a warehouse — three systems with no shared transaction, and the last step is a box on a truck. The inverse of Ticketmaster: the inventory is a counter with contention near one, and what replaces it is that nobody can un-ship a box.',
+    accent: 'rose',
+  },
+  'payment-processor': {
+    label: 'Payment processor',
+    archetype: 'Money movement & settlement',
+    tension:
+      'A balance is a query, not a column, and an authorization is not money. The inverse of LLM API billing, whose §10 treats the processor as four failure modes behind an opaque API — this is the page that has to be worth trusting.',
+    accent: 'emerald',
+  },
   cursor: {
     label: 'Cursor Tab',
     archetype: 'Low-latency inference in a loop',
