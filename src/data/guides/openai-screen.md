@@ -5,8 +5,8 @@
 > a researched question bank ranked by probability, and the two chapters that decide the coding
 > hour: **text streaming** and **text-editor concepts**.
 
-Companion to `Cursor Screen` (the other AI-company two-round screen — read `§04` there for the
-client-side design checklist, which transfers wholesale) and `UIE Components` (the component
+Companion to `Client-Side System Design` (read `§01` there for the client-side design checklist,
+which transfers wholesale) and `UIE Components` (the component
 library; `§14 Streaming message` is the single most load-bearing section in this repo for 9/17).
 Neither covers what makes OpenAI different: **the loop is fullstack even when the title says
 frontend**, and the coding round is a real product surface — a chat transcript, a composer, an
@@ -172,8 +172,8 @@ be to treat this as a fresh subject. It is mostly a **re-index** of what you hav
 | Need | Where it already lives | Status |
 |---|---|---|
 | Streaming component, full implementation | `UIE Components §14` | **Reread first. Highest-value page in the repo for 9/17** |
-| Client-side design: transport ladder, backpressure, resumability, cache, failure pass | `Cursor Screen §04` | Transfers wholesale. Reread before 9/16 |
-| Streaming multi-part edits, agent chat design | `Cursor Screen §05 B` | Closest existing worked design to the OpenAI prompt |
+| Client-side design: transport ladder, backpressure, resumability, cache, failure pass | `Client-Side System Design §01` | Transfers wholesale. Reread before 9/16 |
+| Streaming multi-part edits, agent chat design | `Client-Side System Design §02` | Closest existing worked design to the OpenAI prompt |
 | Run lifecycle, resumable SSE, TTFT, prefill vs decode, prompt-cache ordering, cost | `Designs → ChatGPT §7–§11` | The backend depth for 9/16 |
 | Inference serving, GPU scheduling, cancellation reaching the GPU | `Designs → Cursor Tab §9–§10` | Reuse for the queue/GPU half |
 | Undo/redo, inverse ops, batching, coalescing | `Figma Screen §06` | The document-model half of `§09` |
@@ -235,7 +235,7 @@ are not adding four weeks of work, you are adding about six focused sessions plu
 | | Sat 8/22 | 60 min | Type the `§08 F` streaming skeleton from blank. Twice. Time it |
 | | Wed 8/26 | — | **Discord screen** |
 | **Week 2 — borrowed** | Thu 8/27 – Wed 9/2 | Cursor screen owns this week | — |
-| | Thu 8/27 | — | Cursor prep — `Cursor Screen §04` is OpenAI `§05` material. Read it as both |
+| | Thu 8/27 | — | Cursor prep — `Client-Side System Design §01` is OpenAI `§05` material. Read it as both |
 | | Fri 8/28 | — | **Cursor screen.** Write down the design round's questions the same evening |
 | | Sat 8/29 | 90 min | Drill 1: **Streaming chat, core** (`§12 B`). Target: working stream + stop in 30 min |
 | | Sun 8/30 | 60 min | Drill 2: **The composer** (`§09 B`). Enter/Shift+Enter, auto-resize, IME |
@@ -259,9 +259,8 @@ are not adding four weeks of work, you are adding about six focused sessions plu
 **If the schedule slips**, drop in this order: design rep 4, drill 6, design rep 2. **Never drop**
 the two Week-4 mocks or drills 1 and 2 — they are the load-bearing reps.
 
-**The standing daily commitment** is the `openai` track in Morning Recall, from 8/20. Twelve cards a
-day, five minutes, no exceptions. It is what makes `§08` and `§09` retrievable under clock pressure
-rather than merely read.
+**The standing daily commitment** is `§08` and `§09` read back out loud, from memory, five minutes
+a day. It is what makes them retrievable under clock pressure rather than merely read.
 
 ## 03 — The question bank
 
@@ -426,13 +425,13 @@ Useful because it tells you where *not* to spend September.
 | Document model, command/inverse | ✅ **Fully** | `Figma Screen §04` · `uie-practice/figma-01-document-undo` |
 | Styled text ranges | ✅ **Fully** | `Figma Screen §05 C` · `uie-practice/figma-04-styled-text-ranges` |
 | Command palette | ✅ **Fully** | `UIE Components §12` · three `uie-practice` exercises |
-| Test quality under clock | ✅ **Fully** | `Cursor Screen §08` · `uie-practice/cursor-05-write-the-tests`, `cursor-10-write-the-tests-ii` |
-| Client design: transport, backpressure, resumability | ✅ **Fully** | `Cursor Screen §04 C–D` |
-| Agent chat / streaming multi-file edits design | ✅ **Fully** | `Cursor Screen §05 B` |
+| Test quality under clock | ✅ **Fully** | `Client-Side System Design §04` · `uie-practice/cursor-05-write-the-tests`, `cursor-10-write-the-tests-ii` |
+| Client design: transport, backpressure, resumability | ✅ **Fully** | `Client-Side System Design §01 C–D` |
+| Agent chat / streaming multi-file edits design | ✅ **Fully** | `Client-Side System Design §02` |
 | Run lifecycle, resumable SSE, TTFT, prefill/decode, prompt cache, cost | ✅ **Fully** | `Designs → ChatGPT §7–§11` |
 | GPU serving, cancellation to the GPU | ✅ **Fully** | `Designs → Cursor Tab §9–§10` |
 | Fanout / connection scale (the Slack prompt) | ✅ **Fully** | `Designs → Discord` |
-| Refactor nested code, keep tests green | ⚠️ **Partly** | No dedicated drill. `Cursor Screen §08` covers reading tests. Low priority |
+| Refactor nested code, keep tests green | ⚠️ **Partly** | No dedicated drill. `Client-Side System Design §04` covers reading tests. Low priority |
 | Iterator → 2D → async | ⚠️ **Partly** | `JavaScript` covers iterators; no async-iterator drill. `§12 B` drill 7 |
 | **The composer: caret, selection, Enter/Shift+Enter, IME, auto-resize** | ✅ **Built** | `§09 B` here · `uie-practice/openai-02-composer` |
 | **`@`-mention / `/`-command autocomplete anchored to the caret** | ❌ **New** | `§09 C` here. **Build it — drill 4** |
@@ -732,7 +731,7 @@ generation run ahead into the log and let the client read at its own pace. **The
 backpressure a non-problem**, which is another reason to volunteer it.
 
 **Network→React:** the client-side half. Arrival rate is network-paced; paint is display-paced.
-`setState` per chunk is a render per chunk. `Cursor Screen §04 D` has the full treatment with the
+`setState` per chunk is a render per chunk. `Client-Side System Design §01 D` has the full treatment with the
 `requestAnimationFrame` buffer and its two footguns (background tabs don't fire rAF; flush the tail
 on unmount). `§08 E` here is the same code in its OpenAI-shaped context.
 
@@ -923,7 +922,7 @@ interface EditRequest {
    worth far more than a policy implemented.
 4. **Presentation of pending model edits.** Show them as a decoration layer — a diff — that the
    user accepts or rejects, rather than mutating the buffer directly. This is the Cursor inline-diff
-   pattern and it sidesteps most of problem 3. `Cursor Screen §05 B` covers it.
+   pattern and it sidesteps most of problem 3. `Client-Side System Design §02` covers it.
 
 **The client architecture:** one document store (text + version + op log) · a renderer that never
 owns state · a decoration layer for pending edits · undo/redo as inverse ops over the same log.
@@ -957,7 +956,7 @@ call, file read, patch, test run, log line) to a durable log → clients read th
    task, no ambient credentials, egress denied by default with an allowlist, CPU/mem/time caps,
    and the repo checked out from a token scoped to one repo.
 4. **The output is a diff the human reviews**, not a push. Design the review surface: file tree,
-   per-hunk accept/reject, and a comment. `UIE Components §10` is the tree; `Cursor Screen §05 B`
+   per-hunk accept/reject, and a comment. `UIE Components §10` is the tree; `Client-Side System Design §02`
    is the diff.
 5. **Fanout of long jobs.** Thousands of concurrent tasks, each minutes long, each holding a
    container. Queue depth, per-user concurrency caps, and preemption of free-tier tasks are the
@@ -1429,7 +1428,7 @@ The extension that follows the core almost every time. Three decisions:
    has somewhere to live.
 2. **Client ids from `crypto.randomUUID()`**, reconciled with server ids on completion. Keep a
    `clientId → serverId` map so anything referencing the message (an edit, a retry) doesn't dangle.
-   This is the optimistic-write pattern from `Cursor Screen §04 E`.
+   This is the optimistic-write pattern from `Client-Side System Design §01 E`.
 3. **At most one in-flight generation.** Enforce it in the state, not just by disabling the button
    — the button can be bypassed by Enter, by a race, or by a second tab.
 
@@ -1942,7 +1941,7 @@ it('drops tokens that arrive after stop', async () => {
   catches an Enter handler that ignores `isComposing`.
 - **Fake timers plus a real microtask flush** is the classic trap with streams: advancing timers
   does not drain promises. `await act(async () => { vi.advanceTimersByTime(100) })`.
-  `Cursor Screen §08 D` has the full treatment — reread it, it costs ten minutes in the room if you
+  `Client-Side System Design §04 D` has the full treatment — reread it, it costs ten minutes in the room if you
   get it wrong.
 - **Assert on rendered text, not on state.** State assertions test your implementation; text
   assertions test the contract.

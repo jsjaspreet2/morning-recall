@@ -9,7 +9,7 @@ import animationMd from './guides/animation.md?raw'
 import technologyMd from './guides/technology.md?raw'
 import componentRoundMd from './guides/component-round.md?raw'
 import uieComponentsMd from './guides/uie-components.md?raw'
-import cursorScreenMd from './guides/cursor-screen.md?raw'
+import clientSideSystemDesignMd from './guides/client-side-system-design.md?raw'
 import figmaScreenMd from './guides/figma-screen.md?raw'
 import discordScreenMd from './guides/discord-screen.md?raw'
 import openaiScreenMd from './guides/openai-screen.md?raw'
@@ -31,26 +31,6 @@ export interface Guide {
 }
 
 export const guides: Guide[] = [
-  // Pinned to the top through 8/28 — the nearest date. Drop it back down afterwards.
-  {
-    id: 'cursor-screen',
-    screen: true,
-    title: 'Cursor Screen — 8/28',
-    subtitle:
-      'The last thirty-six hours, hour by hour: what each round grades, where a product engineer’s depth belongs, client-side system design, five worked designs, and the coding-hour script.',
-    accent: 'rose',
-    md: cursorScreenMd,
-  },
-  // Screen was 8/26. Drop it down the list once the Cursor and Figma screens have passed.
-  {
-    id: 'discord-screen',
-    screen: true,
-    title: 'Discord Skill Challenge — 8/26',
-    subtitle:
-      'Seventy-five minutes on your own machine, a TCP server driven over nc: the round script, the line server every part is made of, five worked problems, and framing done properly.',
-    accent: 'indigo',
-    md: discordScreenMd,
-  },
   // Pinned to the top through 9/9. Drop it back down the list afterwards.
   {
     id: 'figma-screen',
@@ -70,6 +50,18 @@ export const guides: Guide[] = [
       'Two hours across two days, architecture then coding: the researched question bank, the streaming spine end to end, four worked architectures, and the two chapters that decide the coding hour — text streaming and text-editor concepts.',
     accent: 'emerald',
     md: openaiScreenMd,
+  },
+  // The 8/26 screen passed; this is what's left of that guide, kept for the final
+  // round. Last among the screens only because the final round has no date yet —
+  // pin it back to the top when one lands.
+  {
+    id: 'discord-screen',
+    screen: true,
+    title: 'Discord — Final Round',
+    subtitle:
+      'The screen is passed and the final round has no date yet. What survived: the line server every coding part is made of, five worked problems, protocol design, correctness without a test runner, and Discord itself.',
+    accent: 'indigo',
+    md: discordScreenMd,
   },
   {
     id: 'javascript',
@@ -112,6 +104,16 @@ export const guides: Guide[] = [
     md: systemDesignMd,
     // No PDF: the markdown has diverged from the shipped PDF. Regenerate before
     // re-adding the link rather than serving the older text.
+  },
+  // The client half of System Design, salvaged from the retired Cursor screen guide:
+  // the chapters that were never Cursor-specific.
+  {
+    id: 'client-side-system-design',
+    title: 'Client-Side System Design',
+    subtitle:
+      'The client as a replica, not a view: the seven-layer checklist, the transport ladder, streaming and backpressure, offline and reconciliation — plus component API design and test quality.',
+    accent: 'amber',
+    md: clientSideSystemDesignMd,
   },
   {
     id: 'animation',
@@ -171,23 +173,3 @@ export function pdfUrl(guide: Guide): string | undefined {
   return guide.pdf ? `${import.meta.env.BASE_URL}pdfs/${guide.pdf}` : undefined
 }
 
-/**
- * Map a prompt's `answerKey` label to a guide, when one exists. Used only for
- * the post-mark "Open guide" cross-link in Practice. answerKeys such as
- * "None yet…", "Your STAR drafts", or "DDIA Ch 5" have no in-app guide.
- */
-export function guideForAnswerKey(answerKey: string): Guide | undefined {
-  const key = answerKey.toLowerCase()
-  if (key.startsWith('openai screen')) return guideById('openai-screen')
-  if (key.startsWith('discord screen')) return guideById('discord-screen')
-  if (key.startsWith('figma screen')) return guideById('figma-screen')
-  if (key.startsWith('cursor screen')) return guideById('cursor-screen')
-  if (key.startsWith('javascript')) return guideById('javascript')
-  if (key.startsWith('react')) return guideById('react-css')
-  if (key.startsWith('accessibility')) return guideById('accessibility')
-  if (key.startsWith('coding patterns')) return guideById('coding-patterns')
-  if (key.startsWith('system design')) return guideById('system-design')
-  if (key.startsWith('animation')) return guideById('animation')
-  if (key.startsWith('technology')) return guideById('technology')
-  return undefined
-}

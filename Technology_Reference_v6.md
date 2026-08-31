@@ -878,7 +878,7 @@ Most systems are **Postgres + one or two specialists**: Postgres as the transact
 > **What lives here, and what lives elsewhere.** This chapter is the **mechanism**: what object the
 > browser constructs, which thread it runs on, what the socket and the storage engine actually do,
 > and how each one fails. The *selection* tables — which rung of the transport ladder to climb, which
-> store to pick for an offline feature — stay in `Cursor Screen` §04, and the production pathologies
+> store to pick for an offline feature — stay in `Client-Side System Design` §01, and the production pathologies
 > of streaming a model response stay in `OpenAI Screen` §05. If a sentence would fit in a cell of one
 > of those tables, it belongs there; if it explains why the cell says what it says, it belongs here.
 
@@ -1054,7 +1054,7 @@ IndexedDB is the browser's real database — asynchronous, transactional, indexe
 
 ### Pushback / when it flips
 
-**It flips when the data is small enough that the ceremony costs more than the store saves** — version handlers, transactions, and a wrapper dependency for what is genuinely three keys is over-engineering, and §17 is the right answer. It flips the other way, toward §21, when the workload is file-shaped or when you want SQL: SQLite compiled to WASM over OPFS gives you real queries and synchronous access inside a worker, and people reach for it precisely because IndexedDB's index story runs out when the queries get relational. And the framing to resist is "IndexedDB gives us offline" — it gives you *storage*; offline is the sync protocol, the conflict policy, and the outbox around it, which is `Cursor Screen` §04 F.
+**It flips when the data is small enough that the ceremony costs more than the store saves** — version handlers, transactions, and a wrapper dependency for what is genuinely three keys is over-engineering, and §17 is the right answer. It flips the other way, toward §21, when the workload is file-shaped or when you want SQL: SQLite compiled to WASM over OPFS gives you real queries and synchronous access inside a worker, and people reach for it precisely because IndexedDB's index story runs out when the queries get relational. And the framing to resist is "IndexedDB gives us offline" — it gives you *storage*; offline is the sync protocol, the conflict policy, and the outbox around it, which is `Client-Side System Design` §01 F.
 
 ---
 
@@ -1070,7 +1070,7 @@ A **service worker** is a JavaScript worker, with no DOM and its own lifecycle, 
 
 The lifecycle is where the bugs are. **Install** runs once per new worker byte-sequence and is where you pre-cache. **Activate** runs when the worker takes over and is where you delete old cache versions. Between them sits the trap: a new worker **waits** by default until every tab controlled by the old one closes — a reload is not enough — so users can sit on a stale worker for days. `skipWaiting()` plus `clients.claim()` takes over immediately, and the cost is that a page can find its worker swapped mid-session, serving assets from a build it did not load with. Pick one and say which.
 
-The **strategies** are the vocabulary: *cache-first* for immutable hashed assets, *network-first* for content that must be fresh with an offline fallback, *stale-while-revalidate* for almost everything a UI shows, and *network-only* for anything you would be embarrassed to serve stale. They are the same four policies as `Cursor Screen` §04 E, applied to `Response` objects instead of query results.
+The **strategies** are the vocabulary: *cache-first* for immutable hashed assets, *network-first* for content that must be fresh with an offline fallback, *stale-while-revalidate* for almost everything a UI shows, and *network-only* for anything you would be embarrassed to serve stale. They are the same four policies as `Client-Side System Design` §01 E, applied to `Response` objects instead of query results.
 
 ### Reach for it when
 
@@ -1577,5 +1577,5 @@ Most clients are **`fetch` plus one store plus at most one push channel**: `fetc
 
 - **The client is not a trust boundary and not a durable store.** Anything on the device is readable by the user, editable by the user, and evictable by the browser — so client storage is a cache of server truth plus an outbox of intent, never the only copy. The mirror of "one source of truth," seen from the other end.
 - **The main thread is the shared resource.** Every synchronous call on it — `localStorage`, a large `JSON.parse`, a structured clone of a big object — is paid in dropped frames and input latency. The fix is always one of three: move it off, make it async, or make it smaller.
-- **Climb the transport ladder only as far as the requirement forces, and price the reconnect.** Every rung above `fetch` is a connection you must reopen, reauthenticate, and resubscribe — the transport is the easy part and the resumption is the design. `Cursor Screen` §04 C is the ladder itself.
+- **Climb the transport ladder only as far as the requirement forces, and price the reconnect.** Every rung above `fetch` is a connection you must reopen, reauthenticate, and resubscribe — the transport is the easy part and the resumption is the design. `Client-Side System Design` §01 C is the ladder itself.
 - **One browser is N tabs.** Every client-side resource — a socket, a lock, a sync loop, the origin's storage quota — is shared across tabs of the same origin, so decide who owns it before you open it.

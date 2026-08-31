@@ -4,8 +4,8 @@
 > **No AI tools.** Camera on, no filters. This guide is the twelve-day plan, the round script, and
 > the one chapter of material that decides the hour: the mutable document model and its history.
 
-Companion to `Coding Patterns` (which is the general shape library) and `Cursor Screen` (which is
-the other company hour, graded on entirely different axes). Neither covers what this screen
+Companion to `Coding Patterns` (which is the general shape library) and `Client-Side System
+Design` (which is the client-architecture half, graded on entirely different axes). Neither covers what this screen
 actually is: **a data-structure problem dressed as a design tool, extended in parts, where the
 score is how far you get and how cleanly the seams hold when they add the next part.**
 
@@ -207,8 +207,7 @@ If you read nothing else on the afternoon of the 9th:
 Twelve days, Sat 8/29 through Wed 9/9, ~2 h each. The Cursor screen is behind you on 8/28 and its
 AI-off fluency work transfers directly, so nothing here needs to happen before then.
 
-Every day is **one timed rep, one fluency drill, and the recall deck**. The rep is what moves the
-number.
+Every day is **one timed rep and one fluency drill**. The rep is what moves the number.
 
 | Day | Rep (≈60–75 min, AI off) | Fluency (≈15 min) | Read |
 |---|---|---|---|
