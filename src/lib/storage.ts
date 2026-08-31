@@ -1,12 +1,12 @@
-// Thin, typed localStorage wrapper. Single user, single device (per the spec).
+// Thin, typed localStorage wrapper. Single user, single device.
 // All keys are namespaced so nothing collides with other apps on the origin.
+//
+// The namespace is still `morning-recall:` — it is the deployed origin's path
+// and renaming it would silently drop every existing visitor's theme choice.
 
-import type { Session, SchedMap, ThemeChoice } from './types'
+import type { ThemeChoice } from './types'
 
 const NS = 'morning-recall:'
-const K_SCHED = NS + 'sched'
-const K_SESSION = NS + 'session' // the active/in-progress quiz run
-const K_STREAK = NS + 'streak' // { lastCompletedISO, count }
 const K_THEME = NS + 'theme' // 'light' | 'dark' | 'system'
 
 function read<T>(key: string, fallback: T): T {
@@ -23,35 +23,11 @@ function write(key: string, value: unknown): void {
   try {
     localStorage.setItem(key, JSON.stringify(value))
   } catch {
-    // storage full / unavailable — practice still works for the session.
+    // storage full / unavailable — the app still works for the session.
   }
 }
 
 export const store = {
-  getSched(): SchedMap {
-    return read<SchedMap>(K_SCHED, {})
-  },
-  setSched(m: SchedMap): void {
-    write(K_SCHED, m)
-  },
-
-  getSession(): Session | null {
-    return read<Session | null>(K_SESSION, null)
-  },
-  setSession(s: Session): void {
-    write(K_SESSION, s)
-  },
-  clearSession(): void {
-    localStorage.removeItem(K_SESSION)
-  },
-
-  getStreak(): { lastCompletedISO: string | null; count: number } {
-    return read(K_STREAK, { lastCompletedISO: null, count: 0 })
-  },
-  setStreak(s: { lastCompletedISO: string | null; count: number }): void {
-    write(K_STREAK, s)
-  },
-
   // 'system' is the default: a first-time visitor gets whatever their OS is set
   // to. Read by the inline script in index.html too, which parses the same JSON.
   getTheme(): ThemeChoice {
@@ -59,12 +35,5 @@ export const store = {
   },
   setTheme(t: ThemeChoice): void {
     write(K_THEME, t)
-  },
-
-  // Escape hatch: wipe scheduling history and streak (does not touch guides).
-  // Theme is deliberately not in here — it's a display preference, not practice
-  // history, and losing it on a reset would just be surprising.
-  resetAll(): void {
-    ;[K_SCHED, K_SESSION, K_STREAK].forEach((k) => localStorage.removeItem(k))
   },
 }

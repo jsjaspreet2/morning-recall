@@ -1,25 +1,21 @@
-# Morning Recall
+# Interview Field Guides
 
-A single-page static site for daily active-recall practice before interviews, plus a
-browsable library of the interview field guides.
+A single-page static site: a browsable library of the interview field guides, plus worked
+system design problems.
 
-Two sections:
+Two sections, and only two:
 
-- **Practice** — one prompt at a time. Attempt it from memory (out loud or on paper), then
-  mark **Got it** or **Blanked**. Only *after* you mark does a short 1–2 sentence answer
-  appear, along with a link to the full guide — so a blank is always recoverable. Misses come
-  back sooner (lightweight Leitner scheduling). Choose how to practice from the home screen:
-  - **Daily mix** — 12 prompts weighted toward what you've missed and haven't seen recently,
-    capped at 3 per track.
-  - **Everything** — all prompts, shuffled, for a full run-through.
-  - **Focus on an area** — pick one or more tracks (JavaScript, React, CSS, Accessibility,
-    Coding Patterns, Animation, System Design, LLM, Distributed Systems, Behavioral) and quiz
-    just those. Finish a run and you can **Practice again** or jump back to the menu.
+- **Learn** — the field guides rendered as web-friendly, searchable pages with a table of
+  contents and code highlighting. Company screens are grouped above the standing general
+  guides. Most guides also link to their original PDF.
+- **Designs** — worked system design problems, one page each: requirements, flows, deep
+  dives, data model, a five-minute skeleton to draw cold, and variants. Read
+  `00-interview-mechanics` once before the rest.
 
-  All progress lives in `localStorage`.
-- **Learn** — the six field guides rendered as web-friendly, searchable pages with a table
-  of contents and code highlighting. Read them for the full detail behind any short answer.
-  Each guide also links to its original PDF.
+> **Note.** There used to be a third section, **Practice** — a daily active-recall deck of
+> 378 prompts with Leitner scheduling. It was removed on 2026-08-30 because it went
+> essentially unused. New guides and design pages ship as pages only; don't generate recall
+> prompts or study cards to go with them. See `BUILD_SPEC.md`.
 
 ## Listen
 
@@ -63,7 +59,7 @@ publishes on every push to `main`.
    ```bash
    git init
    git add -A
-   git commit -m "Morning Recall"
+   git commit -m "Interview field guides"
    git branch -M main
    git remote add origin https://github.com/<you>/morning-recall.git
    git push -u origin main
@@ -81,21 +77,22 @@ publishes on every push to `main`.
 > `npm run build`, and deploy the `dist/` folder (`npx netlify-cli deploy --prod --dir=dist`
 > or `npx vercel --prod`).
 
-## Adding or editing prompts
+## Adding or editing a guide
 
-Edit **`prompts.json`** at the repo root (the app imports it directly), commit, and push.
-Prompt `id`s are stable, so your scheduling history survives edits as long as ids don't
-change. No answers ever live in this file — the guides are the answer key. Keep every
-`answerKey` pointing at something real (a guide, a book chapter, your own notes); the app is
-built to only carry prompts you can actually check yourself against when you blank.
+Write or edit the markdown under **`src/data/guides/`**, add or update its entry in
+**`src/data/guides.ts`** (id, title, subtitle, accent, and `screen: true` for a company
+screen), then `cp` the file over its hand-synced twin at the repo root. Commit and push.
+
+Design pages work the same way — **`src/data/designs/design-<name>.md`** plus a `META` entry
+in **`src/data/designs.ts`**. Follow **`DESIGN_PAGE_AUTHORING.md`**; pages end at §15.
 
 ## Project layout
 
 ```
 src/
-  lib/         types, localStorage, date helpers, Leitner scheduler, accent tokens
-  data/        guide markdown files + registries (prompts.json lives at the repo root)
-  practice/    PracticePage, Card, Timer, DoneScreen
+  lib/         shared types, theme + localStorage, accent tokens
+  data/        guide and design markdown + their registries
   learn/       LearnIndex, GuidePage, Markdown renderer, TOC extraction
+  designs/     DesignsIndex, DesignPage
 public/pdfs/   original guide PDFs (linked from each Learn page)
 ```

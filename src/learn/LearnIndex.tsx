@@ -53,7 +53,7 @@ export default function LearnIndex() {
     <div className="px-4 py-6">
       <h1 className="text-2xl lg:text-3xl font-bold text-zinc-900 dark:text-zinc-50">Learn</h1>
       <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-500">
-        The answer key. Read these <em>after</em> you attempt the morning deck — not before.
+        The standing reference: every round, worked end to end.
       </p>
 
       <Section label="Company screens" guides={screens} />

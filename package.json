@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Daily active-recall practice for interviews, plus a browsable learning library.",
+  "description": "Interview field guides and worked system designs, as a browsable library.",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

@@ -12,10 +12,8 @@ import type { AccentName } from './types'
  * pull all of it into the main bundle. DocLayout already sits inside that chunk
  * and serves both routes, so it publishes upward instead.
  *
- * (guides.ts is a different story: it is already in the main bundle, because
- * practice/Card.tsx imports guideForAnswerKey for its post-mark cross-link and
- * Practice is not lazy. That's pre-existing, and worth untangling separately if
- * the initial payload ever matters.)
+ * guides.ts is now reached only through the lazy Learn routes, so it splits the
+ * same way and this context is what keeps it that way.
  */
 export interface DocTitle {
   title: string

@@ -72,7 +72,7 @@ export default function DesignsIndex() {
 
       <p className="mt-10 pt-6 border-t border-zinc-200 dark:border-zinc-900 text-xs text-zinc-500 dark:text-zinc-600">
         Read the mechanics page once. Then per problem: read it through, draw the five-minute
-        skeleton cold the next day, answer the recall prompts out loud the day after.
+        skeleton cold the next day, then talk the whole design out loud the day after.
       </p>
     </div>
   )
