@@ -8,13 +8,13 @@ Push notification is the only channel that reaches a user whose app is closed. A
 
 Three things. How it actually works, and the part of it that bites. What the delivery contract really guarantees, which is less than you think. And the build-versus-buy line, which is not where most people draw it.
 
-So, the mechanism. The thing to internalise is that you do not own the connection. The operating system holds one persistent socket to its vendor's push service, shared by every app on the device. That's why push costs almost no battery per app — there's only ever one socket. Your server authenticates to that service and posts a message addressed by device token.
+So, the mechanism. The thing to internalize is that you do not own the connection. The operating system holds one persistent socket to its vendor's push service, shared by every app on the device. That's why push costs almost no battery per app — there's only ever one socket. Your server authenticates to that service and posts a message addressed by device token.
 
 On Apple's side that's A.P.N.S. — H.T.T.P. two, one post per notification. You authenticate with a J.W.T. signed by a p-eight key, which is the modern way: one key works across all your apps and it doesn't expire. The legacy alternative is a per-app certificate that expires annually, and that has caused a genuinely famous number of outages.
 
 On Google's side that's F.C.M., using the H.T.T.P. version one A.P.I., authenticated with a service account token. And here's the detail people miss: on Apple devices, F.C.M. is a wrapper. It forwards to A.P.N.S. on your behalf. So a message to an Apple device sent through F.C.M. inherits every single A.P.N.S. constraint. You have not escaped anything.
 
-And then Web Push, which is a standard rather than a vendor A.P.I. The browser hands you a subscription — an endpoint and a set of keys. You encrypt the payload to those keys and sign the request using vapid. The endpoint host varies by browser, and your code genuinely doesn't care. That indifference is the entire point of standardising it.
+And then Web Push, which is a standard rather than a vendor A.P.I. The browser hands you a subscription — an endpoint and a set of keys. You encrypt the payload to those keys and sign the request using vapid. The endpoint host varies by browser, and your code genuinely doesn't care. That indifference is the entire point of standardizing it.
 
 Now the part that bites, and it's the token lifecycle.
 
@@ -42,7 +42,7 @@ Third thing, and this is the one where the conventional answer is wrong. Build o
 
 The instinct is that talking to Apple and Google directly is the hard part, so you buy that. It isn't the hard part. It's a post request and a signed token. It's genuinely easy.
 
-The hard parts are yours no matter what you buy: resolving recipients, applying preferences and quiet hours, deduplication, localisation, token hygiene, and rate limiting. All of that stays on your side of the line.
+The hard parts are yours no matter what you buy: resolving recipients, applying preferences and quiet hours, deduplication, localization, token hygiene, and rate limiting. All of that stays on your side of the line.
 
 So the rule is: build the fan-out, buy the last mile. What you actually purchase from an aggregator is the campaign and analytics layer — segmentation, scheduling, split tests, delivery reporting. You are not buying an abstraction over a difficult protocol, because there isn't one.
 

@@ -66,7 +66,7 @@ over-engineering tell; so is polling something that has a real push channel avai
 | 2 | **Long polling** | Push semantics without new infrastructure | A held connection per client anyway |
 | 3 | **SSE** (`EventSource`) | **Server → client only**, text, and you want reconnect for free | One direction; ~6 connections/domain on HTTP/1.1 (fine on HTTP/2) |
 | 4 | **WebSocket** | Genuinely **bidirectional and continuous** — presence, cursors, collaborative edits | You now own reconnect, heartbeat, resubscribe, message ordering, and auth refresh |
-| 5 | **WebRTC data channel** | Peer-to-peer, or latency below what a relay allows | Signalling, NAT traversal, TURN costs |
+| 5 | **WebRTC data channel** | Peer-to-peer, or latency below what a relay allows | Signaling, NAT traversal, TURN costs |
 
 **The line to say for streamed LLM output specifically:** *"Model output is one-directional text,
 so SSE. It's plain HTTP so it goes through corporate proxies, `EventSource` reconnects on its own,
@@ -127,7 +127,7 @@ tail when the stream ends, or the last partial buffer is dropped on the floor.
 
 **3. Cancellation.** Every stream needs a stop that is instant *in the UI* and eventually
 propagates to the server. Abort the request, stop consuming, and — importantly — **keep the text
-already received**. Users read a cancelled response.
+already received**. Users read a canceled response.
 
 **4. Resumability.** Connection drops mid-response. Three postures, and picking one deliberately
 is the signal:
@@ -151,7 +151,7 @@ everything a cache answer needs.
 
 **Staleness policies**, in the order you should consider them:
 
-| Policy | Behaviour | Fits |
+| Policy | Behavior | Fits |
 |---|---|---|
 | Cache-first | Serve cache, never refetch until told | Immutable things: file blobs by hash |
 | Stale-while-revalidate | Paint cache instantly, refetch in the background, repaint | Almost everything a UI shows |
@@ -272,7 +272,7 @@ The single highest-leverage habit in a client design round. Instead of "it shoul
 > That budget is what forces a small model at the edge — a large model can't fit, so the large
 > model has to be doing something the user isn't waiting on."*
 
-Numbers worth having memorised well enough to say without pausing:
+Numbers worth having memorized well enough to say without pausing:
 
 | Thing | Order of magnitude |
 |---|---|
@@ -425,7 +425,7 @@ Name them out loud — defaults *are* API design.
 Stating a non-goal is a senior move: *"This doesn't do multi-select. If we needed it I'd change
 `value` to `value: string[]` and keep everything else — the shape survives."*
 
-### B. THE DUAL API — SIX LINES, MEMORISE THEM
+### B. THE DUAL API — SIX LINES, MEMORIZE THEM
 
 The highest-frequency API question in frontend interviews, and it fits in a breath.
 
@@ -451,16 +451,16 @@ Three things that are wrong in most people's version, and all three are worth sa
 - **The mode must not flip mid-life.** React warns about this for inputs for a reason; if asked,
   say you'd capture `isControlled` on first render.
 
-### C. THE PATTERNS CATALOGUE
+### C. THE PATTERNS CATALOG
 
 | Decision | Weak | Strong | The line to say |
 |---|---|---|---|
 | Value shape | `selectedIndex: number` | `value: string` (an id) | *"Index breaks when the list reorders or filters."* |
 | Multiple booleans | `isOpen, isLoading, isError` | `status: 'idle' \| 'loading' \| 'error'` | *"Booleans let me represent states that can't exist."* |
-| Customisation | 6 flags | `renderItem` / `children` as a function | *"One escape hatch instead of anticipating every need."* |
+| Customization | 6 flags | `renderItem` / `children` as a function | *"One escape hatch instead of anticipating every need."* |
 | Related props | `label, labelId, labelClassName…` | Compound components: `Thing.Label` | *"Structure belongs in JSX, not in prop names."* |
 | Callback payload | `onSelect(id)` | `onSelect(id, item)` | *"Saves every consumer the lookup I already did."* |
-| Async source | `url: string` | `fetch: (q, signal) => Promise<T[]>` | *"Injectable, so it's testable, and it can be cancelled."* |
+| Async source | `url: string` | `fetch: (q, signal) => Promise<T[]>` | *"Injectable, so it's testable, and it can be canceled."* |
 | Ids | Hardcoded | `useId()` | *"Two on one page must not collide, and it's SSR-safe."* |
 | Imperative needs | A `ref` to internals | `useImperativeHandle` with a named surface | *"I expose `focus()`, not the node."* |
 | Styling | `style` objects as props | `className` passthrough + data attributes | *"State goes in `data-state`, so CSS reads the real state."* |
@@ -556,14 +556,14 @@ test('arrows move the highlight and Enter selects', async () => {
 | Bad | Good | Why |
 |---|---|---|
 | `getByTestId('option-1')` | `getByRole('option', { name: 'redux' })` | Queries the way a user (and a screen reader) finds it. Roles are also free a11y evidence. |
-| `expect(wrapper.state.open).toBe(true)` | `expect(screen.getByRole('listbox')).toBeVisible()` | Implementation vs behaviour. State can be renamed; behaviour can't. |
+| `expect(wrapper.state.open).toBe(true)` | `expect(screen.getByRole('listbox')).toBeVisible()` | Implementation vs behavior. State can be renamed; behavior can't. |
 | `fireEvent.click` | `await user.click` | `user-event` fires the real sequence — pointerdown, mousedown, focus, click. Half the bugs live between those. |
-| One test asserting nine things | One behaviour per test | A failure names itself. |
+| One test asserting nine things | One behavior per test | A failure names itself. |
 | `expect(fn).toHaveBeenCalled()` | `expect(fn).toHaveBeenCalledWith(…)` | Proves the payload, which is the API. |
 | Snapshot of the whole tree | Explicit assertions | A snapshot passes forever and then fails for no reason anyone reads. |
 | `await new Promise(r => setTimeout(r, 500))` | `await waitFor(() => …)` / `findBy*` | Deterministic, and doesn't cost half a second each. |
 
-**The one-sentence version to say out loud in the pad:** *"I'm testing behaviour through the roles
+**The one-sentence version to say out loud in the pad:** *"I'm testing behavior through the roles
 a user would use, so these tests survive a refactor and double as accessibility checks."*
 
 ### C. THE IDIOMS TO HAVE IN YOUR FINGERS
@@ -605,7 +605,7 @@ const fetchOptions = vi.fn(() => new Promise((resolve) => pending.push(resolve))
 // …then resolve them in whatever order the test needs, including backwards
 ```
 
-That last one is how you test a race in four lines, and it's worth having memorised: hand-resolving
+That last one is how you test a race in four lines, and it's worth having memorized: hand-resolving
 promises out of order is the only way to prove a generation guard works.
 
 ### D. TIMERS AND ASYNC — THE TRAP THAT COSTS TEN MINUTES
@@ -638,8 +638,8 @@ as expertise and a shortcut without one reads as luck.
 Time is the constraint, so spend it where the signal is:
 
 - **Not CSS.** Styling is rarely graded; asserting a class name is worse than not testing.
-- **Not third-party behaviour.** You are not testing React.
-- **Not every permutation.** One representative case per behaviour.
+- **Not third-party behavior.** You are not testing React.
+- **Not every permutation.** One representative case per behavior.
 - **Not internal function names.** Test through the public surface only.
 - **Not the type system.** If the pad is TS, the compiler already did that.
 
@@ -656,7 +656,7 @@ That last clause is true and it is exactly the connection between this axis and 
 ### G. THE DRILL
 
 Test quality is the axis with the least practice behind it, so `uie-practice` carries two
-dedicated reps: `cursor-05-write-the-tests` (a finished `Toast`, ten behaviours, thirty minutes)
+dedicated reps: `cursor-05-write-the-tests` (a finished `Toast`, ten behaviors, thirty minutes)
 and `cursor-10-write-the-tests-ii` (a finished async hook). In both, the component is done and
 **the suite is the entire deliverable**. Run them back to back, then diff against the reference
 suites and count what you missed — the misses are the list to reread the night before.

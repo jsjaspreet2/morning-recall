@@ -263,8 +263,8 @@ Draw two flows, not one box diagram. Boxes without a flow read as memorization.
   <rect class="dg-box" x="560" y="220" width="400" height="90" rx="8"></rect>
   <text class="dg-t dg-c" x="760" y="253.5">COLD — Kafka → S3 / warehouse</text>
   <text class="dg-s dg-c" x="760" y="269.5">fire-and-forget, never in the matching path</text>
-  <text class="dg-s dg-c" x="760" y="285.5">traffic modelling · reconstruction · disputes</text>
-  <text class="dg-note" x="30" y="344">No ping for 30 s → stale, and deprioritised in matching. 60 s → evicted entirely. Tunnels and dead apps must not appear as available supply.</text>
+  <text class="dg-s dg-c" x="760" y="285.5">traffic modeling · reconstruction · disputes</text>
+  <text class="dg-note" x="30" y="344">No ping for 30 s → stale, and deprioritized in matching. 60 s → evicted entirely. Tunnels and dead apps must not appear as available supply.</text>
 </svg>
 </div>
 
@@ -333,11 +333,11 @@ Draw two flows, not one box diagram. Boxes without a flow read as memorization.
   <rect class="dg-good" x="30" y="510" width="930" height="60" rx="8"></rect>
   <text class="dg-t dg-c" x="495" y="536.5">WHERE id=? AND status='MATCHING' AND version=? — zero rows means another matcher already assigned it</text>
   <text class="dg-s dg-c" x="495" y="552.5">this is where “exactly one driver” is actually enforced</text>
-  <text class="dg-note" x="30" y="600">Push is an optimisation, not the source of truth. If it is dropped, or the socket reconnects, the client calls GET /v1/rides/{id} and reconciles.</text>
+  <text class="dg-note" x="30" y="600">Push is an optimization, not the source of truth. If it is dropped, or the socket reconnects, the client calls GET /v1/rides/{id} and reconciles.</text>
 </svg>
 </div>
 
-<p class="diagram-cap">The funnel narrows twice for a reason: cheap filters first, real road ETAs only on ten candidates. The conditional update at the bottom is the line that actually enforces one driver per ride — everything above it is an optimisation.</p>
+<p class="diagram-cap">The funnel narrows twice for a reason: cheap filters first, real road ETAs only on ten candidates. The conditional update at the bottom is the line that actually enforces one driver per ride — everything above it is an optimization.</p>
 
 **The seam:** Matching Service is the only component that reads the supply index and writes to the ride state machine. Making it the single owner of that decision is what makes §8 tractable.
 
@@ -488,7 +488,7 @@ rank + batch solve       →  1 offer
 ```
 REQUESTED → MATCHING → DRIVER_ASSIGNED → EN_ROUTE → ARRIVED → IN_PROGRESS → COMPLETED
                 │            │              │          │
-                └────────────┴──────────────┴──────────┴──▶ CANCELLED (with liability rules)
+                └────────────┴──────────────┴──────────┴──▶ CANCELED (with liability rules)
 ```
 
 Persist transitions with **conditional updates**, not read-modify-write:
@@ -644,7 +644,7 @@ The rider needs "driver assigned," "driver arriving," and a moving dot at ~1Hz. 
   <rect class="dg-box" x="30" y="308" width="460" height="64" rx="8"></rect>
   <text class="dg-t dg-c" x="260" y="328.5">Offer, 15 s TTL</text>
   <text class="dg-s dg-c" x="260" y="344.5">cascade on decline</text>
-  <text class="dg-s dg-c" x="260" y="360.5">the DB conditional update is the last line of defence</text>
+  <text class="dg-s dg-c" x="260" y="360.5">the DB conditional update is the last line of defense</text>
   <circle class="dg-num" cx="30" cy="308" r="9"></circle>
   <text class="dg-num-t" x="30" y="311.4">6</text>
   <rect class="dg-box" x="510" y="308" width="450" height="64" rx="8"></rect>

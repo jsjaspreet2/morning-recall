@@ -40,11 +40,11 @@ Write skew is the one to be able to describe. Two transactions each read a state
 
 Fourth and last. Money and inventory, the highest stakes special case.
 
-Keep an append-only ledger. Balances are derived from it, or materialised from it, but never authored directly. Never overwrite financial history. An update statement against a balance column is an audit failure, not a design choice.
+Keep an append-only ledger. Balances are derived from it, or materialized from it, but never authored directly. Never overwrite financial history. An update statement against a balance column is an audit failure, not a design choice.
 
 Reserve with an expiry, then confirm or cancel. That reservation is the thing that makes overselling impossible without holding a database lock for the entire length of a human checkout flow. It converts a locking problem into a state machine with a timer, and that is almost always the right trade.
 
-Separate authorisation, capture, refund, and settlement into genuinely distinct states, and reconcile against the external provider. They will disagree with you. Your design needs a place to put that disagreement, and if it doesn't have one, somebody finds out from a customer.
+Separate authorization, capture, refund, and settlement into genuinely distinct states, and reconcile against the external provider. They will disagree with you. Your design needs a place to put that disagreement, and if it doesn't have one, somebody finds out from a customer.
 
 And audit every transition — actor, request identifier, operation identifier, timestamp, and reason. When money moves and nobody can say why, the design was wrong regardless of whether the numbers came out right.
 

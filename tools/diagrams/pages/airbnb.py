@@ -63,7 +63,7 @@ for x1,x2 in ((130,168),(308,346),(596,634)): s.arrow((x1,240),(x2,240))
 
 for i,(n,t) in enumerate([(8,"Temporal is durable execution, not mutual exclusion — the constraint does the arbitrating."),
                           (9,"Expiry is active here, a workflow timer. A constraint cannot evaluate now()."),
-                          (4,"Availability is derived from reservations + rules, and materialised only into the index.")]):
+                          (4,"Availability is derived from reservations + rules, and materialized only into the index.")]):
     y=302+24*i; s.badge(30,y-4,n); s.text(48,y,t)
 
 s.vdiv(440,376,452)

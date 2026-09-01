@@ -32,7 +32,7 @@ And now the conclusion the numbers force. Your read to write ratio is roughly fi
 
 Third thing. Service levels, and here the vocabulary does real work.
 
-An indicator is a measured user outcome. Successful checkout completed under five hundred milliseconds. Not database processor utilisation — that's a machine metric, and no user has ever cared about it. An objective is the target on that indicator: three nines of eligible checkouts over a rolling thirty days. And the error budget is simply one minus the objective.
+An indicator is a measured user outcome. Successful checkout completed under five hundred milliseconds. Not database processor utilization — that's a machine metric, and no user has ever cared about it. An objective is the target on that indicator: three nines of eligible checkouts over a rolling thirty days. And the error budget is simply one minus the objective.
 
 Treat that budget as an actual budget. It funds deliberate risk — faster rollouts, riskier deploys. Targeting perfection is usually economically wrong and always operationally miserable.
 
@@ -46,11 +46,11 @@ While we're here, two more terms that turn vague reliability talk into an actual
 
 Fourth and last. The distributions, because averages are where designs go to die.
 
-Burstiness. Diurnal peaks, launches, synchronised scheduled jobs, retry storms. Ask what the peak to average ratio is, and if nobody knows, design for five times and say that you're doing it.
+Burstiness. Diurnal peaks, launches, synchronized scheduled jobs, retry storms. Ask what the peak to average ratio is, and if nobody knows, design for five times and say that you're doing it.
 
 Power-law popularity. A handful of celebrity keys carry a wildly disproportionate share of the reads and the fanout. So design for the ninety-ninth percentile account size, not the average follower count — because the average follower count in a social system is a number that describes precisely nobody.
 
-Tail compounding. If a request fans out to fifty dependencies, and each has a one percent chance of being slow, that request is very likely to hit at least one slow call. Which means the tail latency of a fanout system is set by fanout width, not by the average dependency. That's the one to internalise.
+Tail compounding. If a request fans out to fifty dependencies, and each has a one percent chance of being slow, that request is very likely to hit at least one slow call. Which means the tail latency of a fanout system is set by fanout width, not by the average dependency. That's the one to internalize.
 
 And finally, be explicit about which capacity target you're budgeting for. Expected peak, plus failure headroom, plus growth runway are three different numbers. Provisioned for peak, and provisioned for peak with a zone down, are two different systems.
 

@@ -4,7 +4,7 @@
 
 > *"Design Figma. A design tool that runs in the browser, where several people can edit the same file at the same time and watch each other's cursors move."*
 
-**The product.** A design file is a canvas of shapes, frames, text, and reusable components — an object graph you drag around, not a document you type into. Several designers open the same file, move things, resize things, and change colours, and each of them sees everyone else's changes land live, along with a labelled cursor for each person. It runs in a browser tab and has to stay smooth with thousands of objects on screen, on a laptop, over a wifi connection that occasionally stalls.
+**The product.** A design file is a canvas of shapes, frames, text, and reusable components — an object graph you drag around, not a document you type into. Several designers open the same file, move things, resize things, and change colors, and each of them sees everyone else's changes land live, along with a labeled cursor for each person. It runs in a browser tab and has to stay smooth with thousands of objects on screen, on a laptop, over a wifi connection that occasionally stalls.
 
 **What a working system delivers**
 
@@ -13,14 +13,14 @@
 - The canvas keeps its frame rate while all of that is arriving.
 - A network stall doesn't freeze your editing; you keep working and it reconciles when you're back.
 
-**Why this gets asked.** Delivery is the easy half here — everyone is online, looking at one document. *Agreement* is the problem, and how hard agreement turns out to be is decided by a modelling choice made in the first two minutes of the round.
+**Why this gets asked.** Delivery is the easy half here — everyone is online, looking at one document. *Agreement* is the problem, and how hard agreement turns out to be is decided by a modeling choice made in the first two minutes of the round.
 
 ---
 
 **Archetype:** concurrent mutation of one shared document, where the choice of data model *is* the choice of concurrency algorithm.
 **Cousins that reuse ~70% of this page:** Miro, Canva, Framer, Lucidchart, a collaborative spreadsheet, a multiplayer level editor. Also **any product where several people mutate one identified object graph** rather than appending to a stream.
 
-**What's actually being graded:** whether you notice that **the document model determines the algorithm**, and design the model first. Modelling the file as `Map<ObjectID, Map<Property, Value>>` is what lets last-writer-wins per property be sufficient; modelling it as a sequence is what forces you into OT or a sequence CRDT. Candidates who open with "OT versus CRDT" have answered the Google Docs question. The second signal is that **the client is a renderer with a frame budget, not a view** — a design where the client is a thin layer over the server has answered half the problem, and it is the half this product is famous for.
+**What's actually being graded:** whether you notice that **the document model determines the algorithm**, and design the model first. Modeling the file as `Map<ObjectID, Map<Property, Value>>` is what lets last-writer-wins per property be sufficient; modeling it as a sequence is what forces you into OT or a sequence CRDT. Candidates who open with "OT versus CRDT" have answered the Google Docs question. The second signal is that **the client is a renderer with a frame budget, not a view** — a design where the client is a thin layer over the server has answered half the problem, and it is the half this product is famous for.
 
 **Contrast to have ready:** *WhatsApp is append-only: messages are immutable, delivery and ordering are the whole problem, and fanout cost dominates. Figma is the inverse — **delivery is easy and convergence is the problem**. Every client mutates the same objects, nothing is immutable, and the correctness invariant is not "everyone saw the same order" but "everyone ends in the same state." That is a strictly weaker requirement, and exploiting it is the design.*
 
@@ -317,12 +317,12 @@ One WebSocket per client per open file. Both document changes and presence ride 
 
 **What breaks.** OT requires a transformation function for **every ordered pair of operation types**. With a rich object model — set property, create, delete, reparent, reorder, group — that is quadratic in the number of operation types, and the functions are individually subtle. Figma's own writeup is blunt about it: OTs were *"unnecessarily complex for our problem space"* and *"very complicated and hard to implement correctly."* The deeper point is that **OT is machinery for editing a sequence**, where an insert at position 4 changes what position 7 means. Setting `fill` on object `abc` does not change what any other property means. **You would be paying for a problem you designed away in §4.**
 
-**What replaces it.** **Last-writer-wins per property, with a single server process as the ordering authority.** The server keeps the latest value any client has sent for a given property on a given object; the order of arrival at that process *is* the order, so there is nothing to transform. Figma describes their system as CRDT-*inspired* while stating plainly that *"Figma isn't using true CRDTs"* — because the server is central, they drop the vector clocks, tombstone sets, and merge functions a decentralised CRDT needs to converge without a coordinator.
+**What replaces it.** **Last-writer-wins per property, with a single server process as the ordering authority.** The server keeps the latest value any client has sent for a given property on a given object; the order of arrival at that process *is* the order, so there is nothing to transform. Figma describes their system as CRDT-*inspired* while stating plainly that *"Figma isn't using true CRDTs"* — because the server is central, they drop the vector clocks, tombstone sets, and merge functions a decentralized CRDT needs to converge without a coordinator.
 
 **What it costs.**
 
 - **Last write wins means someone silently loses.** Two users setting `fill` concurrently: one value survives and the other disappears with no conflict UI and no merge. That is acceptable for `fill` and *unacceptable* for a paragraph of text, which is precisely why text is the one place this model does not stretch (§15).
-- **You have given up decentralisation.** No peer-to-peer, no true offline-for-a-week merge, no federating between servers — every edit to a file must reach one process. §11 is the bill for this, and it is the reason the file process is a single point of failure.
+- **You have given up decentralization.** No peer-to-peer, no true offline-for-a-week merge, no federating between servers — every edit to a file must reach one process. §11 is the bill for this, and it is the reason the file process is a single point of failure.
 - **Ordering is per file, not global.** Two files are wholly independent, which is fine, but any feature spanning files (a shared component library) cannot be made atomic with an edit. Worth naming before they ask.
 
 ---
@@ -335,7 +335,7 @@ Draw the interviewer's attention here yourself. It is where a design that seemed
 
 **What breaks — two distinct failures, and both are load-bearing.**
 
-1. **Concurrent inserts collide.** Two users each drop a layer at index 3. With the parent's child array modelled as one property, LWW means one user's entire insert vanishes — the array they didn't write is the array that survives. With per-child integer positions, both children claim index 3 and the order is undefined.
+1. **Concurrent inserts collide.** Two users each drop a layer at index 3. With the parent's child array modeled as one property, LWW means one user's entire insert vanishes — the array they didn't write is the array that survives. With per-child integer positions, both children claim index 3 and the order is undefined.
 2. **A single drag becomes an O(n) write.** Moving one layer from the bottom of a 200-object frame to the top renumbers every sibling. That is 200 property writes broadcast to every client for one user gesture, and every one of them is an independent LWW race.
 
 **What replaces it.** **Fractional indexing.** An object's position among its siblings is a fraction strictly between 0 and 1. To insert between two objects, average their indices; to insert at the start or end, average with 0 or 1. There is always room, because there is always a rational number between two rationals. A drag writes **exactly one property** — the moved object's — and touches nothing else.
@@ -347,7 +347,7 @@ Two implementation details worth stating because they are where it actually goes
 
 **What it costs.**
 
-- **Index strings grow.** Every insertion between the same two neighbours adds roughly a character. Sustained editing in one spot produces long keys, so you need a **renormalisation pass** that rewrites a parent's children back to short evenly-spaced indices — and because that is a multi-property write that must not interleave with concurrent edits, the server has to perform it, not a client.
+- **Index strings grow.** Every insertion between the same two neighbours adds roughly a character. Sustained editing in one spot produces long keys, so you need a **renormalization pass** that rewrites a parent's children back to short evenly-spaced indices — and because that is a multi-property write that must not interleave with concurrent edits, the server has to perform it, not a client.
 - **Interleaving is arbitrary.** Two users inserting at the same position get a deterministic, convergent order — but not necessarily the one either intended. Figma's own justification for accepting this is that a layers panel is not prose: nobody is harmed if two simultaneously-added rectangles land in the other order. Say that trade explicitly; it is the same trade §7 made, one level down.
 - **Cycles are now possible.** Since parenting is just a property, two users can concurrently reparent A into B and B into A, producing a cycle that detaches a whole subtree from the document. **The server rejects parent updates that would create one** — the same check a candidate writes by walking parent pointers, enforced at the ordering authority because that is the only place with a consistent view.
 
@@ -359,27 +359,27 @@ Two implementation details worth stating because they are where it actually goes
 
 **What breaks.** §3 put a real file at 10⁵–10⁶ objects. A browser's style, layout, and paint pipeline is roughly linear in node count per frame, and the practical ceiling for a smooth 60 Hz is **low thousands of nodes**, not hundreds of thousands — you are over budget by two orders of magnitude before anything animates. Worse, the failure is not gradual: one style recalculation that exceeds **16 ms** drops a frame during a drag, which is the single most-used interaction in the product.
 
-**What replaces it.** The client owns a **scene graph and its own rendering pipeline**: geometry is submitted to the GPU through **WebGL**, with the hot path compiled to **WebAssembly** rather than run as JavaScript, so a frame's work is bounded by what is *visible* rather than by what exists. The essential techniques are viewport **culling** (touch only objects intersecting the visible rectangle) and **tiling** (cache rendered regions so panning re-composites rather than re-rasterises). The DOM keeps the chrome — panels, menus, inputs — and nothing else.
+**What replaces it.** The client owns a **scene graph and its own rendering pipeline**: geometry is submitted to the GPU through **WebGL**, with the hot path compiled to **WebAssembly** rather than run as JavaScript, so a frame's work is bounded by what is *visible* rather than by what exists. The essential techniques are viewport **culling** (touch only objects intersecting the visible rectangle) and **tiling** (cache rendered regions so panning re-composites rather than re-rasterizes). The DOM keeps the chrome — panels, menus, inputs — and nothing else.
 
 **What it costs.** This is the expensive answer and you should price it honestly:
 
 - **You reimplement everything the browser gave you free**: text shaping and line breaking, IME composition for non-Latin input, hit testing, selection, focus, scrolling, and accessibility. Each of these is a project.
 - **A large WebAssembly binary must be downloaded and instantiated before the first pixel**, which lands directly on §2's 3-second open budget and pulls against §10.
 - **Debugging leaves the browser's tooling behind.** DevTools can show you a dropped frame; it cannot show you which node in your scene graph caused it, so you build your own instrumentation.
-- **Memory is now yours to bound.** Tile caches and GPU textures grow with document size and zoom level, and evicting them badly produces visible re-rasterisation during a pan.
+- **Memory is now yours to bound.** Tile caches and GPU textures grow with document size and zoom level, and evicting them badly produces visible re-rasterization during a pan.
 
 ---
 
 ## 10 · Deep dive — opening a large file without a sixteen-second stall
 
-**The naive answer.** "On open, the server serialises the current document and sends it down the socket."
+**The naive answer.** "On open, the server serializes the current document and sends it down the socket."
 
-**What breaks.** §3's figure: ~40 MB, which is **~16 s** on a 20 Mbit connection before the client parses a byte — and the parse itself blocks the main thread, so the tab is frozen for the tail of it. It is also the worst possible load pattern for the server: the file's owning process must serialise its whole in-memory document on demand, on the same thread that is ordering live edits, every time anyone opens the file.
+**What breaks.** §3's figure: ~40 MB, which is **~16 s** on a 20 Mbit connection before the client parses a byte — and the parse itself blocks the main thread, so the tab is frozen for the tail of it. It is also the worst possible load pattern for the server: the file's owning process must serialize its whole in-memory document on demand, on the same thread that is ordering live edits, every time anyone opens the file.
 
 **What replaces it.** Split the document into **an immutable snapshot plus a tail of operations.**
 
 - A background job periodically writes the file's state at version *V* as an **immutable blob to S3**, keyed `file/{id}/{V}`, and serves it through a **CDN (Fastly or CloudFront)**. Immutable plus content-addressed means it is infinitely cacheable and never invalidated.
-- On open, the server sends a **URL and a version**, not bytes. The client fetches from the CDN — usually a nearby edge — decodes **off the main thread in a worker**, and the owning process does no serialisation work at all.
+- On open, the server sends a **URL and a version**, not bytes. The client fetches from the CDN — usually a nearby edge — decodes **off the main thread in a worker**, and the owning process does no serialization work at all.
 - The server then streams only the operations **since** *V*. Reconnects reuse the same mechanism with a version the client already has, so the common case transfers almost nothing.
 - The client builds the scene graph progressively and **paints the viewport first**, so first meaningful paint happens long before the document is fully resident.
 
@@ -542,7 +542,7 @@ Two implementation details worth stating because they are where it actually goes
 5. **Registry** (Redis, `fileId → server`, heartbeat TTL) between the client and that process.
 6. **Op log** (Kafka, partitioned by `fileId`) hanging off the file process — the system of record.
 7. **Snapshot job** → S3 → CDN, and an arrow from the CDN back to the client for cold open.
-8. **Presence** as a separate arrow through the same socket, drawn dashed, labelled *lossy, unordered, never stored*.
+8. **Presence** as a separate arrow through the same socket, drawn dashed, labeled *lossy, unordered, never stored*.
 9. Write **fractional index** next to the object box, and **LWW per property** next to the file process.
 10. In the corner, the two decisions: *"convergence, not linearizability"* and *"the model chose the algorithm."*
 

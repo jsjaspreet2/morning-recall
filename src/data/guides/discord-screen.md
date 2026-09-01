@@ -28,7 +28,7 @@ lives in `Design Discord` under Designs; `§06` here is the three-minute version
 
 Every reported version of this question — one room, many rooms, private messages, history, rate
 limits, and the off-theme key–value store in `§02 E` — is the same five-step program with a
-different step 3. This chapter is those five steps. If you internalise one chapter before a Discord
+different step 3. This chapter is those five steps. If you internalize one chapter before a Discord
 coding round it is this one, and if you only have an hour, it is `§01 C` and `§01 F`.
 
 ### A. WHY EVERY DISCORD CODING QUESTION IS THIS QUESTION
@@ -340,7 +340,7 @@ the number that matters:
 | Operation | Cost | The line to say |
 |---|---|---|
 | Accept a connection | O(1) | *"Map insert."* |
-| Frame a chunk | O(chunk) amortised | *"Linear in bytes received, which is unavoidable."* |
+| Frame a chunk | O(chunk) amortized | *"Linear in bytes received, which is unavoidable."* |
 | Look up a room or a name | O(1) | *"That's why both are maps."* |
 | **Broadcast** | **O(members)** | ***"Linear in the room, not in the server — that's what the room index buys."*** |
 | `/who` | O(members) | *"Same set, and I'd paginate above a few thousand."* |
@@ -705,7 +705,7 @@ if (set && set.size === 0) members.delete(c.room)   // membership only; history 
    used and nothing removes it. *"That map is a leak — it grows with the number of distinct rooms
    ever created, not with live rooms. I'm accepting it because rooms are user-named and the
    cardinality is low, and the fix is an LRU keyed on last activity."* **Naming your own leak
-   converts a finding into a judgement call**, and it is the single highest-value sentence in this
+   converts a finding into a judgment call**, and it is the single highest-value sentence in this
    problem.
 
 </details>
@@ -786,7 +786,7 @@ broadcast(`${c.name}: ${line}`, c)
 2. **Per client, not per server.** One flooder must not throttle everyone else, and the state lives
    on the `Client` for that reason.
 3. **Commands are exempt.** A throttled user must still be able to ask why and to leave. This is a
-   product judgement, stated as one, not an oversight.
+   product judgment, stated as one, not an oversight.
 4. **The sender is told.** Silent dropping is indistinguishable from a broken server from the
    client's side; `error rate limited` is a protocol.
 
@@ -809,7 +809,7 @@ inside the limiter, so the tests sleep · one counter shared across all clients 
 ### E. A KEY–VALUE STORE OVER TCP
 
 Deliberately **not** a chat server. If the method only works on the problem you rehearsed, it is not
-a method — it is a memorised answer, and a multi-part interview is designed to find out which one
+a method — it is a memorized answer, and a multi-part interview is designed to find out which one
 you have. There is a real chance the prompt you get is not chat at all.
 
 > **The prompt, roughly.** Build a little key–value server. Clients connect with `nc` and type
@@ -1249,7 +1249,7 @@ events a `Socket` emits and in what order · anything about `StringDecoder` if m
 All three are *"I want to check this rather than guess"*, which is a named axis.
 
 **Not worth looking up, because you should have it:** how to create a server · how to read from a
-socket · how to split a string. Looking these up mid-round is not penalised, but it is thirty seconds
+socket · how to split a string. Looking these up mid-round is not penalized, but it is thirty seconds
 each and there are a lot of them, and it is exactly what `§05 B` exists to remove.
 
 ## 06 — "Now scale it past one process"
@@ -1311,7 +1311,7 @@ thread off a message. Set a status. Join a voice channel and notice how fast it 
 does not have a "call" concept — presence is ambient rather than an event. Look at how a message
 edit propagates, and at read state: what unread means when you have been away for a day.
 
-**Why this and not the marketing site:** every one of those is a data-modelling decision you could
+**Why this and not the marketing site:** every one of those is a data-modeling decision you could
 be asked to reason about, and each has an obvious naive design that Discord did not choose.
 
 ### B. THE ENGINEERING STORY, IN THREE PARAGRAPHS
@@ -1335,7 +1335,7 @@ at p99.
 ScyllaDB, with Java GC pauses at trillions-of-messages scale being the reason for the last move; the
 cluster went from 177 Cassandra nodes to 72 ScyllaDB ones. **The detail worth remembering** is the
 Rust data-services layer in front: when a hot partition is requested by a huge number of clients at
-once, it recognises them as the same request, issues **one** query, and fans the single result back
+once, it recognizes them as the same request, issues **one** query, and fans the single result back
 out to every waiter. That is exactly the shape of the thing you wrote in `§02 A` — many waiters, one
 source, one fanout loop — which makes it the natural thing to mention if scaling comes up.
 

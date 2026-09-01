@@ -4,7 +4,7 @@
 
 > *"Design Ticketmaster — specifically the onsale. A stadium tour goes on sale at 10am, ten million people are waiting, and there are sixty thousand seats."*
 
-**The product.** You pick an event, look at a seat map, choose specific seats, and get a few minutes to enter payment while those seats are held for you. Then you either buy them or they go back. Seats are not interchangeable — row 3 centre is a different product from the back of the upper bowl, and people care intensely about which one they get. The system is quiet almost all the time; it is defined entirely by the sixty seconds when a big tour opens.
+**The product.** You pick an event, look at a seat map, choose specific seats, and get a few minutes to enter payment while those seats are held for you. Then you either buy them or they go back. Seats are not interchangeable — row 3 center is a different product from the back of the upper bowl, and people care intensely about which one they get. The system is quiet almost all the time; it is defined entirely by the sixty seconds when a big tour opens.
 
 **What a working system delivers**
 

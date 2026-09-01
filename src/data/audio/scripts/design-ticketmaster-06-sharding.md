@@ -10,7 +10,7 @@ Three things. <break time="0.8s" /> First, what the sharding is actually sized b
 
 So. You shard by event. Every seat, every hold, every order for one event lives on one shard.
 
-But the interesting question isn't whether you shard. It's what the sharding is sized by — because there are two possible answers, and they give you different keys, different shard counts, and completely different failure behaviour.
+But the interesting question isn't whether you shard. It's what the sharding is sized by — because there are two possible answers, and they give you different keys, different shard counts, and completely different failure behavior.
 
 If you shard for throughput, your key is a hash of the seat or order identifier. Your shard count comes from total writes divided by node capacity. Load distributes evenly, which is what hash distribution is for. But a multi-seat order now spans shards, so it becomes a distributed transaction. And a node failure degrades every event a little.
 
@@ -32,7 +32,7 @@ Second, sub-partition by section, if a single event truly exceeds one node. You 
 
 Third, read replicas for anything analytical, and never for the sale path.
 
-The generalisable version, worth carrying to other problems: partition on the entity that bounds your transactions, unless throughput genuinely forces you off it. Hash distribution optimises the metric that's easy to measure, which is evenness, at the cost of the one that actually determines your correctness cost, which is locality.
+The generalizable version, worth carrying to other problems: partition on the entity that bounds your transactions, unless throughput genuinely forces you off it. Hash distribution optimizes the metric that's easy to measure, which is evenness, at the cost of the one that actually determines your correctness cost, which is locality.
 
 Second thing. Storage decisions, fast — because every stateful component needs a named choice and a one-line derivation, and skipping them is what reads as shallow.
 

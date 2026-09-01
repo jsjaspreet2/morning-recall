@@ -5,7 +5,7 @@
 /* --------------------------------------------------------------------------
    Theme tokens.
 
-   Every colour below this block is a var(), defined once per theme here. The
+   Every color below this block is a var(), defined once per theme here. The
    alternative — repeating the whole 300-line prose stylesheet under `.dark` —
    would double the file and guarantee the two halves drift apart.
 
@@ -237,8 +237,8 @@ button {
   color: var(--marker);
 }
 /* In an ordered list the number is content — which step this is, out of how many
-   — rather than decoration, so it reads at the body colour instead of the muted
-   grey a bullet gets. */
+   — rather than decoration, so it reads at the body color instead of the muted
+   gray a bullet gets. */
 .prose ol > li::marker {
   color: var(--marker-ol);
   font-weight: 600;
@@ -312,10 +312,10 @@ button {
    Whiteboard diagrams.
 
    Hand-drawn SVG written straight into the markdown (rehype-raw turns it into
-   real elements). Every colour, weight and anchor comes from the classes below
+   real elements). Every color, weight and anchor comes from the classes below
    rather than from presentation attributes, so one copy of the markup reads in
    both themes — and so a diagram can be edited by moving a coordinate without
-   also hunting for its colours.
+   also hunting for its colors.
 
    Arrowheads are explicit triangles rather than <marker> defs: markers survive
    the parse5 → hast → React round-trip only if every camelCased attribute maps
@@ -411,7 +411,7 @@ button {
   stroke-width: 1;
   stroke-dasharray: 4 5;
 }
-/* type scale: title → sub → label, and the three semantic colours */
+/* type scale: title → sub → label, and the three semantic colors */
 .prose .diagram .dg-t {
   fill: var(--dg-text);
   font-size: 12.5px;
@@ -573,7 +573,7 @@ button {
   border-bottom: none;
 }
 
-/* highlight.js — colours come from the --hl-* tokens (github-light / github-dark) */
+/* highlight.js — colors come from the --hl-* tokens (github-light / github-dark) */
 .hljs-comment,
 .hljs-quote {
   color: var(--hl-comment);

@@ -25,7 +25,7 @@ for x in (100,320,540): b.box(x,500,180,36,"clients — WebSocket")
 b.box(760,380,200,92,"Session registry",["Redis, heartbeat TTL","who is where, for routing","and for presence, by expiry"])
 b.arrow((860,380),(860,266),(660,266))
 b.text(680,258,"presence = TTL expiry, coalesced",'dg-lbl')
-b.text(30,560,"A message can exist that nobody was told about; the client re-reads it on RESUME, because the store is the source of truth and the push is an optimisation over it.",'dg-s')
+b.text(30,560,"A message can exist that nobody was told about; the client re-reads it on RESUME, because the store is the source of truth and the push is an optimization over it.",'dg-s')
 b.text(30,582,"Degrade in this order: presence → read state → history depth. Never live message delivery.",'dg-note')
 HLD_CAP = "The 100× win is one arrow, and it is the reason this page exists: the guild process groups recipients by <em>gateway node</em> before sending. Everything above that box is unremarkable; everything below it is the interview."
 

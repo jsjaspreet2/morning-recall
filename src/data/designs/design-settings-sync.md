@@ -347,7 +347,7 @@ WS   /v1/subscribe   ← { entity: "team:7", version: 13, delay_ms: 4200 }   // 
 1. The WebSocket tier is fully down. Clients notice the socket is gone and switch their poll interval from 15 minutes to 60 seconds (§3).
 2. Each poll is `GET /v1/manifest`, ~200 bytes, and answers "nothing changed."
 3. When something *has* changed, the client takes exactly the path it takes in Flow C — because **there is only one recovery path and it is also the normal path.**
-4. **The failure path is that there isn't one.** Convergence degrades from ~2 s to ≤ 60 s and nothing else in the system changes behaviour. **Say this sentence out loud in the interview** — it is the proof that push is a hint, and it is worth more than any description of the WebSocket tier.
+4. **The failure path is that there isn't one.** Convergence degrades from ~2 s to ≤ 60 s and nothing else in the system changes behavior. **Say this sentence out loud in the interview** — it is the proof that push is a hint, and it is worth more than any description of the WebSocket tier.
 
 ---
 
@@ -434,7 +434,7 @@ Reads then get cheap in a way that shapes the whole protocol: `since_version` is
 
 - **Unbounded history, and a compaction policy you have to defend.** 2.9 GB/day (§3) is cheap, but it is not free forever: revisions are retained in full for the 400-day audit window and intermediate patches are compacted beyond a **30-day delta horizon**, past which `since=` simply answers with a snapshot. A client older than that horizon does a full reload — the same trade Figma makes on its op log, for the same reason.
 - **Rollback is a forward write, and history therefore never shrinks.** That is the point, and it is also a compliance hazard: a secret pasted into a settings value is now retained for 400 days across every replica and backup. Redaction has to exist as a **separate, privileged, audited path that rewrites revision bodies**, and pretending the append-only story has no exception is worse than naming the exception.
-- **The pointer row is a hot row per entity.** At 8 writes/sec globally it is nothing; a scripted admin tool doing 100 writes/sec against `team:7` serialises on one row and starts returning 412s to itself. The fix is **batching at the client** — one write with 40 keys, not 40 writes — and it is worth saying that sharding the row is the wrong instinct, because per-entity ordering is the property the entire sync protocol rests on.
+- **The pointer row is a hot row per entity.** At 8 writes/sec globally it is nothing; a scripted admin tool doing 100 writes/sec against `team:7` serializes on one row and starts returning 412s to itself. The fix is **batching at the client** — one write with 40 keys, not 40 writes — and it is worth saying that sharding the row is the wrong instinct, because per-entity ordering is the property the entire sync protocol rests on.
 
 ---
 
@@ -599,7 +599,7 @@ Plus the unglamorous ones: outbox depth (the leading indicator for everything ab
 ## 14 · The five-minute skeleton (draw this cold)
 
 <div class="diagram" data-board="skeleton">
-<svg viewBox="0 0 1000 490" role="img" aria-label="Settings sync five-minute skeleton. The resolution function centred at the top over four layers, flanked by the client and the membership entity. Then the two tables and their compare-and-set predicate, the aggregate version, the manifest and If-Match calls, the socket-as-hint rule, the outbox chain, and two closing sentences.">
+<svg viewBox="0 0 1000 490" role="img" aria-label="Settings sync five-minute skeleton. The resolution function centered at the top over four layers, flanked by the client and the membership entity. Then the two tables and their compare-and-set predicate, the aggregate version, the manifest and If-Match calls, the socket-as-hint rule, the outbox chain, and two closing sentences.">
   <rect class="dg-banner" x="10" y="10" width="980" height="34" rx="9"></rect>
   <text class="dg-banner-t dg-c" x="500" y="31.5">Minute five: everything below must be on the board. Badge numbers match the list.</text>
   <rect class="dg-good" x="280" y="68" width="440" height="96" rx="8"></rect>

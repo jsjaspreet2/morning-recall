@@ -1,6 +1,6 @@
-"""Rasterise one board so a human (or a model with eyes) can actually look at it.
+"""Rasterize one board so a human (or a model with eyes) can actually look at it.
 
-The board in the page has no colours of its own — src/index.css supplies them —
+The board in the page has no colors of its own — src/index.css supplies them —
 so this inlines the light-theme token values and hands the result to Quick Look.
 Every layout bug found so far was found here and not by any automated check.
 

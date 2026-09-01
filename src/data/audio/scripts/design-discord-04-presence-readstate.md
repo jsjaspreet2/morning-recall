@@ -18,11 +18,11 @@ So presence is not a small feature attached to messaging. It is plausibly the la
 
 Three moves fix it, and all three are the same move: be deliberately lossy.
 
-First, heartbeat with a time-to-live, and never an explicit delete. Online means "has heartbeated within the window." And I want to be careful here, because this sounds like an optimisation and it isn't. It is the only correct model. The common way a session ends is that its host disappeared — so there is nothing left to send you a goodbye. A design that requires a clean disconnect is permanently, quietly wrong about some fraction of its users, forever.
+First, heartbeat with a time-to-live, and never an explicit delete. Online means "has heartbeated within the window." And I want to be careful here, because this sounds like an optimization and it isn't. It is the only correct model. The common way a session ends is that its host disappeared — so there is nothing left to send you a goodbye. A design that requires a clean disconnect is permanently, quietly wrong about some fraction of its users, forever.
 
 Second, coalesce and rate-limit at the guild process. Presence changes within a window collapse into a single event, so a user whose connection is flapping produces one transition rather than thirty.
 
-And the justification is worth memorising, because it generalises. A stale presence is invisible to users. A presence storm is not. Nobody notices that their friend showed online three seconds late. Everybody notices when the app stutters.
+And the justification is worth memorizing, because it generalizes. A stale presence is invisible to users. A presence storm is not. Nobody notices that their friend showed online three seconds late. Everybody notices when the app stutters.
 
 Third, don't send what nobody will render. A client displaying a two-hundred-thousand-member server is not rendering two hundred thousand avatars — it renders a screenful and asks for more when you scroll. So presence for large servers is lazy, and scoped to what the client actually asked for. That is exactly what the intents field exists to express.
 
@@ -46,7 +46,7 @@ Store the last-read message identifier, not a count. Because identifiers are sno
 
 Write behind, aggressively. Coalesce a user's read state updates over a few seconds and batch them. And price the failure honestly: losing the last few seconds of read state in a crash costs one user one already-read channel showing a badge. That is the cheapest possible failure in this entire system. Trading durability for write cost is obviously right here, and it's obviously wrong two tables over on messages — knowing which is which is the skill.
 
-And put a coalescing cache in front of the hot path. When a large number of clients request the same hot partition at the same moment, the service in front should recognise them as one request, issue a single query, and fan that single result back to every waiter.
+And put a coalescing cache in front of the hot path. When a large number of clients request the same hot partition at the same moment, the service in front should recognize them as one request, issue a single query, and fan that single result back to every waiter.
 
 Notice the shape of that, because it's the same shape as batching fanout by node. Many waiters, one source, one distribution loop. Once you see that pattern you find it everywhere in this design, and naming the repetition is a strong signal.
 

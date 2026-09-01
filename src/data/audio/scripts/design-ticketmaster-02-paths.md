@@ -18,7 +18,7 @@ There are two request shapes for a hold. Either the user clicked specific seats 
 
 Both holds and orders carry an idempotency key. During an onsale, users mash the button. Without that key, one user consumes four seats' worth of inventory in retries alone.
 
-And the session token issued by the queue is what authorises a hold. No token, no hold. That single rule is what makes admission control enforceable rather than decorative — and we'll come back to why that matters.
+And the session token issued by the queue is what authorizes a hold. No token, no hold. That single rule is what makes admission control enforceable rather than decorative — and we'll come back to why that matters.
 
 Second thing. The browse path.
 
@@ -52,15 +52,15 @@ You load the seat map, you pick seats, and you post a hold with that session tok
 
 Then one transaction. Seats acquired in sorted order, so two users grabbing overlapping sets can't deadlock each other. Each seat gets the conditional update — claim it only if it's available, or if it's held and already expired. If every row updates, commit, and return a hold identifier with an expiry about eight minutes out. If any row comes back zero, roll back the entire set and return a conflict with refreshed availability. Partial holds are not a thing. You either get all four seats or none of them.
 
-The commit emits an outbox event, the delta broadcasts, and everyone else watching sees those seats grey out inside a second.
+The commit emits an outbox event, the delta broadcasts, and everyone else watching sees those seats gray out inside a second.
 
 Now the order. Verify the hold belongs to this user and hasn't expired. Enforce purchase limits — on the user and on the payment instrument, because those are different things and bots exploit the difference. Then transition the hold into a pending-payment state, which suspends expiry, with a hard ceiling of about two minutes so a hung payment provider can't strand a seat forever.
 
-Authorise with the payment provider under its own idempotency key. If that fails, release the hold immediately — seats go back to available, delta broadcasts, and the client gets a payment-required response.
+Authorize with the payment provider under its own idempotency key. If that fails, release the hold immediately — seats go back to available, delta broadcasts, and the client gets a payment-required response.
 
 If it succeeds, one transaction flips the seats from held to sold, marks the order confirmed, and consumes the hold. That commit is the point of no return, and it is the only place in the entire system where inventory becomes permanently unavailable. Worth naming it as such.
 
-Everything after that is asynchronous. Capture the authorisation, mint the tickets, send the confirmation. And note the asymmetry: a capture failure keeps the sale and retries out of band. You do not un-sell a seat because a capture hiccupped.
+Everything after that is asynchronous. Capture the authorization, mint the tickets, send the confirmation. And note the asymmetry: a capture failure keeps the sale and retries out of band. You do not un-sell a seat because a capture hiccupped.
 
 Finally, the abandonment path — and this is my favourite part of the whole design, because nothing happens. No job runs. No timer fires. The seat is simply reclaimed by whichever writer next evaluates the expiry predicate. The sweeper eventually corrects the displayed status, purely so the seat map doesn't look needlessly pessimistic.
 

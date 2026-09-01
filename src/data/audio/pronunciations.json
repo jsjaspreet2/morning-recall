@@ -1,5 +1,5 @@
 {
-  "_comment": "Alias rules uploaded to an ElevenLabs pronunciation dictionary. Alias (not phoneme) because phoneme rules only work on flash_v2/v3 and we synthesize on multilingual_v2. Keep this small: the first line of defence is paraphrasing in the script itself (see AUDIO_SCRIPT_AUTHORING.md). A term earns a rule here only when it must be said exactly and the model gets it wrong.",
+  "_comment": "Alias rules uploaded to an ElevenLabs pronunciation dictionary. Alias (not phoneme) because phoneme rules only work on flash_v2/v3 and we synthesize on multilingual_v2. Keep this small: the first line of defense is paraphrasing in the script itself (see AUDIO_SCRIPT_AUTHORING.md). A term earns a rule here only when it must be said exactly and the model gets it wrong.",
   "rules": [
     { "string_to_replace": "nginx", "alias": "engine ex" },
     { "string_to_replace": "Nginx", "alias": "engine ex" },

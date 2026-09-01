@@ -10,7 +10,7 @@ A stadium onsale resolves to sixty thousand successful sales. Not sixty thousand
 
 This is the inverse of a scale problem. Modest write throughput, catastrophic contention, concentrated on a handful of rows.
 
-Four things. <break time="0.8s" /> First, the frame to open with, before you draw anything. <break time="0.7s" /> Second, the requirements, including one that isn't really a feature. <break time="0.7s" /> Third, the numbers, done at three separate levels. <break time="0.7s" /> And fourth, the entities, where one modelling choice quietly decides whether the whole design works.
+Four things. <break time="0.8s" /> First, the frame to open with, before you draw anything. <break time="0.7s" /> Second, the requirements, including one that isn't really a feature. <break time="0.7s" /> Third, the numbers, done at three separate levels. <break time="0.7s" /> And fourth, the entities, where one modeling choice quietly decides whether the whole design works.
 
 So, the opening frame. What you say in the first minute.
 
@@ -28,13 +28,13 @@ Second thing. Requirements.
 
 Three functional ones. Browse an event and see which seats are available. Reserve specific seats — a temporary hold — then complete the purchase within a time limit. And never sell the same seat twice, at any traffic level.
 
-That third one is unusual, and it's worth noticing out loud. It is a correctness invariant masquerading as a feature. State it as a requirement anyway, because it is the thing the entire design is organised around, and naming it early means every later decision has something concrete to be justified against.
+That third one is unusual, and it's worth noticing out loud. It is a correctness invariant masquerading as a feature. State it as a requirement anyway, because it is the thing the entire design is organized around, and naming it early means every later decision has something concrete to be justified against.
 
 Say your out-of-scope list too. Event creation, dynamic pricing, resale, transfers, refunds, seat-map rendering. Naming them is what stops an interviewer wondering whether you forgot.
 
 Now the non-functional side, and this is where the interesting sentence lives.
 
-Consistency on a seat sale is strictly serialisable, with no exceptions. There is no eventually-consistent version of two people in one chair.
+Consistency on a seat sale is strictly serializable, with no exceptions. There is no eventually-consistent version of two people in one chair.
 
 But consistency on seat display is a completely different answer. Eventually consistent, up to about five seconds stale, and that is explicitly acceptable — because ten million readers cannot share a consistent snapshot, and trying to give them one is how you melt the system. The interface is a hint. The hold call is the truth.
 
@@ -62,7 +62,7 @@ Fourth and last. Entities, and three details that carry weight.
 
 Hold expiry is a column, not a lock service. A hold is a row with an expiry timestamp on it, and that single choice is what makes the reservation lifecycle work.
 
-A seat is per event, not global. Seat twelve A exists once per show, not once per stadium. Obvious in hindsight, frequently modelled wrong, and getting it wrong makes every query cross-join awkwardly.
+A seat is per event, not global. Seat twelve A exists once per show, not once per stadium. Obvious in hindsight, frequently modeled wrong, and getting it wrong makes every query cross-join awkwardly.
 
 And three states, not two. Held inventory is neither available nor sold. Any system that models availability as a boolean will oversell during the hold window.
 

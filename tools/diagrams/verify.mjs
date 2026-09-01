@@ -1,5 +1,5 @@
 // Render every design page through the *real* site pipeline and assert the boards
-// survive it. rehype-raw parses the SVG with parse5, hast normalises the attribute
+// survive it. rehype-raw parses the SVG with parse5, hast normalizes the attribute
 // names, and react-markdown turns that into elements — a board can be perfectly
 // valid SVG and still lose its viewBox or its arrowheads somewhere in there.
 //

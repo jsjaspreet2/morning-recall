@@ -2,9 +2,9 @@
 
 ## The question
 
-> *"Design Cursor's Tab completion. As a developer types, the editor predicts the rest of the edit and shows it inline in grey — Tab accepts it, anything else dismisses it."*
+> *"Design Cursor's Tab completion. As a developer types, the editor predicts the rest of the edit and shows it inline in gray — Tab accepts it, anything else dismisses it."*
 
-**The product.** Cursor is an AI-enabled code editor with several distinct AI surfaces: chat on the side, inline edit on a selection, an agent that goes off and does a task — and Tab. **This question is about Tab only.** Tab is the greyed-out "ghost text" that appears ahead of your cursor as you type, predicting the rest of the line, the rest of the block, or the change you were clearly about to make. You press Tab and it's inserted; you type anything else and it disappears.
+**The product.** Cursor is an AI-enabled code editor with several distinct AI surfaces: chat on the side, inline edit on a selection, an agent that goes off and does a task — and Tab. **This question is about Tab only.** Tab is the grayed-out "ghost text" that appears ahead of your cursor as you type, predicting the rest of the line, the rest of the block, or the change you were clearly about to make. You press Tab and it's inserted; you type anything else and it disappears.
 
 It fires constantly — potentially on every keystroke — and the great majority of what it produces is never looked at, because the developer kept typing. Meanwhile the code it's predicting from is on the developer's own machine, and for a lot of companies it is not allowed to leave the building.
 
@@ -75,8 +75,8 @@ It fires constantly — potentially on every keystroke — and the great majorit
 
 **Most of that work is thrown away**
 
-- At a ~25% acceptance rate, **75% of completions are never used.** Add the ones cancelled mid-flight by the next keystroke and well over 80% of issued inference produces nothing.
-- **This is the central economic fact of the product.** Everything in §9 and §10 follows: predicting *whether to fire*, cancelling fast, and caching so a re-fire is free.
+- At a ~25% acceptance rate, **75% of completions are never used.** Add the ones canceled mid-flight by the next keystroke and well over 80% of issued inference produces nothing.
+- **This is the central economic fact of the product.** Everything in §9 and §10 follows: predicting *whether to fire*, canceling fast, and caching so a re-fire is free.
 
 **The latency budget — and why it forbids the RAG architecture**
 
@@ -612,7 +612,7 @@ Note what's *absent*: no transactional store, no cross-shard consistency, no dur
   <text class="dg-num-t" x="30" y="71.4">1</text>
   <rect class="dg-box" x="30" y="140" width="460" height="56" rx="8"></rect>
   <text class="dg-t dg-c" x="260" y="164.5">~40 k QPS average, 100 k peak</text>
-  <text class="dg-s dg-c" x="260" y="180.5">80%+ of inference is wasted — the economic centre</text>
+  <text class="dg-s dg-c" x="260" y="180.5">80%+ of inference is wasted — the economic center</text>
   <circle class="dg-num" cx="30" cy="140" r="9"></circle>
   <text class="dg-num-t" x="30" y="143.4">2</text>
   <rect class="dg-warn" x="510" y="140" width="450" height="56" rx="8"></rect>
@@ -629,7 +629,7 @@ Note what's *absent*: no transactional store, no cross-shard consistency, no dur
   <rect class="dg-box" x="650" y="216" width="310" height="64" rx="8"></rect>
   <text class="dg-t dg-c" x="805" y="236.5">Should-fire filter, before debounce</text>
   <text class="dg-s dg-c" x="805" y="252.5">suppressing 20–40% beats any</text>
-  <text class="dg-s dg-c" x="805" y="268.5">inference optimisation</text>
+  <text class="dg-s dg-c" x="805" y="268.5">inference optimization</text>
   <circle class="dg-num" cx="650" cy="216" r="9"></circle>
   <text class="dg-num-t" x="650" y="219.4">5</text>
   <rect class="dg-box" x="30" y="300" width="460" height="64" rx="8"></rect>

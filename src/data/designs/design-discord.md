@@ -271,7 +271,7 @@ PUT  /channels/{channel_id}/read        { last_message_id }       -> 204
   <path class="dg-line" d="M 860,380 L 860,266 L 668,266"></path>
   <path class="dg-head" d="M 668,261 L 668,271 L 660,266 Z"></path>
   <text class="dg-lbl" x="680" y="258">presence = TTL expiry, coalesced</text>
-  <text class="dg-s" x="30" y="560">A message can exist that nobody was told about; the client re-reads it on RESUME, because the store is the source of truth and the push is an optimisation over it.</text>
+  <text class="dg-s" x="30" y="560">A message can exist that nobody was told about; the client re-reads it on RESUME, because the store is the source of truth and the push is an optimization over it.</text>
   <text class="dg-note" x="30" y="582">Degrade in this order: presence → read state → history depth. Never live message delivery.</text>
 </svg>
 </div>
@@ -286,7 +286,7 @@ PUT  /channels/{channel_id}/read        { last_message_id }       -> 204
 4. On a successful write, API publishes to the guild's process.
 5. The guild process resolves the channel's **online** members, groups them by gateway node, and sends one batched message per node rather than one per session — `§8`.
 6. Each gateway node writes `MESSAGE_CREATE` to its local sockets, stamping each with that session's next `seq`.
-7. **Failure path:** the store write succeeds and the publish fails. The message exists and nobody was told. Clients recover on their own — the next `RESUME` or channel open reads from the store, which is the source of truth, and the push is an optimisation over it. **The inverse ordering would be unrecoverable**, so publish never precedes the write.
+7. **Failure path:** the store write succeeds and the publish fails. The message exists and nobody was told. Clients recover on their own — the next `RESUME` or channel open reads from the store, which is the source of truth, and the push is an optimization over it. **The inverse ordering would be unrecoverable**, so publish never precedes the write.
 
 ### Flow B — connecting, and reconnecting
 
@@ -309,7 +309,7 @@ PUT  /channels/{channel_id}/read        { last_message_id }       -> 204
 
 **The obvious answer:** put the sockets behind a load balancer, keep session state on the node, and if a node dies its clients reconnect and get a fresh session. Connections are cheap; the kernel will hold a million of them.
 
-**What breaks.** Connections are cheap; **reconnects are not**. A `READY` payload is large — guild list, channel list, member and role data, initial presence — and it costs a burst of reads and serialisation. Dropping one node's share of 15 M clients means several hundred thousand simultaneous `IDENTIFY`s, each demanding the most expensive response the system produces. That is a **thundering herd against your own cold path**, and because deploys are routine, it is a load you will impose on yourself weekly. The naive design's failure mode is that a routine deploy looks exactly like an outage, and worse, the retry storm keeps the fleet from coming back.
+**What breaks.** Connections are cheap; **reconnects are not**. A `READY` payload is large — guild list, channel list, member and role data, initial presence — and it costs a burst of reads and serialization. Dropping one node's share of 15 M clients means several hundred thousand simultaneous `IDENTIFY`s, each demanding the most expensive response the system produces. That is a **thundering herd against your own cold path**, and because deploys are routine, it is a load you will impose on yourself weekly. The naive design's failure mode is that a routine deploy looks exactly like an outage, and worse, the retry storm keeps the fleet from coming back.
 
 **What replaces it.** Three things, in order of leverage:
 
@@ -325,12 +325,12 @@ PUT  /channels/{channel_id}/read        { last_message_id }       -> 204
 
 **The obvious answer:** treat it like a feed. Fan out on write to a per-user inbox, so a read is a single-partition scan of your own timeline.
 
-**What breaks.** Per-user inboxes are for readers who are *absent* — the whole point is materialising the read before it happens. Here, the readers are **already connected and holding a socket open**. Writing 50 000 inbox rows so that 50 000 people who are online right now can each read one of them is pure write amplification, and at a 5–15 M deliveries/s system rate it is the dominant cost in the design for no benefit. Worse, it puts a durable write on the latency path of a live message.
+**What breaks.** Per-user inboxes are for readers who are *absent* — the whole point is materializing the read before it happens. Here, the readers are **already connected and holding a socket open**. Writing 50 000 inbox rows so that 50 000 people who are online right now can each read one of them is pure write amplification, and at a 5–15 M deliveries/s system rate it is the dominant cost in the design for no benefit. Worse, it puts a durable write on the latency path of a live message.
 
 **What replaces it.** **Fan out to sessions, not to storage.** The message is written once, to the channel's partition. Delivery is a pub/sub push to the sockets that exist at that instant. Two refinements do the actual work:
 
 - **One owner per guild.** A single process holds the guild's channel-subscriber lists, which is what makes "who is online in this channel" a local set read rather than a distributed query. It also gives the per-channel total ordering in `§2` for free, because there is one writer.
-- **Batch by node, not by session.** The guild process groups recipients by which gateway node holds them and sends **one message per node** carrying a recipient list. A 50 000-recipient fanout across a 500-node fleet becomes 500 inter-service messages, not 50 000. **This is the single highest-leverage optimisation on the page**, and it works because the guild process already knows the mapping from the session registry.
+- **Batch by node, not by session.** The guild process groups recipients by which gateway node holds them and sends **one message per node** carrying a recipient list. A 50 000-recipient fanout across a 500-node fleet becomes 500 inter-service messages, not 50 000. **This is the single highest-leverage optimization on the page**, and it works because the guild process already knows the mapping from the session registry.
 
 **And the hot-guild tier.** The skew in `§3` means a uniform design is wrong somewhere. A guild with 500 000 members cannot be one process on one host — its fanout alone saturates a NIC. Large guilds get sharded fanout: the subscriber set is partitioned across several processes, each responsible for a slice, with the publish going to all of them. **Say explicitly that this is a *tier*, not the general case**, because paying its complexity for the median guild of forty people is the classic over-design here.
 
@@ -346,7 +346,7 @@ PUT  /channels/{channel_id}/read        { last_message_id }       -> 204
 
 **What replaces it.** Three moves, and all three are deliberate lossiness:
 
-1. **Heartbeat with TTL, never an explicit delete.** Online is "has heartbeated within the window." This is not an optimisation, it is the only correct model: the common way a session ends is that its host disappears, and a design that requires a clean goodbye is permanently wrong about a fraction of its users.
+1. **Heartbeat with TTL, never an explicit delete.** Online is "has heartbeated within the window." This is not an optimization, it is the only correct model: the common way a session ends is that its host disappears, and a design that requires a clean goodbye is permanently wrong about a fraction of its users.
 2. **Coalesce and rate-limit at the guild process.** Presence changes within a window collapse to one event; a flapping user produces one transition, not thirty. **A stale presence is invisible to users; a presence storm is not.**
 3. **Do not send what nobody will render.** A client showing a 200 000-member guild is not rendering 200 000 avatars — it renders a screenful and asks for the rest. So presence for large guilds is **lazy and scoped to what the client has asked for**, which is what the `intents` field in `§5` exists to express.
 
@@ -364,7 +364,7 @@ PUT  /channels/{channel_id}/read        { last_message_id }       -> 204
 
 - **Store the last-read `message_id`, not a count.** Because ids are Snowflakes, "unread" is a comparison and "how many unread" is a bounded count against the channel partition — no counter to keep consistent, and no drift.
 - **Write behind, aggressively.** Read state updates are coalesced per user over a few seconds and batched. Losing the last few seconds of read state on a crash costs a user one already-read channel showing a badge, which is the cheapest possible failure in this system.
-- **Put a coalescing cache in front of the hot path.** When a large number of clients request the same hot partition simultaneously, the service in front should recognise them as **one** request, issue a single query, and fan the single result back to every waiter. Discord's published data-services layer does exactly this in front of ScyllaDB — and it is worth naming because it is the same shape as `§8`'s fanout: many waiters, one source, one distribution loop.
+- **Put a coalescing cache in front of the hot path.** When a large number of clients request the same hot partition simultaneously, the service in front should recognize them as **one** request, issue a single query, and fan the single result back to every waiter. Discord's published data-services layer does exactly this in front of ScyllaDB — and it is worth naming because it is the same shape as `§8`'s fanout: many waiters, one source, one distribution loop.
 
 **What it costs.** Write-behind means read state is eventually consistent across a user's own devices, so a channel read on a phone may stay unread on a desktop for a few seconds. Coalescing adds a latency floor equal to the batch window and turns a single slow query into a slow query for every coalesced waiter — a correlated failure you did not have before, and one worth mentioning before the interviewer finds it.
 
@@ -409,7 +409,7 @@ PUT  /channels/{channel_id}/read        { last_message_id }       -> 204
 **Design traps.**
 
 1. **Designing the message table for twenty minutes.** It is the easy half, the numbers say so, and it is the single most common way this round goes shallow. Get to fanout.
-2. **Reaching for per-user inbox fanout-on-write.** It is the right answer for feeds, and it is what end-to-end encryption forces on WhatsApp — per-device ciphertext leaves nothing to share — but it is wrong here, for the reason in `§8`: the content is server-readable and the fanout is three orders of magnitude wider. Reciting it unprompted signals a memorised pattern rather than a read of the constraints.
+2. **Reaching for per-user inbox fanout-on-write.** It is the right answer for feeds, and it is what end-to-end encryption forces on WhatsApp — per-device ciphertext leaves nothing to share — but it is wrong here, for the reason in `§8`: the content is server-readable and the fanout is three orders of magnitude wider. Reciting it unprompted signals a memorized pattern rather than a read of the constraints.
 3. **Scoping presence out.** It is the highest-volume event stream in the system. Scoping it out removes the most interesting part of the design and, worse, makes the connection look stateless when its statefulness is the whole point.
 4. **Treating a deploy as an exotic failure.** Reconnect storms are the routine load. A design with no answer for "you just restarted a node holding 30 000 sockets" has not thought about operating the thing.
 5. **A uniform design across guild sizes.** The skew is three orders of magnitude. Either the median guild pays for machinery it does not need, or the largest guild falls over. Name the tier.

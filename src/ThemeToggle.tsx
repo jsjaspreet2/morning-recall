@@ -48,7 +48,7 @@ export default function ThemeToggle() {
   // `peer-checked` — which is why the input must stay its previous sibling.
   return (
     <fieldset className="shrink-0 ml-auto flex items-center gap-0.5 p-1 rounded-xl bg-zinc-100 ring-1 ring-zinc-200 dark:bg-zinc-900/60 dark:ring-zinc-800">
-      <legend className="sr-only">Colour theme</legend>
+      <legend className="sr-only">Color theme</legend>
       {OPTIONS.map(({ value, label, Icon }) => (
         <label key={value} title={label}>
           <input

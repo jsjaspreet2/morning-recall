@@ -14,7 +14,7 @@ And the first decision is that sends go over H.T.T.P., not down the socket. That
 
 Because a send is request-response. It needs a status code. It needs to be rate limited per route. Push it down the socket and you are now building request correlation, error semantics, and retry logic on top of a transport that has none of them. So the rule is: the socket is for the thing H.T.T.P. cannot do, which is push. Everything else stays where the semantics already exist.
 
-Second decision. The send carries a nonce — a client-supplied idempotency key — and the server echoes it back in the dispatch. That does two jobs at once. The client renders the message optimistically the moment you hit enter, and when the dispatch arrives it matches on the nonce instead of rendering a duplicate. And separately, it makes a retried send safe after a timeout, because the server can recognise it.
+Second decision. The send carries a nonce — a client-supplied idempotency key — and the server echoes it back in the dispatch. That does two jobs at once. The client renders the message optimistically the moment you hit enter, and when the dispatch arrives it matches on the nonce instead of rendering a duplicate. And separately, it makes a retried send safe after a timeout, because the server can recognize it.
 
 Third decision, and this is the load-bearing one. Every push carries a monotonically increasing sequence number, and the client heartbeats back the last one it saw. That pair is what makes resume possible, because the server knows exactly what a returning client missed.
 
@@ -26,7 +26,7 @@ Second thing. Sending a message, end to end.
 
 The client posts to the interface service with its nonce. The service evaluates permissions for that user and that channel, and rejects if they aren't allowed.
 
-Now notice where that check sits. It is on the write path, deliberately. If you evaluated permissions per recipient at fanout time, you would be multiplying that check by the fanout ratio — five thousand permission evaluations for one message instead of one. Anything that gets multiplied by fanout belongs on the write side of the system. That's a generalisable instinct.
+Now notice where that check sits. It is on the write path, deliberately. If you evaluated permissions per recipient at fanout time, you would be multiplying that check by the fanout ratio — five thousand permission evaluations for one message instead of one. Anything that gets multiplied by fanout belongs on the write side of the system. That's a generalizable instinct.
 
 Then the service mints a snowflake identifier and writes to the message store, partitioned by channel and time bucket. On a successful write — and only then — it publishes to the guild's owning process.
 
@@ -34,7 +34,7 @@ That process resolves which members of the channel are online, groups them by wh
 
 Now the failure path, which is the interesting part. Suppose the store write succeeds and the publish fails. The message exists, and nobody was told about it.
 
-And the answer is: clients recover on their own. The next resume, or the next time somebody opens that channel, reads from the store — because the store is the source of truth and the push is an optimisation over it.
+And the answer is: clients recover on their own. The next resume, or the next time somebody opens that channel, reads from the store — because the store is the source of truth and the push is an optimization over it.
 
 Then flip the order and see why it matters. If you published first and the write failed, you'd have told fifty thousand people about a message that doesn't exist and never will. That is unrecoverable. So publish never precedes the write, and the reason is not performance, it's that only one of those two orderings has a recovery story.
 

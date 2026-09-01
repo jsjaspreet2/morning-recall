@@ -14,7 +14,7 @@ So. The obvious gateway design. Put the sockets behind a load balancer, keep ses
 
 Here's what breaks. The expensive thing isn't holding a connection, it's establishing one.
 
-The ready payload a client gets on connect is large. Guild list, channel list, member and role data, initial presence. It costs a burst of reads and a lot of serialisation, and it is the single most expensive response this system produces.
+The ready payload a client gets on connect is large. Guild list, channel list, member and role data, initial presence. It costs a burst of reads and a lot of serialization, and it is the single most expensive response this system produces.
 
 Now drop one node's share of fifteen million clients. That is several hundred thousand simultaneous identifies, each one demanding that most-expensive response. You have generated a thundering herd — and pointed it at your own cold path.
 
@@ -42,7 +42,7 @@ Second dive. Fanout.
 
 The obvious answer is to treat this like a feed. Fan out on write into a per-user inbox, so that reading is a single-partition scan of your own timeline. This is a genuinely excellent pattern. It is the right answer for a social feed. It is wrong here, and the reason is precise.
 
-Per-user inboxes exist for readers who are absent. The entire point is materialising a read before it happens, so that when someone shows up hours later the work is already done.
+Per-user inboxes exist for readers who are absent. The entire point is materializing a read before it happens, so that when someone shows up hours later the work is already done.
 
 But here, the readers are already connected. They are holding a socket open right now.
 
@@ -54,7 +54,7 @@ Two refinements do the real work.
 
 One owner per guild. A single process holds the subscriber lists for that guild's channels — which turns "who is online in this channel" from a distributed query into a local set read. And it hands you per-channel total ordering for free, because there is exactly one writer. That's two requirements satisfied by one structural choice.
 
-And then the highest-leverage optimisation on the page: batch by node, not by session. The guild process groups recipients by which gateway node holds them, and sends one message per node carrying a recipient list. A fifty-thousand-recipient fanout across a five-hundred-node fleet becomes five hundred inter-service messages instead of fifty thousand. A hundredfold reduction, and it works only because the guild process already knows the session-to-node mapping from the registry.
+And then the highest-leverage optimization on the page: batch by node, not by session. The guild process groups recipients by which gateway node holds them, and sends one message per node carrying a recipient list. A fifty-thousand-recipient fanout across a five-hundred-node fleet becomes five hundred inter-service messages instead of fifty thousand. A hundredfold reduction, and it works only because the guild process already knows the session-to-node mapping from the registry.
 
 Then the hot-guild tier. Server sizes are wildly skewed, so a uniform design is necessarily wrong somewhere. A server with five hundred thousand members cannot be one process on one host — its fanout alone saturates a network card. So large servers get sharded fanout: the subscriber set is partitioned across several processes, each owning a slice, and the publish goes to all of them.
 
@@ -68,6 +68,6 @@ And guild ownership introduces a single point of failure per guild. If that proc
 
 Connections are cheap, reconnects are not. Resumable sessions make each member of the herd cheap, which is the right first move — jitter and rolling drains spread it out afterwards.
 
-Per-user inboxes are for absent readers. When the recipients are already holding a socket, materialising a read they're about to make anyway is amplification with no benefit.
+Per-user inboxes are for absent readers. When the recipients are already holding a socket, materializing a read they're about to make anyway is amplification with no benefit.
 
 And batch by node rather than by session. Fifty thousand deliveries across five hundred nodes is five hundred messages, and that single grouping is the highest-leverage thing on this page.

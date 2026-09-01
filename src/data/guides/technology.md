@@ -931,7 +931,7 @@ I use `localStorage` for things I would be happy to lose — theme, locale, a co
 
 ### Pushback / when it flips
 
-The reflex to say "never use `localStorage`" is as wrong as reaching for it by default. It flips back the moment the requirement is *"this must be readable before the first paint"* — an async store cannot satisfy that, and a theme flag read from IndexedDB gives you a flash of the wrong colours on every load. The real rule is about size and frequency, not about the API: small, rare, and tolerable-if-lost is exactly its niche, and moving a 40-byte string to IndexedDB to feel modern buys you nothing and costs you a frame.
+The reflex to say "never use `localStorage`" is as wrong as reaching for it by default. It flips back the moment the requirement is *"this must be readable before the first paint"* — an async store cannot satisfy that, and a theme flag read from IndexedDB gives you a flash of the wrong colors on every load. The real rule is about size and frequency, not about the API: small, rare, and tolerable-if-lost is exactly its niche, and moving a 40-byte string to IndexedDB to feel modern buys you nothing and costs you a frame.
 
 ---
 
@@ -958,7 +958,7 @@ The size ceiling is the other design constraint: roughly **4 KB per cookie** and
 
 ### The distinctions to say
 
-**Cookies get CSRF; `localStorage` gets XSS.** They are different attacks and you do not get to avoid both by choosing well. A cookie is attached automatically, so another site can cause an authenticated request — the defence is `SameSite` plus an anti-CSRF token on state-changing requests. A token in `localStorage` is never attached automatically, so CSRF is structurally impossible — but any injected script can read and exfiltrate it, and it is still valid on the attacker's machine afterwards.
+**Cookies get CSRF; `localStorage` gets XSS.** They are different attacks and you do not get to avoid both by choosing well. A cookie is attached automatically, so another site can cause an authenticated request — the defense is `SameSite` plus an anti-CSRF token on state-changing requests. A token in `localStorage` is never attached automatically, so CSRF is structurally impossible — but any injected script can read and exfiltrate it, and it is still valid on the attacker's machine afterwards.
 
 **So the honest answer to "where do I put the auth token" is neither, exactly:** the refresh token goes in an `HttpOnly` `Secure` `SameSite` cookie, and the short-lived access token lives **in memory** and dies with the page. That gives you XSS resistance for the long-lived credential, CSRF resistance for the short-lived one, and a blast radius measured in minutes. It costs you a silent-refresh call on load, which is the trade.
 
@@ -985,7 +985,7 @@ Not a store you query, so the equivalent question is the **attachment contract**
 
 ### Interview line
 
-Cookies are the only client store the server sees automatically, so I use them for session identity and almost nothing else — 4 KB, and it's uploaded on every request to the domain. For auth specifically I'd put the refresh token in an `HttpOnly` `Secure` `SameSite=Lax` cookie and keep the short-lived access token in memory, because that gets me XSS resistance on the long-lived credential and CSRF resistance on the one that's actually used. The tradeoff I'd name is that cookies buy XSS resistance and hand me a CSRF problem, and `localStorage` does exactly the inverse — you pick which attack you'd rather defend, and `SameSite` plus a token on state-changing requests is the cheaper defence.
+Cookies are the only client store the server sees automatically, so I use them for session identity and almost nothing else — 4 KB, and it's uploaded on every request to the domain. For auth specifically I'd put the refresh token in an `HttpOnly` `Secure` `SameSite=Lax` cookie and keep the short-lived access token in memory, because that gets me XSS resistance on the long-lived credential and CSRF resistance on the one that's actually used. The tradeoff I'd name is that cookies buy XSS resistance and hand me a CSRF problem, and `localStorage` does exactly the inverse — you pick which attack you'd rather defend, and `SameSite` plus a token on state-changing requests is the cheaper defense.
 
 ### Pushback / when it flips
 
@@ -1191,7 +1191,7 @@ The hard part is **the gap**. Between the moment a long poll returns and the mom
 
 Two operational facts shape the timeout. **Proxies and load balancers kill idle connections**, commonly around 60 seconds, so the server's hold must expire *below* that threshold and return empty rather than let an intermediary sever it. And under HTTP/1.1 a held request **consumes one of the ~6 connections per origin** the browser allows, so two long polls plus a few asset loads can stall the page — a constraint HTTP/2 multiplexing removes.
 
-For the reverse direction — a small payload the client must send as the page is unloading, such as a final analytics event — `navigator.sendBeacon()` or `fetch(url, {keepalive: true})` hands the request to the browser to complete after the document is gone. An ordinary `fetch` in `unload` is cancelled.
+For the reverse direction — a small payload the client must send as the page is unloading, such as a final analytics event — `navigator.sendBeacon()` or `fetch(url, {keepalive: true})` hands the request to the browser to complete after the document is gone. An ordinary `fetch` in `unload` is canceled.
 
 ### Reach for it when
 
@@ -1270,7 +1270,7 @@ Reconnection is automatic: on a dropped connection `EventSource` waits `retry` m
 - The payload is binary. The format is UTF-8 text; base64 costs you a third more bytes.
 - Auth is a bearer header. `EventSource` cannot set one — cookie, query param, or hand-rolled `fetch`.
 - You need the connection to *stop* retrying on failure. Return a 4xx; otherwise it reconnects forever.
-- You forget the server side of resumption. `Last-Event-ID` arrives whether or not you honour it, and ignoring it turns a reconnect into a silent gap.
+- You forget the server side of resumption. `Last-Event-ID` arrives whether or not you honor it, and ignoring it turns a reconnect into a silent gap.
 
 **Numbers to anchor**
 
@@ -1285,7 +1285,7 @@ Reconnection is automatic: on a dropped connection `EventSource` waits `retry` m
 
 ### CAP / consistency
 
-Not a store, so the equivalent is the **delivery contract**: *ordered within a connection, at-most-once by default, and at-least-once with resumption if — and only if — the server emits `id:` and honours `Last-Event-ID` on reconnect.* Without ids, every reconnection is a silent gap of unknown size, and the client cannot even detect it. With them, the client's resumption is automatic and the server's replay buffer becomes the design question: how far back can you serve, and what happens when a client asks for an id older than the buffer. The design consequence: **emit `id:` from day one** — it costs nothing when you do not need it and cannot be retrofitted onto a stream that is already in production.
+Not a store, so the equivalent is the **delivery contract**: *ordered within a connection, at-most-once by default, and at-least-once with resumption if — and only if — the server emits `id:` and honors `Last-Event-ID` on reconnect.* Without ids, every reconnection is a silent gap of unknown size, and the client cannot even detect it. With them, the client's resumption is automatic and the server's replay buffer becomes the design question: how far back can you serve, and what happens when a client asks for an id older than the buffer. The design consequence: **emit `id:` from day one** — it costs nothing when you do not need it and cannot be retrofitted onto a stream that is already in production.
 
 ### Interview line
 
@@ -1367,7 +1367,7 @@ A WebSocket is an HTTP request that upgrades into a raw framed connection, and a
 
 WebRTC is usually described as a media stack, but `RTCDataChannel` carries arbitrary application data over the same machinery, and that machinery is the interesting part. The data path is **SCTP over DTLS over UDP** — which is why it can offer what nothing above it can: per-channel choice of **ordered or unordered** and **reliable or unreliable** delivery. A position update that is superseded 40 ms later should not be retransmitted, and this is the only browser transport that will agree to drop it.
 
-Getting a connection established is the cost, and it is entirely about the fact that two browsers are usually behind NATs with no reachable address. **ICE** gathers candidate paths: the host address, a **STUN**-discovered public address, and a **TURN** relay address. The peers exchange SDP offers and answers and their candidates over a **signalling channel you provide** — WebRTC specifies none, so you need a server anyway, usually a WebSocket (§24). They then attempt paths in preference order.
+Getting a connection established is the cost, and it is entirely about the fact that two browsers are usually behind NATs with no reachable address. **ICE** gathers candidate paths: the host address, a **STUN**-discovered public address, and a **TURN** relay address. The peers exchange SDP offers and answers and their candidates over a **signaling channel you provide** — WebRTC specifies none, so you need a server anyway, usually a WebSocket (§24). They then attempt paths in preference order.
 
 The number that decides the architecture: **roughly 10–20% of peer pairs cannot connect directly** and must fall back to TURN, where a server relays every byte. So "peer-to-peer, so no server cost" is false at the margin, and the marginal case is the expensive one — a TURN relay pays bandwidth for the whole session. Any honest WebRTC design includes TURN capacity as a line item.
 
@@ -1382,7 +1382,7 @@ Topology is the other decision. Full mesh has each peer connected to every other
 
 ### Avoid / careful when
 
-- You think it removes server cost. You still run signalling, and you still run TURN for the pairs that cannot connect.
+- You think it removes server cost. You still run signaling, and you still run TURN for the pairs that cannot connect.
 - Participant count grows. Mesh dies quickly; plan the SFU before you need it.
 - You need it to work everywhere. Restrictive corporate networks force TURN over TCP/443, which is a relay with extra steps.
 - The data must be durable or ordered across a reconnect — there is no resumption story here either, and less standard tooling to build one with.
@@ -1396,7 +1396,7 @@ Topology is the other decision. Full mesh has each peer connected to every other
 | Delivery | ordered or not, reliable or not |
 | TURN fallback | ~10–20% of pairs |
 | Mesh limit | ~4–6 peers |
-| Signalling | yours to provide |
+| Signaling | yours to provide |
 | Setup | ~100s of ms, ICE negotiation |
 
 ### CAP / consistency
@@ -1405,11 +1405,11 @@ Not a store, so the equivalent is the **delivery contract**, and it is the only 
 
 ### Interview line
 
-A data channel is the one transport where I can ask for unreliable, unordered delivery — SCTP over DTLS over UDP — which is exactly right for something like a live cursor, where retransmitting a position that's already stale is worse than dropping it. What I'd flag straight away is that peer-to-peer doesn't mean serverless: I still need a signalling channel to exchange offers and ICE candidates, and something like ten to twenty percent of peer pairs can't connect directly and fall back to a TURN relay, which pays bandwidth for the whole session. So I'd budget TURN as real infrastructure, and I'd plan the move from mesh to an SFU before participant count forces it.
+A data channel is the one transport where I can ask for unreliable, unordered delivery — SCTP over DTLS over UDP — which is exactly right for something like a live cursor, where retransmitting a position that's already stale is worse than dropping it. What I'd flag straight away is that peer-to-peer doesn't mean serverless: I still need a signaling channel to exchange offers and ICE candidates, and something like ten to twenty percent of peer pairs can't connect directly and fall back to a TURN relay, which pays bandwidth for the whole session. So I'd budget TURN as real infrastructure, and I'd plan the move from mesh to an SFU before participant count forces it.
 
 ### Pushback / when it flips
 
-**"Peer-to-peer, so it doesn't cost us anything" is the claim to attack, including in your own answer** — signalling is a server, TURN is a server with a bandwidth bill, and the fraction of users who need TURN skews toward exactly the corporate and mobile networks your enterprise customers are on. It flips back to a plain server relay sooner than people expect: past a handful of participants an SFU is simpler *and* cheaper than mesh, and once you are running an SFU the peer-to-peer argument has already been conceded. The genuine, non-negotiable case is the unreliable channel — if you need the platform to *drop* stale data rather than retransmit it, nothing else here will do it.
+**"Peer-to-peer, so it doesn't cost us anything" is the claim to attack, including in your own answer** — signaling is a server, TURN is a server with a bandwidth bill, and the fraction of users who need TURN skews toward exactly the corporate and mobile networks your enterprise customers are on. It flips back to a plain server relay sooner than people expect: past a handful of participants an SFU is simpler *and* cheaper than mesh, and once you are running an SFU the peer-to-peer argument has already been conceded. The genuine, non-negotiable case is the unreliable channel — if you need the platform to *drop* stale data rather than retransmit it, nothing else here will do it.
 
 ---
 

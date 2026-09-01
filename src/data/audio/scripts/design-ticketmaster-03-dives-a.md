@@ -26,7 +26,7 @@ That's it. And look at what it buys you. An expired hold is automatically claima
 
 And when that statement comes back having changed zero rows, that is not an error. That is the protocol working. It means the seat genuinely isn't yours, and the honest thing to do is tell the user so.
 
-You do still run a sweeper — but only for interface freshness and for reporting. Never for correctness. If it falls behind, nothing breaks; the seat map is just briefly pessimistic. And say that distinction out loud, because it's exactly the layering an interviewer is listening for. Correctness is in the conditional. The sweeper is a cosmetic optimisation.
+You do still run a sweeper — but only for interface freshness and for reporting. Never for correctness. If it falls behind, nothing breaks; the seat map is just briefly pessimistic. And say that distinction out loud, because it's exactly the layering an interviewer is listening for. Correctness is in the conditional. The sweeper is a cosmetic optimization.
 
 One follow-up worth pre-empting before it's asked. What happens if the user is mid-payment when the hold expires? Transition the hold into a pending-payment state when the order is submitted, which suspends expiry — with a hard ceiling of a couple of minutes, so that a hung payment provider can't strand a seat forever. The general principle is worth stating in its own right: expiry protects inventory from abandoned users, so it should pause when the user has demonstrably not abandoned.
 
@@ -46,7 +46,7 @@ So you reach for pessimistic locking instead. Select the best four available sea
 
 The fix is one clause: skip locked. It tells the database to ignore any rows another transaction is currently holding, and take the next ones instead. So concurrent requests fan out across distinct rows rather than queueing on identical ones. Throughput now scales with concurrency instead of collapsing under it.
 
-That single clause converts a serialisation bottleneck into parallel work, and it is the highest-signal detail on this entire problem. It's also the same primitive that makes database-backed job queues work, so it's worth having in your vocabulary generally.
+That single clause converts a serialization bottleneck into parallel work, and it is the highest-signal detail on this entire problem. It's also the same primitive that makes database-backed job queues work, so it's worth having in your vocabulary generally.
 
 Volunteer the cost, because there is one. You get a good set of seats, not provably the best available — because another transaction may be holding better ones that it later abandons. That's an entirely acceptable product trade, and saying so demonstrates that you know it is a trade rather than that you got lucky.
 

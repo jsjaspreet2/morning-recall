@@ -8,7 +8,7 @@
 import type { ThemeChoice, ResolvedTheme } from './types'
 
 // Kept in sync with the <meta name="theme-color"> default in index.html and the
-// --page-bg token in index.css. This is the browser chrome colour on mobile.
+// --page-bg token in index.css. This is the browser chrome color on mobile.
 const THEME_COLOR: Record<ResolvedTheme, string> = {
   dark: '#0a0a0b',
   light: '#fbfbfc',

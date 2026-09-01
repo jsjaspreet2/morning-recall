@@ -61,9 +61,9 @@ Reading this front to back teaches you almost nothing. The loop that works:
 
 Step 5 before step 3 is passive rereading, and passive rereading is not preparation.
 
-Step 1 is the one people skip, and skipping it is what turns this guide into a memorisation
+Step 1 is the one people skip, and skipping it is what turns this guide into a memorization
 exercise. A component you can only build after reading its section is a component you have
-memorised. The interview will not be one of these twelve.
+memorized. The interview will not be one of these twelve.
 
 ### B. TWO SIZES OF EVERY COMPONENT
 
@@ -250,9 +250,9 @@ Nothing in this guide implements one. The six questions still produce it.
    consequence of a keystroke somewhere else, so it will not be read otherwise.
 
 That is the whole design, derived, before writing a line. Note that question 5 produced a
-behaviour no amount of recall would have: nothing else in this guide has a Backspace rule.
+behavior no amount of recall would have: nothing else in this guide has a Backspace rule.
 
-**How to practise this.**
+**How to practice this.**
 
 Reps on the components in this guide measure your memory of them. To measure the method, build
 things that are **not** here: a rating widget, a segmented control, a chip multi-select, a split
@@ -280,7 +280,7 @@ never both."*
 
 Two rules that would have caught most accessibility bugs you'll ever write:
 
-1. **Every `aria-controls` / `aria-labelledby` gets a matching `id` in the same JSX block,
+1. **Every `aria-controls` / `aria-labeledby` gets a matching `id` in the same JSX block,
    written in the same keystroke.** A dangling reference is worse than no attribute — it's a
    promise the DOM doesn't keep.
 2. **Ids derive from the stable `value`, never from the label or content.** Two components
@@ -355,7 +355,7 @@ export interface TabsProps {
 |---|---|
 | Tablist | `role="tablist"`, `aria-orientation` |
 | Tab | `role="tab"`, `aria-selected`, `aria-controls` → panel, `id`, roving `tabIndex` |
-| Panel | `role="tabpanel"`, `aria-labelledby` → tab, `id`, `hidden` when inactive, `tabIndex={0}` when it holds nothing focusable |
+| Panel | `role="tabpanel"`, `aria-labeledby` → tab, `id`, `hidden` when inactive, `tabIndex={0}` when it holds nothing focusable |
 
 | Key | Behavior |
 |---|---|
@@ -595,7 +595,7 @@ export function Tabs({
             id={panelId(item.value)}
             role="tabpanel"
             className="tabs-panel"
-            aria-labelledby={tabId(item.value)}
+            aria-labeledby={tabId(item.value)}
             // APG makes the panel focusable only when it holds nothing focusable.
             // Scoped to the visible panel — a hidden one isn't reachable anyway.
             tabIndex={selected ? 0 : undefined}
@@ -637,7 +637,7 @@ with horizontal arrows inert
 **Controlled** — reports changes and does not move on its own · the parent can drive it from
 outside
 
-**Wiring** — every `aria-controls` and `aria-labelledby` resolves · two instances don't share ids
+**Wiring** — every `aria-controls` and `aria-labeledby` resolves · two instances don't share ids
 
 ### H. INTERVIEW SCOPE
 
@@ -646,7 +646,7 @@ collapsible at the end of this section is the target, unchanged.
 
 **Core, and none of it is optional:**
 
-- `role="tab"` / `role="tablist"` / `role="tabpanel"`, `aria-selected`, `aria-controls`, `aria-labelledby`
+- `role="tab"` / `role="tablist"` / `role="tabpanel"`, `aria-selected`, `aria-controls`, `aria-labeledby`
 - Roving tabindex: the whole list is one tab stop
 - Arrow keys with wrapping, plus `preventDefault`
 - Automatic activation — arrows move selection, not just focus
@@ -804,7 +804,7 @@ export function Tabs({
             id={panelId(item.value)}
             role="tabpanel"
             className="tabs-panel"
-            aria-labelledby={tabId(item.value)}
+            aria-labeledby={tabId(item.value)}
             // APG makes the panel focusable only when it holds nothing focusable.
             // Scoped to the visible panel — a hidden one isn't reachable anyway.
             tabIndex={selected ? 0 : undefined}
@@ -907,7 +907,7 @@ through a URL, and memo a Set internally if the list ever got big."*
 |---|---|
 | Heading | `<h2>`–`<h4>` wrapping the trigger. The heading is **not** the control. |
 | Trigger | `<button>`, `aria-expanded`, `aria-controls` → panel id, `id` |
-| Panel | `id`, `hidden` when closed. No `tabIndex` — that's the Tabs pattern, not this one. Optionally `role="region"` + `aria-labelledby` → header id (see the region rule below). |
+| Panel | `id`, `hidden` when closed. No `tabIndex` — that's the Tabs pattern, not this one. Optionally `role="region"` + `aria-labeledby` → header id (see the region rule below). |
 
 | Key | Behavior | Required? |
 |---|---|---|
@@ -931,9 +931,9 @@ to resolve to a tabpanel. Strip it and the failure is audible — "tab 2 of 3", 
 focus lands on an anonymous div. Disclosure has no composite structure to complete, so there is
 no required role on the revealed content; `aria-expanded` on the trigger already carries it.
 
-`aria-labelledby` then drops out for a mechanical reason, not a stylistic one: **a name only
+`aria-labeledby` then drops out for a mechanical reason, not a stylistic one: **a name only
 exposes on an element whose role supports naming.** A roleless `<div>` computes as `generic`,
-and ARIA prohibits naming generic elements — so `aria-labelledby` on a bare panel is dead
+and ARIA prohibits naming generic elements — so `aria-labeledby` on a bare panel is dead
 markup no AT will read. You cannot add the name without first adding a role.
 
 It isn't needed structurally either. Tabs renders its panels in a *second, separate* `.map()`,
@@ -942,7 +942,7 @@ explicit back-pointer. The accordion panel is nested inside its `.accordion-item
 after its own heading: the association is already in document order, and `aria-expanded` +
 `aria-controls` supply the programmatic link in the other direction.
 
-**THE REGION RULE.** APG *does* allow `role="region"` with `aria-labelledby` pointing at the
+**THE REGION RULE.** APG *does* allow `role="region"` with `aria-labeledby` pointing at the
 header button — and explicitly warns against it once an accordion has more than roughly six
 panels, because every region is a landmark and landmark navigation drowns. The reference omits
 it, which is the right default. Naming the rule out loud is worth more than either choice:
@@ -956,7 +956,7 @@ nothing; a role you add out of symmetry with a different pattern costs the user.
 ### D. DECISIONS THAT MATTER
 
 1. **Single vs multiple is a transition rule, not two components.** One `string[]`, one
-   `allowMultiple` flag. → *"I'm modelling the open set as an array either way; `allowMultiple`
+   `allowMultiple` flag. → *"I'm modeling the open set as an array either way; `allowMultiple`
    just decides whether opening replaces or appends."*
 2. **`collapsible: false` must make the click a no-op, not a close.** The "one is always open"
    variant is a real product requirement (settings panels, wizards), and getting it wrong
@@ -1516,7 +1516,7 @@ dialog always has both a visible title and an accessible name, from one prop.
 
 | Element | Required |
 |---|---|
-| Dialog | `role="dialog"`, `aria-modal="true"`, `aria-labelledby` → title, `tabIndex={-1}` |
+| Dialog | `role="dialog"`, `aria-modal="true"`, `aria-labeledby` → title, `tabIndex={-1}` |
 | Title | real heading element with the referenced `id` |
 
 `aria-modal="true"` tells AT to ignore everything outside. It is a **declaration, not
@@ -1674,7 +1674,7 @@ export interface ModalProps {
   /** Controlled only. A dialog whose open state the parent can't drive is useless. */
   open: boolean
   onClose: () => void
-  /** Names the dialog. Rendered as the visible heading and wired to aria-labelledby. */
+  /** Names the dialog. Rendered as the visible heading and wired to aria-labeledby. */
   title: ReactNode
   children: ReactNode
   /** Where focus lands on open. Defaults to the first focusable node inside. */
@@ -1803,7 +1803,7 @@ function ModalContent({
         // It is a declaration, not enforcement: it does not stop a sighted mouse
         // user reaching the page behind. Real inertness needs `inert` on siblings.
         aria-modal="true"
-        aria-labelledby={titleId}
+        aria-labeledby={titleId}
         // The dialog container itself is focusable so there is somewhere to put
         // focus when the content has no focusable elements at all.
         tabIndex={-1}
@@ -1921,7 +1921,7 @@ export interface ModalProps {
   /** Controlled only. A dialog whose open state the parent can't drive is useless. */
   open: boolean
   onClose: () => void
-  /** Names the dialog. Rendered as the visible heading and wired to aria-labelledby. */
+  /** Names the dialog. Rendered as the visible heading and wired to aria-labeledby. */
   title: ReactNode
   children: ReactNode
   /** Where focus lands on open. Defaults to the first focusable node inside. */
@@ -2050,7 +2050,7 @@ function ModalContent({
         // It is a declaration, not enforcement: it does not stop a sighted mouse
         // user reaching the page behind. Real inertness needs `inert` on siblings.
         aria-modal="true"
-        aria-labelledby={titleId}
+        aria-labeledby={titleId}
         // The dialog container itself is focusable so there is somewhere to put
         // focus when the content has no focusable elements at all.
         tabIndex={-1}
@@ -2101,7 +2101,7 @@ export interface ComboboxProps {
 
 - **`fetchOptions` takes the `AbortSignal`.** Passing the signal *out* to the consumer is what
   makes cancellation their problem to honor and yours to trigger. A `fetchOptions(query)` that
-  can't be cancelled forces you to guard purely on your own side.
+  can't be canceled forces you to guard purely on your own side.
 - **The query is NOT part of the controlled API.** Only the *selection* is. The query is transient
   typing state; a parent that owned it would have to re-render on every keystroke just to hand
   back what was typed. Selection is what a form submits.
@@ -2240,7 +2240,7 @@ import type { KeyboardEvent } from 'react'
  *    would stop the user typing — which is the entire point of a typeahead.
  *    This is the opposite of the roving tabindex used by Tabs and Tree.
  *
- * 2. AN ABORTED REQUEST IS NOT A CANCELLED RESULT. AbortController stops the
+ * 2. AN ABORTED REQUEST IS NOT A CANCELED RESULT. AbortController stops the
  *    network; it does not un-queue a `.then` that already resolved. The
  *    generation counter is what actually makes stale responses lose.
  */
@@ -2322,7 +2322,7 @@ export function Combobox({
       fetchOptions(q, controller.signal)
         .then((next) => {
           // The two guards are not redundant.
-          //   signal.aborted  → the request we cancelled, if the source honors it
+          //   signal.aborted  → the request we canceled, if the source honors it
           //   generation      → everything else: a cache hit that resolved
           //                     synchronously, a source that ignores the signal,
           //                     or a promise that resolved microseconds before abort
@@ -2838,7 +2838,7 @@ single most common mistake on this component, and it's visible in five seconds o
 | Element | Required |
 |---|---|
 | Trigger | `aria-haspopup="menu"`, `aria-expanded`, `aria-controls` when open |
-| Menu | `role="menu"`, `aria-labelledby` → trigger |
+| Menu | `role="menu"`, `aria-labeledby` → trigger |
 | Item | `role="menuitem"`, roving `tabIndex`, `aria-disabled` when unavailable |
 
 | Key | On the trigger | In the menu |
@@ -3149,7 +3149,7 @@ export function Menu({
           ref={menuRef}
           id={menuId}
           role="menu"
-          aria-labelledby={triggerId}
+          aria-labeledby={triggerId}
           className="menu-list"
           onKeyDown={onMenuKeyDown}
         >
@@ -3489,8 +3489,8 @@ which is a different component (dismissible, focusable, `role="dialog"` if modal
 | Trigger | `aria-describedby` → tooltip id, **only while open** |
 | Bubble | `role="tooltip"`, `id` |
 
-**`aria-describedby`, never `aria-labelledby`.** A tooltip *supplements* a control's name; it
-does not supply one. With `labelledby`, a button reading "Save" is announced as its tooltip text
+**`aria-describedby`, never `aria-labeledby`.** A tooltip *supplements* a control's name; it
+does not supply one. With `labeledby`, a button reading "Save" is announced as its tooltip text
 and the real label is lost. And an icon button whose only name is its tooltip announces as
 "button" until it happens to open — it needs its own `aria-label` as well.
 
@@ -3542,7 +3542,7 @@ function hide(immediate = false) {
 
 Each must cancel the other, or a fast in-out-in leaves a queued close that fires after you've
 reopened. `immediate` distinguishes *decisions* (blur, Escape — act now) from *maybes* (a pointer
-leaving might just be travelling toward the bubble).
+leaving might just be traveling toward the bubble).
 
 **2 — Clone one string; put every handler on the wrapper.**
 
@@ -3651,7 +3651,7 @@ export function Tooltip({ content, children, delay = 300, closeDelay = 120 }: To
     window.clearTimeout(timers.current.open)
     window.clearTimeout(timers.current.close)
     // Blur and Escape are decisions — act now. A pointer leaving might just be
-    // travelling toward the bubble, so that path gets the grace period.
+    // traveling toward the bubble, so that path gets the grace period.
     if (immediate) setOpen(false)
     else timers.current.close = window.setTimeout(() => setOpen(false), closeDelay)
   }
@@ -3677,8 +3677,8 @@ export function Tooltip({ content, children, delay = 300, closeDelay = 120 }: To
   //      ("Cannot access refs during render"), because it can't prove cloneElement
   //      merely stores them.
   //
-  // describedby, NOT labelledby. A tooltip supplements the control's name; it does
-  // not replace it. With labelledby, a button reading "Save" would be announced as
+  // describedby, NOT labeledby. A tooltip supplements the control's name; it does
+  // not replace it. With labeledby, a button reading "Save" would be announced as
   // its own tooltip text and the real label would be lost.
   const trigger = cloneElement(children, {
     'aria-describedby': open ? tooltipId : undefined,
@@ -3721,7 +3721,7 @@ export function Tooltip({ content, children, delay = 300, closeDelay = 120 }: To
 | Trap | Symptom |
 |---|---|
 | Pointer handlers on the trigger | Tooltip closes as you move toward it — hoverable failure |
-| `aria-labelledby` instead of `describedby` | The control's real name is replaced by its tooltip |
+| `aria-labeledby` instead of `describedby` | The control's real name is replaced by its tooltip |
 | Icon button named only by its tooltip | Announced as "button" whenever the tooltip is closed |
 | Auto-hide after N seconds | Persistent failure; slow readers never finish |
 | No Escape handler | Dismissible failure; a bubble can cover content with no way to clear it |
@@ -3731,7 +3731,7 @@ export function Tooltip({ content, children, delay = 300, closeDelay = 120 }: To
 
 ### G. SPEC
 
-**Naming** — describes the trigger without relabelling it · no dangling `aria-describedby` when
+**Naming** — describes the trigger without relabeling it · no dangling `aria-describedby` when
 closed
 
 **Keyboard parity** — focus opens instantly · blur closes · Escape dismisses while focus stays put
@@ -3830,7 +3830,7 @@ export function Tooltip({ content, children, delay = 300, closeDelay = 120 }: To
     window.clearTimeout(timers.current.open)
     window.clearTimeout(timers.current.close)
     // Blur and Escape are decisions — act now. A pointer leaving might just be
-    // travelling toward the bubble, so that path gets the grace period.
+    // traveling toward the bubble, so that path gets the grace period.
     if (immediate) setOpen(false)
     else timers.current.close = window.setTimeout(() => setOpen(false), closeDelay)
   }
@@ -3856,8 +3856,8 @@ export function Tooltip({ content, children, delay = 300, closeDelay = 120 }: To
   //      ("Cannot access refs during render"), because it can't prove cloneElement
   //      merely stores them.
   //
-  // describedby, NOT labelledby. A tooltip supplements the control's name; it does
-  // not replace it. With labelledby, a button reading "Save" would be announced as
+  // describedby, NOT labeledby. A tooltip supplements the control's name; it does
+  // not replace it. With labeledby, a button reading "Save" would be announced as
   // its own tooltip text and the real label would be lost.
   const trigger = cloneElement(children, {
     'aria-describedby': open ? tooltipId : undefined,
@@ -4836,7 +4836,7 @@ controlled mode
 | Controlled selection, `defaultExpanded` | "For a library component; `defaultExpanded` is useful for deep-linking." |
 | Type-to-jump | "APG asks for it." |
 | Multi-select, drag, rename | "Different feature, not the tree pattern." |
-| Virtualisation | "Past a few thousand visible rows — and `flatten` already gives you the flat list to window over." |
+| Virtualization | "Past a few thousand visible rows — and `flatten` already gives you the flat list to window over." |
 
 Write `flatten` first and narrate it. It's the part that separates a working tree from a broken one.
 
@@ -5029,7 +5029,7 @@ export function Tree({ nodes, label, onSelect }: TreeProps) {
  * - Type-to-jump                  "APG asks for it — printable characters jump to
  *                                  the next matching node."
  * - Multi-select, drag, rename    "Different feature, not the tree pattern."
- * - Virtualisation                "Only past a few thousand visible rows, and
+ * - Virtualization                "Only past a few thousand visible rows, and
  *                                  flatten already gives you the flat list it
  *                                  would window over."
  *
@@ -5433,7 +5433,7 @@ export function DataTable<T>({
                   <td>
                     <input
                       type="checkbox"
-                      aria-labelledby={`${baseId}-row-${id}`}
+                      aria-labeledby={`${baseId}-row-${id}`}
                       checked={selected.has(id)}
                       onChange={() => toggleRow(id)}
                     />
@@ -5541,7 +5541,7 @@ Everything else is table markup, and the markup matters more than it looks:
 | Row selection | "Keyed by row id, not index, so sorting doesn't move it. A `Set` for O(1) membership per rendered row." |
 | Custom `sortValue` / `render` props | "So a column can sort on a date while displaying a formatted string." |
 | Column resize / reorder | "Out of scope unless asked." |
-| Virtualisation | "Past a few thousand rows — and it breaks native table semantics, so it's a real trade-off, not a free win." |
+| Virtualization | "Past a few thousand rows — and it breaks native table semantics, so it's a real trade-off, not a free win." |
 
 <details>
 <summary>The interview cut — DataTable</summary>
@@ -5695,7 +5695,7 @@ export function DataTable<T>({
  * - Custom sortValue / render props   "I'd add them so a column can sort on a
  *                                      date while displaying a formatted string."
  * - Column resize / reorder           "Out of scope unless asked."
- * - Virtualisation                    "Only past a few thousand rows — and it
+ * - Virtualization                    "Only past a few thousand rows — and it
  *                                      breaks native table semantics, so it's a
  *                                      real trade-off, not a free win."
  *
@@ -5799,7 +5799,7 @@ export interface CommandPaletteProps {
   key. The listener belongs to the app. Same reasoning as the Modal (§05) being controlled-only:
   the parent is what decides a dialog should exist.
 - **Each command carries its own `run`.** The alternative — `onSelect(id)` plus a switch in the
-  parent — grows a switch statement inside every caller. Behaviour travels with the thing it
+  parent — grows a switch statement inside every caller. Behavior travels with the thing it
   belongs to.
 - **`keywords` is a product decision, not a feature.** It is one `.some()`, and it is the
   difference between a palette people use and one they abandon. Name it as such.
@@ -5833,7 +5833,7 @@ collide, because a combobox may only point `aria-activedescendant` into the popu
 a combobox popup is a `listbox`, `grid`, `tree`, or `dialog` — never a `menu`.
 
 The focus model wins, because it is the one the user can feel. The command-ness does not disappear;
-it moves from markup into behaviour: `aria-selected` marks **the cursor**, not a selection, nothing
+it moves from markup into behavior: `aria-selected` marks **the cursor**, not a selection, nothing
 is selected once the palette closes, and there is no `value` anywhere in the API. That sentence is
 the single highest-value thing you can say while building this component.
 
@@ -5898,7 +5898,7 @@ const results = useMemo<Row[]>(() => {
 ```
 
 `recentIds` maps through `find` rather than the reverse, because the *order of `recentIds`* is the
-recency order — filtering `commands` would give you back the catalogue's order with the recents
+recency order — filtering `commands` would give you back the catalog's order with the recents
 still scattered through it. The `promoted` set is what stops each recent command rendering twice.
 
 **2 — Clamp the cursor; don't store the clamp.**
@@ -5963,7 +5963,7 @@ import type { KeyboardEvent, MouseEvent, PointerEvent } from 'react'
  * 1. IT IS A COMBOBOX IN A DIALOG, NOT A MENU. Commands fire and leave nothing
  *    selected, which says `menuitem` — but the input has to stay typeable while
  *    the cursor moves, which forces aria-activedescendant, and a combobox may
- *    only point that at an `option` inside the listbox it controls. Behaviour
+ *    only point that at an `option` inside the listbox it controls. Behavior
  *    decides the popup role; "it's a list of commands" does not.
  *
  * 2. MOUNTING IS THE STATE MACHINE. Closed renders nothing, so every opening is
@@ -6145,7 +6145,7 @@ function Palette({
         break
       case 'Tab':
         // The trap, collapsed. The input is the only focusable node in this dialog,
-        // so "wrap at the edges" and "swallow Tab" are the same behaviour. Add a
+        // so "wrap at the edges" and "swallow Tab" are the same behavior. Add a
         // footer button and this has to become the real edge trap (§17 B).
         event.preventDefault()
         break
@@ -6273,12 +6273,12 @@ function Palette({
 | `querySelector('#' + id)` from `useId` | React 18 emits `:r3:` — a colon is not a valid CSS identifier, so it throws |
 | `aria-live` on the option list | Every keystroke re-announces every row |
 | `onKeyDown` on the panel `<div>` | Dies the moment focus leaves the input — the panel can't hold focus, so `<body>` gets the keydown (§17 M) |
-| `type="search"` on the input | WebKit and Chromium add a mouse-only clear button and clear the field on Escape — UA behaviour you then have to suppress. `type="text"` has none of it |
+| `type="search"` on the input | WebKit and Chromium add a mouse-only clear button and clear the field on Escape — UA behavior you then have to suppress. `type="text"` has none of it |
 | Reset done by keying the component from the parent | Works, and pushes a bug the caller shouldn't know about onto every caller |
 
 ### G. SPEC
 
-**Markup** — closed renders nothing · a labelled modal dialog · the input is the combobox, and
+**Markup** — closed renders nothing · a labeled modal dialog · the input is the combobox, and
 `aria-controls` resolves to the listbox before anything is typed
 
 **Filtering** — an empty query lists everything · recents first, without duplicating them · the
@@ -6312,7 +6312,7 @@ while the cursor still doesn't wrap.
 - The dialog: `role="dialog"`, `aria-modal="true"`, an accessible name
 - The combobox markup with `aria-activedescendant`, and focus that never leaves the input
 - The listbox rendered even when the result set is empty, so `aria-controls` resolves
-- Recents-when-empty and keyword matching — one expression each, and both are graded as product judgement
+- Recents-when-empty and keyword matching — one expression each, and both are graded as product judgment
 - Arrows with wrapping, Enter runs and closes, Escape closes
 - `onMouseDown` not `onClick` on options
 - Focus in on mount, back out on unmount, with the `isConnected` check
@@ -6605,7 +6605,7 @@ onClick={(event) => {
 
 This is only reliable if the dialog has no padding or border of its own and the panel is a real
 child covering it — otherwise a click on the dialog's own padding reads as a backdrop click. The
-stylesheet does that work, which is a rare case of CSS being load-bearing for behaviour.
+stylesheet does that work, which is a rare case of CSS being load-bearing for behavior.
 
 **What you also drop:** `role="dialog"` and `aria-modal` are both redundant on a modal `<dialog>`
 and should not be re-added. You still supply `aria-label` yourself. And `onMouseDown` instead of
@@ -6618,7 +6618,7 @@ event, no top layer. The runnable spec for this variant carries a ~25-line shim,
 only fake the bookkeeping:
 
 > **Everything `<dialog>` gave you for free is the part you cannot assert on.** Inertness, the
-> focus trap and the top layer are browser behaviours. They do not exist in jsdom, and no shim
+> focus trap and the top layer are browser behaviors. They do not exist in jsdom, and no shim
 > invents them.
 
 So in a round where **test quality is a graded axis** — which is exactly the Cursor round — the
@@ -6630,7 +6630,7 @@ either one.
 
 | | |
 |---|---|
-| **Hand-rolled** | The interview, when focus management is the thing being examined. Anywhere the behaviour must be assertable in jsdom. |
+| **Hand-rolled** | The interview, when focus management is the thing being examined. Anywhere the behavior must be assertable in jsdom. |
 | **`<dialog>`** | Production. Anywhere real inertness matters, which is every modal that isn't a toy. |
 
 And note the line counts: 155 for the native variant against 201 for the reference, with the native
@@ -6647,7 +6647,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent, MouseEvent } from 'react'
 
 /**
- * THE NATIVE VARIANT of the command palette. Same API, same behaviour, same
+ * THE NATIVE VARIANT of the command palette. Same API, same behavior, same
  * markup below the dialog — and four whole concerns deleted, because the
  * browser owns them once you call showModal():
  *
@@ -7270,7 +7270,7 @@ nothing, which is the one outcome worse than not attempting it.
 - "Show the model's response as it arrives"
 - "Add a stop button to this chat"
 
-The single highest-probability component at an AI company. Practise this one cold.
+The single highest-probability component at an AI company. Practice this one cold.
 
 ### B. API
 
@@ -8095,7 +8095,7 @@ export function Carousel({ slides, label, autoPlay = false, intervalMs = 4000 }:
 | `aria-live="polite"` while rotating | A slide announced every four seconds; page unusable with AT |
 | Manual navigation doesn't stop rotation | The carousel advances a second after the user chose a slide |
 | Bare glyph as the button's name | "left angle bracket" |
-| Play button labelled with its state | "Playing" gives no clue what pressing it does |
+| Play button labeled with its state | "Playing" gives no clue what pressing it does |
 | Dots with `aria-selected` | They're navigation controls, not listbox options |
 | Dots at their visual 9px size | Below the 24×24 minimum target (WCAG 2.5.8) |
 
@@ -8125,7 +8125,7 @@ section.
   initializer, or you render one frame of motion before the effect catches up
 - `aria-live` off while auto-rotating, polite once the user drives it. Announcing every
   auto-advance is noise that looks like thoroughness.
-- Slide labelling — "3 of 7", each slide named
+- Slide labeling — "3 of 7", each slide named
 
 **Cut, and say so:**
 
@@ -8365,7 +8365,7 @@ message that isn't rendered is a broken promise. Both appear only alongside a re
 **A real `<label>`, not a placeholder.** A placeholder disappears the moment the user types, isn't
 an accessible name, and fails contrast almost everywhere.
 
-**Error text must not rely on colour** (WCAG 1.4.1). The message says what's wrong in words; the
+**Error text must not rely on color** (WCAG 1.4.1). The message says what's wrong in words; the
 red border is reinforcement, not the signal.
 
 ### D. DECISIONS THAT MATTER — timing is the whole component
@@ -8628,7 +8628,7 @@ export function Form({ fields, onSubmit, submitLabel = 'Submit' }: FormProps) {
 | Values cleared on server error | The user retypes everything |
 | Placeholder instead of `<label>` | No accessible name; the hint vanishes on first keystroke |
 | `aria-invalid="false"` everywhere | Noise; and a dangling `describedby` when there's no message |
-| Colour as the only error signal | WCAG 1.4.1 failure |
+| Color as the only error signal | WCAG 1.4.1 failure |
 
 ### G. SPEC
 
@@ -9151,7 +9151,7 @@ useEffect(() => {
         setOptions(next)
       })
       .catch(() => {
-        if (controller.signal.aborted) return              // we cancelled it
+        if (controller.signal.aborted) return              // we canceled it
         if (generation !== generationRef.current) return
         setStatus('error')
       })
@@ -9173,7 +9173,7 @@ newest request is allowed to write state.
 request lands last, overwriting good results with stale ones. With equal latencies the race
 is invisible and you'll ship it.
 
-**The cleanup runs on every keystroke**, cancelling both the pending debounce and the in-flight
+**The cleanup runs on every keystroke**, canceling both the pending debounce and the in-flight
 request. Without it, a fast typist opens one socket per character.
 
 ### G. INTERSECTION OBSERVER SENTINELS
@@ -9412,7 +9412,7 @@ cheap point on the test-quality axis.
 
 ### M. KEY HANDLERS: WHERE TO ATTACH THEM
 
-**The rule.** Attach a key handler to whatever *owns* the behaviour, and there are exactly three
+**The rule.** Attach a key handler to whatever *owns* the behavior, and there are exactly three
 scopes:
 
 | Scope | Attach to | Example |
@@ -9539,7 +9539,7 @@ whole technique is keeping it bounded.
 
 ```ts
 // The state machine's entire state. Four scalars — which is also why it
-// serialises, which is the answer to "make it resumable after a restart".
+// serializes, which is the answer to "make it resumable after a restart".
 type State = 'text' | 'inline' | 'info' | 'fence'
 let state: State = 'text'
 let ticks = 0     // backticks seen but not yet interpretable — NEVER stored as text
@@ -9631,7 +9631,7 @@ otherwise `{'a','bc'}` and `{'ab','c'}` hash identically."* That is the entire a
 concatenating raw child hashes insufficient?"*, which is asked every time.
 
 **The third rule, for tree hashes specifically: the child's name belongs to the PARENT's record,
-never to the child's own hash.** Fold the name in and a subtree can never be recognised in a new
+never to the child's own hash.** Fold the name in and a subtree can never be recognized in a new
 position — no rename detection, no dedup, no content-addressed reuse. It is the difference between
 a hash that identifies *content* and one that identifies *a path*.
 
@@ -9711,7 +9711,7 @@ be declared above the effect that *reads* it, because React runs them top to bot
 **When not to reach for it.** If the callback identity changing *should* restart the work, the
 dependency array was right and the ref is a bug that hides a real dependency. The honest test:
 *"if the parent passes a different function, do I want a different subscription?"* If yes, put it
-in deps and tell the caller to memoise. The ref is for callbacks that are notifications, not
+in deps and tell the caller to memoize. The ref is for callbacks that are notifications, not
 configuration.
 
 **The React 19 note worth one sentence.** `useEffectEvent` is designed for exactly this and removes
@@ -9754,10 +9754,10 @@ frame to cancel", so the two can never disagree.
 
 **Say the tradeoff, and say it is premature.** React 18 already batches updates inside its own
 event handlers and, since 18, inside promises and timeouts too — so a plain `setText` per token is
-usually fine and this is an optimisation you reach for **after** you measure, not before. What
+usually fine and this is an optimization you reach for **after** you measure, not before. What
 scores is naming it as a known lever and saying you would not add it yet: *"tokens arrive faster
 than the display refreshes, so if this profiled badly I would accumulate in a ref and flush once
-per animation frame."* Reaching for it unprompted reads as premature optimisation, which is its
+per animation frame."* Reaching for it unprompted reads as premature optimization, which is its
 own negative signal.
 
 ---
@@ -9765,7 +9765,7 @@ own negative signal.
 ## 18 — Prop design, decided
 
 **Component API design** is one of the three named grading axes, and it is the one people prepare
-for least — it has no keyboard table to memorise and no ARIA spec to check yourself against. This
+for least — it has no keyboard table to memorize and no ARIA spec to check yourself against. This
 section is the missing checklist: eight forks, each with the test that decides it and the sentence
 to say.
 
@@ -9780,11 +9780,11 @@ The first fork, and the one that shapes everything after it.
 
 | Shape | Choose it when | What it costs |
 |---|---|---|
-| `items={[{ value, label }]}` | The list is homogeneous and the component owns the markup | Customising one row means adding a prop |
-| `renderItem={(item, state) => ReactNode}` | Rows vary, but the component still owns behaviour and layout | One more prop; the caller can break your ARIA if you let them render the wrapper |
-| Compound — `<Menu><Menu.Item/></Menu>` | Consumers must interleave, reorder, or nest arbitrary children | Mis-nestable, needs context, hard to virtualise, much more code |
+| `items={[{ value, label }]}` | The list is homogeneous and the component owns the markup | Customizing one row means adding a prop |
+| `renderItem={(item, state) => ReactNode}` | Rows vary, but the component still owns behavior and layout | One more prop; the caller can break your ARIA if you let them render the wrapper |
+| Compound — `<Menu><Menu.Item/></Menu>` | Consumers must interleave, reorder, or nest arbitrary children | Mis-nestable, needs context, hard to virtualize, much more code |
 
-**Default to `items`, and say why.** It is impossible to mis-nest, it virtualises without changing
+**Default to `items`, and say why.** It is impossible to mis-nest, it virtualizes without changing
 the API, and the component can guarantee its own ARIA wiring because it renders every node. The
 compound version hands that guarantee to the caller.
 
@@ -9793,7 +9793,7 @@ wrapper. You render the `<li role="option" aria-selected>`; they render what is 
 keeps the accessibility contract yours while the content becomes theirs.
 
 > *"I'd take `items` because it makes the ARIA wiring my responsibility rather than the caller's,
-> and it virtualises later without an API change. If rows need to vary I'd add `renderItem` and
+> and it virtualizes later without an API change. If rows need to vary I'd add `renderItem` and
 > still own the option wrapper. I'd only go compound if consumers need to interleave arbitrary
 > children — that's a real requirement, and it costs a context and the ability to mis-nest."*
 
@@ -9867,7 +9867,7 @@ streaming or async round, and it is why every drill in this repo takes a `fetchX
 a `url`.
 
 **Pass the `AbortSignal` in**, because cancellation is the component's job to *trigger* and the
-caller's job to *honour*. A `fetchResults` that ignores the signal is the caller's bug, and your
+caller's job to *honor*. A `fetchResults` that ignores the signal is the caller's bug, and your
 generation guard still saves you.
 
 **Configure when it genuinely is just a value** — `debounceMs`, `minChars`, `placeholder`. If you
@@ -9997,8 +9997,8 @@ narrating.
   or the other: *"controlled when the parent owns it, uncontrolled with a default when it doesn't,
   never both."*
 - **Config objects that are rebuilt every render.** `options={{ debounce: 300 }}` is a new object
-  each time, which defeats memoisation and re-runs effects. Take flat scalar props, or document
-  that the object must be memoised — flat props are kinder.
+  each time, which defeats memoization and re-runs effects. Take flat scalar props, or document
+  that the object must be memoized — flat props are kinder.
 
 ---
 
@@ -10042,7 +10042,7 @@ Three tests. One is enough; none of them is "the component got long."
 
 **The anti-test.** If extracting produces a hook with one call site, a seven-value return, and three
 arguments, you have moved code rather than designed an interface. Say so and leave it inline —
-recognising that is a better signal than extracting anyway.
+recognizing that is a better signal than extracting anyway.
 
 **In a timed round, the honest play is usually: build it inline, then say the sentence.**
 
@@ -10051,7 +10051,7 @@ recognising that is a better signal than extracting anyway.
 > returning `{ messages, status, send, stop }` and this component becomes markup. I'll leave it
 > inline for now so I can spend the time on the rendering you asked about."*
 
-That costs eight seconds, shows the judgement, and does not spend ten minutes proving it.
+That costs eight seconds, shows the judgment, and does not spend ten minutes proving it.
 
 ---
 
@@ -10075,7 +10075,7 @@ once, and two of the eight combinations are legal. This is §18 C applied to a h
 status: 'idle' | 'streaming' | 'done' | 'error'
 ```
 
-**3. Stabilise the actions that can be stable — and do not contort the ones that cannot.**
+**3. Stabilize the actions that can be stable — and do not contort the ones that cannot.**
 `useCallback` an action whose body reads only refs and setters; `stop` qualifies. An action that
 reads state, like `send` reading `messages`, cannot be stable without mirroring that state into a
 ref, and **that mirror is a real cost paid for a property most callers never use.** Leave it a plain
@@ -10095,7 +10095,7 @@ The AI SDK ships two hooks and the split between them is the design question, no
 | | `useChat` | `useCompletion` |
 |---|---|---|
 | Owns | the whole message array | one in-flight result |
-| For | multi-turn conversation | a one-shot prompt — rewrite, summarise, autocomplete |
+| For | multi-turn conversation | a one-shot prompt — rewrite, summarize, autocomplete |
 | Returns | `messages`, `send` | `completion`, `complete` |
 
 **Ask which one the prompt wants before you name your hook.** "Build a chat UI" is `useChat`.
@@ -10250,7 +10250,7 @@ library reads as a candidate who has not thought about the failure modes.
 
 ## Company signals
 
-What each company emphasises at staff level, based on reported patterns. Use it to order practice,
+What each company emphasizes at staff level, based on reported patterns. Use it to order practice,
 not to predict the prompt.
 
 | Company | What they test | Signature flavor |

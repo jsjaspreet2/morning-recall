@@ -41,11 +41,11 @@ This is the most important sentence in the email, and it is not reassurance — 
 of the instrument. A problem calibrated so that finishing is not expected is a problem that
 measures **rate and quality per part**, not completion. Two consequences:
 
-- Racing to finish part 1 in order to "get through more" is the wrong optimisation. A part 1 that
+- Racing to finish part 1 in order to "get through more" is the wrong optimization. A part 1 that
   is correct, tested, and cleanly factored beats a part 1 that is fast and brittle, because part 2
   is scored *on top of* part 1, not beside it.
 - **Part 2 exists and it will pull on part 1.** In every reported version of this question, the
-  later parts are of the form *"now make that reversible / batched / grouped / normalised."* The
+  later parts are of the form *"now make that reversible / batched / grouped / normalized."* The
   single highest-leverage thing you can do in minutes 13–32 is leave the seam that makes part 2
   cheap. §03 D is the whole technique, and it is the most transferable idea in this guide.
 
@@ -53,7 +53,7 @@ measures **rate and quality per part**, not completion. Two consequences:
 
 There is no trick to spot. Time spent hunting for the clever insight is time you don't have, and
 the hunt reads as stalling. The flip side is the part people miss: if several paths work, then
-**picking one and saying why is itself the graded behaviour.** *"I'm using inverse commands rather
+**picking one and saying why is itself the graded behavior.** *"I'm using inverse commands rather
 than snapshots because undo has to be O(1) in document size and I'd rather pay the complexity in
 the op type than in memory"* is a full answer. *"We could snapshot or we could do inverse ops"* is
 a stall wearing an answer's clothes.
@@ -89,12 +89,12 @@ these are load-bearing.
 | **High** | *"Pretty standard algorithms and data structures questions, but they are all Figma-flavored."* LeetCode-medium, practical rather than puzzle-shaped. | interviewing.io, quoting a Figma engineer |
 | **High** | At least one candidate found the pad **pre-seeded with a code skeleton and failing tests** for the undo part, and was asked to make them pass before adding redo. Plan for this — see §01 E. | Glassdoor report |
 | **Medium** | **Reading order:** sort objects on a 2-D canvas into reading order, left-to-right and top-to-bottom; the follow-up handles rows whose elements are not perfectly aligned. Reported in 2026 screens. | Multiple aggregators |
-| **Medium** | **Styled text ranges:** slice styled text given text plus style ranges; the follow-up overwrites a range's style and normalises the result. | GreatFrontend's Figma set |
+| **Medium** | **Styled text ranges:** slice styled text given text plus style ranges; the follow-up overwrites a range's style and normalizes the result. | GreatFrontend's Figma set |
 | **Medium** | Interviewers actively collaborate — they push on naming, extract helpers with you, and add edge cases mid-solution. Expect the problem to change shape while you are in it. | Interview-guide aggregators |
 | **Low** | Emily Kuhn is a full-stack engineer at Figma; CS at Michigan; previously SurveyMonkey and Minerva Project. Useful only for framing — do not open with it. | LinkedIn and data brokers |
 | **Ignore** | Every "33 Figma interview questions" listicle. Every page whose questions turn out to be about auto layout and prototyping. Claims of a 3-hour or 96-hour take-home — those are not this round and are unsupported for it. | SEO content farms |
 
-**The shape to internalise.** Every credible reported question is the same question wearing
+**The shape to internalize.** Every credible reported question is the same question wearing
 different clothes: *one mutable document model, plus operations over it, extended in parts.* The
 graded axis is clean handling of a messy object model with the invariants said out loud — not
 algorithmic cleverness. That is why §04 and §06 are the long chapters and there is no chapter on
@@ -113,7 +113,7 @@ Two motor skills degrade without your noticing, and both are load-bearing here:
   or a `Map` generic without a completion in months. In an hour where the first twelve minutes are
   data model and API, that tax lands at the worst possible moment.
 - **Recovering from an error you can't see.** No quick-fix, no inline explanation. The loop is read
-  the message, form a hypothesis, check — and it is slow if unpractised.
+  the message, form a hypothesis, check — and it is slow if unpracticed.
 
 **The rule for the twelve days: every timed rep runs with AI off.** Not "I won't accept
 suggestions" — disabled. §08 is the fluency drill; the schedule in §02 puts one in every day.
@@ -126,7 +126,7 @@ opt-out is explicitly consequence-free, and deciding live costs you your first t
 ### E. CODERPAD: THE FIRST NINETY SECONDS
 
 You have the pad link in advance. **Open it the day before**, set the language, and type a
-throwaway line to confirm the runtime works. Discovering the pad's behaviour at 3:01 is a
+throwaway line to confirm the runtime works. Discovering the pad's behavior at 3:01 is a
 self-inflicted wound.
 
 The first thing to establish live is whether the pad already contains something:
@@ -228,7 +228,7 @@ Every day is **one timed rep and one fluency drill**. The rep is what moves the 
 
 1. **Grade every rep the same day, against §03 G, before you look at anything.** An ungraded rep
    teaches you your existing habits.
-2. **Reps are narrated out loud, alone.** The round grades reasoning you have to externalise while
+2. **Reps are narrated out loud, alone.** The round grades reasoning you have to externalize while
    your hands are busy, and that is a separate skill from having the thought. Record one and watch
    the first ten minutes back — that is where the openings live, and openings are the most
    reliably fixable part of the hour.
@@ -303,7 +303,7 @@ left alone to produce. Calibrate:
   path, not the single-op path, because the rollback assumes the batch is non-empty."* Locating a
   bug out loud is worth more than fixing it silently.
 - **Disagree when you have a reason.** *"I'd rather not store the inverse eagerly — it doubles the
-  memory for the common case where nothing is ever undone. Would you rather I optimise for undo
+  memory for the common case where nothing is ever undone. Would you rather I optimize for undo
   speed here?"* A reasoned disagreement is collaboration. Silent compliance is not.
 
 ### D. PART-BOUNDARY DISCIPLINE — THE ONE TECHNIQUE
@@ -313,7 +313,7 @@ invitation: the question has multiple parts and you will not finish them.
 
 **The observation.** In every reported version of this question family, the later parts are
 transformations of the same kind: *now make it reversible · now make it batched · now make it
-grouped · now normalise the result · now do it in one pass.* Every one of those is a change to
+grouped · now normalize the result · now do it in one pass.* Every one of those is a change to
 **when and how state mutates**, not to what the state is.
 
 **The consequence.** If mutations are scattered across your methods — `this.layers.get(id).props.set(k, v)`
@@ -339,7 +339,7 @@ private commit(change: Change): void {
 
 and batching is a two-line branch inside the same method. Nothing else in the class moves.
 
-**Three rules that generalise beyond this problem:**
+**Three rules that generalize beyond this problem:**
 
 1. **One choke point per mutable structure.** Every write goes through it. No exceptions, including
    the convenient one you're about to make in a helper.
@@ -476,7 +476,7 @@ type Run = { start: number; end: number; style: Style }   // half-open [start, e
 *The operation that's hard:* applying a style to an arbitrary range, because it splits the runs it
 partially covers and may make neighbours mergeable. *The invariant, and it is four clauses — say
 all four:* runs are **sorted**, **non-overlapping**, **contiguous** (they tile the whole string with
-no gaps), **non-empty**, and **normalised** — no two adjacent runs carry an equal style.
+no gaps), **non-empty**, and **normalized** — no two adjacent runs carry an equal style.
 
 **Half-open intervals are not a style preference.** `[start, end)` makes empty ranges
 representable as `start === end`, makes adjacency the clean test `a.end === b.start`, and makes
@@ -573,13 +573,13 @@ Six lines, and calling it after each operation turns "I think that's right" into
 It is also the fastest debugging tool available in a pad with no debugger: an invariant check fails
 at the operation that broke it, not three operations later where the symptom appears.
 
-**The five invariants worth having memorised**, one per shape plus history:
+**The five invariants worth having memorized**, one per shape plus history:
 
 | Structure | Always true |
 |---|---|
 | Object store | Every referenced id exists, or is a known tombstone |
 | Ordered sequence | No duplicates; total order; one stated direction |
-| Interval runs | Sorted · contiguous · non-empty · normalised |
+| Interval runs | Sorted · contiguous · non-empty · normalized |
 | 2-D grouping | The comparator is transitive |
 | History | `undo` then `redo` returns the document to the identical state, for any sequence |
 
@@ -649,7 +649,7 @@ and neither needs implementing unless asked.
 ## 05 — Five problems, worked
 
 Four are the reported question family; the fifth is deliberately not Figma-shaped, because the
-point is to rehearse the *method*, not to have four answers memorised. If you get handed
+point is to rehearse the *method*, not to have four answers memorized. If you get handed
 "implement a spreadsheet's fill-down," E is why you'll be fine.
 
 **Use these as reps, not as reading.** Set a timer, do the problem, then open the collapsible.
@@ -873,7 +873,7 @@ function readingOrderAligned(boxes: Box[]): Box[] {
 ```
 
 `a.y - b.y || a.x - b.x` works because a comparator of `0` is falsy — the idiom every reviewer
-recognises. Copy before sorting: `sort` mutates, and silently mutating the caller's array is a
+recognizes. Copy before sorting: `sort` mutates, and silently mutating the caller's array is a
 free negative signal.
 
 **Part 2, when they are not.** Here is the trap, and it is the reason this question exists.
@@ -910,7 +910,7 @@ A sweep with running state is *allowed* to be non-transitive — that's the poin
 "are these two in the same row," only "does this one still overlap the row I'm building."
 
 **The limitation to name before they find it.** One tall object that spans the page chains every
-row into a single row. That behaviour is defensible — a full-height sidebar arguably *is* beside
+row into a single row. That behavior is defensible — a full-height sidebar arguably *is* beside
 everything — but it should be a stated choice, not an accident:
 
 > *"A tall element merges the rows it spans, because I'm extending the band as I go. If you'd
@@ -938,7 +938,7 @@ inventing a tolerance constant with no justification when heights were available
 
 > **The prompt, roughly.** Text is a string plus a list of style ranges. Implement slicing a
 > substring, keeping the styles. Then: implement applying a style to a range, and make sure the
-> result is normalised.
+> result is normalized.
 
 This is the interval problem, and the four-clause invariant from §04 B is the whole answer.
 
@@ -947,7 +947,7 @@ Does applying a style *merge* into what's there or *replace* it? Is a range incl
 at the end — *and if they don't care, say you're using half-open and why.*
 
 <details>
-<summary><strong>Model answer — slice, apply, normalise</strong></summary>
+<summary><strong>Model answer — slice, apply, normalize</strong></summary>
 
 **State the invariant before writing anything:** runs are sorted, contiguous, non-empty, and no two
 adjacent runs carry an equal style. Every function below returns runs satisfying all four, and
@@ -1004,10 +1004,10 @@ function applyStyle(runs: Run[], from: number, to: number, patch: Style): Run[] 
 1. **Clip, then rebase.** `start - from` is the step people forget: the returned runs are indexed
    into the *new* string, not the old one. Say it while you write it.
 2. **`{ ...r.style, ...patch }` merges; `patch` alone replaces.** These are different products —
-   Figma's "make this bold" does not clear the colour. Ask, then say which you implemented.
+   Figma's "make this bold" does not clear the color. Ask, then say which you implemented.
 3. **The three-way split is left-keep, middle-patch, right-keep**, and a run can need all three at
    once when the range sits strictly inside it. Test that case first; it's the one that fails.
-4. **Normalisation is a separate function, called at the end of everything.** Inlining merge logic
+4. **Normalization is a separate function, called at the end of everything.** Inlining merge logic
    into `applyStyle` is how you end up with two subtly different notions of "adjacent."
 
 </details>
@@ -1247,7 +1247,7 @@ implement approximately. This chapter is what "properly" means.
 | **Inverse commands** | Store `(target, before, after)` per change | O(1) | O(change) | O(total change) | **The default.** Cheap in both directions, and the change object is reusable as a log, a batch element, and a network message. |
 | **Patches / structural sharing** | Store a path plus old and new values into an immutable tree | O(depth) | O(depth) | O(changed × depth) | Deeply nested documents, or when you also want time-travel and cheap diffing. |
 
-**The one-sentence justification to have memorised**, because it is the most likely follow-up in
+**The one-sentence justification to have memorized**, because it is the most likely follow-up in
 the whole interview:
 
 > *"Snapshots are O(n) per edit in both time and memory, so they stop being viable well before a
@@ -1276,7 +1276,7 @@ Five rules. Interviewers probe two or three of them, essentially always.
 
 ### C. BATCHING
 
-The reported part 3. The semantics have real choices in them and the graded behaviour is naming
+The reported part 3. The semantics have real choices in them and the graded behavior is naming
 which one you took.
 
 | Situation | The choices | What to say |
@@ -1351,7 +1351,7 @@ Rehearse the top five until the answers are instant.
 ### F. THE SKELETON YOU TYPE FROM BLANK
 
 Target: **under three minutes, no AI, no reference.** It is generic over the change type, which is
-the version worth memorising — the document-specific parts are then just `apply` and `invert`, and
+the version worth memorizing — the document-specific parts are then just `apply` and `invert`, and
 you have already written those while building part 1.
 
 ```ts
@@ -1462,7 +1462,7 @@ function check(name: string, actual: unknown, expected: unknown): void {
 
 Three notes that matter in practice:
 
-- **`JSON.stringify` does not serialise a `Map`** — it produces `{}` for every one of them, so two
+- **`JSON.stringify` does not serialize a `Map`** — it produces `{}` for every one of them, so two
   different maps compare equal and every test passes. Spread first: `check('x', [...m], [['a',1]])`.
   This bites people mid-interview and looks like magic when it does.
 - **Print the name on success too.** A silent pass and a test that never ran look identical, and
@@ -1473,7 +1473,7 @@ Three notes that matter in practice:
 ### C. TEST INVARIANTS, NOT EXAMPLES
 
 Three examples tell you three things. One invariant tells you about every input, and stating it is
-the behaviour §04 D says is graded. The good ones for this problem family:
+the behavior §04 D says is graded. The good ones for this problem family:
 
 | Structure | The property to assert |
 |---|---|
@@ -1525,7 +1525,7 @@ The four things that atrophy fastest with autocomplete on, in the order they wil
 3. **Comparator syntax.** `(a, b) => a.y - b.y || a.x - b.x` typed correctly, first time, without
    thinking about which direction ascending is.
 4. **Recovering from a red squiggle with no quick-fix.** Read the message, form a hypothesis,
-   check. That loop is slow if unpractised, and it is the loop you will be in at minute 40.
+   check. That loop is slow if unpracticed, and it is the loop you will be in at minute 40.
 
 ### B. THE RETYPE KIT
 
@@ -1612,7 +1612,7 @@ attentive, and belaboured it lands as showing off.
 **Sync.** They do **not** use Operational Transforms — the post says OTs were *"unnecessarily
 complex for our problem space."* The system is CRDT-*inspired* but, in their words, *"Figma isn't
 using true CRDTs"*: because the server is the central authority, they can drop the machinery a
-decentralised CRDT needs. Conflicts resolve **last-writer-wins per property**, and clients discard
+decentralized CRDT needs. Conflicts resolve **last-writer-wins per property**, and clients discard
 incoming server changes that conflict with their own unacknowledged edits, so your own edit doesn't
 flicker back.
 
@@ -1652,7 +1652,7 @@ individual heroics, taking initiative rather than running a playbook, building f
 direct feedback given and received with humility.
 
 *Flagged as medium confidence:* the exact wording of the value list varies across sources and some
-aggregators paraphrase it into three bullets. Don't quote a list back at anyone. The behaviour is
+aggregators paraphrase it into three bullets. Don't quote a list back at anyone. The behavior is
 what's assessed anyway, and this round assesses it directly: the invitation's *"view your
 interviewer as a partner"* **is** the collaboration value, being run as a test. §03 C is how you
 pass it.
@@ -1692,7 +1692,7 @@ Non-negotiable, or the reps measure the wrong thing:
 | `figma-01-document-undo` | 45 | Layers, key/value props, `apply`, `undo` | The highest-confidence reported question. Do it cold on D-11 before reading anything. |
 | `figma-02-undo-redo-batch` | 40 | Redo · `beginBatch`/`commitBatch` · rollback · nesting | The reported parts 2 and 3, on the same clock |
 | `figma-03-reading-order` | 35 | 2-D sort, then the row sweep | The non-transitive comparator trap, felt rather than read — §05 B |
-| `figma-04-styled-text-ranges` | 40 | Slice, then apply-and-normalise | The four-clause invariant, and the three-way split |
+| `figma-04-styled-text-ranges` | 40 | Slice, then apply-and-normalize | The four-clause invariant, and the three-way split |
 | `figma-05-layer-tree` | 45 | Group, ungroup, reparent, z-order, cycles | Where the ordered-sequence invariant does real work |
 | `figma-06-command-stream` | 35 | Parse → data → step → checkpoint | The unfamiliar-problem fallback shape — §05 E |
 | `figma-07-coalescing-history` | 35 | Gesture coalescing, forced boundaries, bounded history | The two follow-ups most likely to arrive if you're fast — §06 D and §04 F |

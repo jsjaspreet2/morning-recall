@@ -14,13 +14,13 @@ Here's where that falls down. O.T. needs a transformation function for every ord
 
 But the deeper point is the one worth carrying out of this episode. O.T. is machinery for editing a sequence, where inserting at position four changes what position seven means. Setting the fill property on an object doesn't change what any other property means. So you'd be paying for a problem the data model already designed away.
 
-What replaces it is much smaller. Last writer wins, per property, with a single server process as the ordering authority. The server keeps the latest value any client sent for a given property on a given object. The order things arrive at that process is the order. There's nothing to transform. And notice Figma describes their system as C.R.D.T. inspired while saying plainly that it isn't using true C.R.D.Ts — because the server is central, they get to drop the vector clocks, the tombstone sets, and the merge functions a decentralised system needs to converge without a coordinator.
+What replaces it is much smaller. Last writer wins, per property, with a single server process as the ordering authority. The server keeps the latest value any client sent for a given property on a given object. The order things arrive at that process is the order. There's nothing to transform. And notice Figma describes their system as C.R.D.T. inspired while saying plainly that it isn't using true C.R.D.Ts — because the server is central, they get to drop the vector clocks, the tombstone sets, and the merge functions a decentralized system needs to converge without a coordinator.
 
 Three costs, and you should name all three before you're asked.
 
-First, last write wins means somebody silently loses. Two users set the fill on the same object at the same moment. One value survives, the other disappears, with no conflict interface and no merge. That's completely acceptable for a colour. It's unacceptable for a paragraph of text, which is exactly why text is the one place this model doesn't stretch.
+First, last write wins means somebody silently loses. Two users set the fill on the same object at the same moment. One value survives, the other disappears, with no conflict interface and no merge. That's completely acceptable for a color. It's unacceptable for a paragraph of text, which is exactly why text is the one place this model doesn't stretch.
 
-Second, you've given up decentralisation. No peer to peer, no true offline for a week and merge later, no federating between servers. Every edit to a file has to reach one process. That process is now a single point of failure, and paying for that is a whole separate dive.
+Second, you've given up decentralization. No peer to peer, no true offline for a week and merge later, no federating between servers. Every edit to a file has to reach one process. That process is now a single point of failure, and paying for that is a whole separate dive.
 
 Third, ordering is per file, not global. Two files are completely independent, which is fine, but any feature that spans files — a shared component library, say — can't be made atomic with an edit. Worth saying out loud before they ask.
 
@@ -30,7 +30,7 @@ The naive answer is that each object stores its index among its siblings. Either
 
 Two distinct failures, and both are load bearing.
 
-The first is that concurrent inserts collide. Two users each drop a layer at the same index. If the parent's list of children is modelled as one property, last writer wins means one user's entire insert vanishes — the list they didn't write is the list that survives. And if instead each child holds its own integer position, then both children claim that position and the resulting order is undefined.
+The first is that concurrent inserts collide. Two users each drop a layer at the same index. If the parent's list of children is modeled as one property, last writer wins means one user's entire insert vanishes — the list they didn't write is the list that survives. And if instead each child holds its own integer position, then both children claim that position and the resulting order is undefined.
 
 The second failure is that a single drag becomes a linear write. Move one layer from the bottom of a frame holding two hundred objects up to the top, and you renumber every sibling. That's two hundred property writes, broadcast to every connected client, for one user gesture — and every single one of them is an independent last-writer-wins race.
 
@@ -44,7 +44,7 @@ And the parent pointer and the position are one single atomic property, not two.
 
 Three costs again.
 
-Index strings grow. Every insertion between the same two neighbours adds roughly a character, so sustained editing in one spot produces long keys. You need a renormalisation pass that rewrites a parent's children back to short, evenly spaced indices — and because that's a multi property write that must not interleave with concurrent edits, the server has to do it, never a client.
+Index strings grow. Every insertion between the same two neighbours adds roughly a character, so sustained editing in one spot produces long keys. You need a renormalization pass that rewrites a parent's children back to short, evenly spaced indices — and because that's a multi property write that must not interleave with concurrent edits, the server has to do it, never a client.
 
 Interleaving is arbitrary. Two users inserting at the same position get a deterministic, convergent order, but not necessarily the one either of them intended. Figma's justification for accepting that is worth borrowing: a layers panel is not prose. Nobody is harmed if two simultaneously added rectangles land in the other order. That is the same trade the first dive made, one level down.
 

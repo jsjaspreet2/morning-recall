@@ -280,7 +280,7 @@ const signal = AbortSignal.any([
   ctrl.signal, AbortSignal.timeout(5000)
 ]);
 const res = await fetch(url, { signal });
-// ctrl.abort('user cancelled')
+// ctrl.abort('user canceled')
 ```
 
 - Cancellation is cooperative. Pass the signal through every layer; clean up listeners/work and distinguish abort from failure.

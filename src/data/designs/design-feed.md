@@ -6,7 +6,7 @@
 
 **The product.** People post short messages. People follow other people. Your home timeline is the merge of everything the accounts you follow have posted, newest first, and you pull to refresh it many times a day. Reading vastly outweighs posting.
 
-The distribution is what makes it interesting. A typical person follows a couple hundred accounts and has a couple hundred followers — but a handful of accounts have tens or hundreds of millions of followers, and those accounts are not an edge case to handle later, they're the product's centre of gravity.
+The distribution is what makes it interesting. A typical person follows a couple hundred accounts and has a couple hundred followers — but a handful of accounts have tens or hundreds of millions of followers, and those accounts are not an edge case to handle later, they're the product's center of gravity.
 
 **What a working system delivers**
 

@@ -82,7 +82,7 @@ function lint(ep) {
   // Bare multi-digit numerals. Single digits inside words ("four-ten") are fine.
   flag(/(?<![\w.-])\d{2,}(?![\w.-])/g, 'bare numeral — write it in words')
   const breaks = (ep.body.match(/<break\s/g) ?? []).length
-  if (breaks > 12) problems.push(`${breaks} break tags — over ~12 destabilises multilingual v2 (it speeds up or adds artifacts)`)
+  if (breaks > 12) problems.push(`${breaks} break tags — over ~12 destabilizes multilingual v2 (it speeds up or adds artifacts)`)
   if (ep.body.length > S.maxChars) problems.push(`over soft cap: ${ep.body.length} > ${S.maxChars}`)
   if (ep.body.length > S.requestCharCap) problems.push(`OVER SINGLE-REQUEST CAP: ${ep.body.length} > ${S.requestCharCap}`)
   return problems

@@ -17,7 +17,7 @@ const HEADER_HEIGHT = 68
  * problem pages (`/designs/:slug`).
  *
  * Everything here was tuned once and is easy to regress: the sticky sidebar TOC
- * with its scroll-idle behaviour, the separate collapsible TOC for narrow
+ * with its scroll-idle behavior, the separate collapsible TOC for narrow
  * screens, and `min-w-0` on the content column — without which a wide `<pre>`
  * or table pushes the grid past `1fr` and the whole page scrolls sideways.
  * Two copies of that would drift, so there is one.

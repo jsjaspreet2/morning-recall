@@ -314,7 +314,7 @@ Run this against the finished page. Each line maps to a standing rule above.
 - [ ] Every named product shows the alternative it beat, in one spoken sentence
 - [ ] §12 has a data-lifecycle row for every append-only entity
 - [ ] Two or three decisions tie back to a §2 requirement by name
-- [ ] Every figure in §3 changes a decision; assumptions labelled as assumptions
+- [ ] Every figure in §3 changes a decision; assumptions labeled as assumptions
 - [ ] §6 was written last and references dives by number rather than restating them
 - [ ] **Every flow ends in a failure path**
 - [ ] **Every deep dive has all four beats**: naive → what breaks (mechanism or number) → replacement → cost

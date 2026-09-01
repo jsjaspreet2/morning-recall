@@ -16,7 +16,7 @@ But here's the non-obvious part, and it's how you should frame it. The small mod
 
 Think about what the task actually is. Finish this line. Propagate this rename. Add the obvious next field. It is narrow and highly patterned. A model trained specifically on edit prediction beats a general-purpose large model at edit prediction — and separately, it beats it by roughly ten times on latency.
 
-So present it as a specialisation win with a latency bonus, not as a compromise you were forced into. That framing is more accurate and it lands much better.
+So present it as a specialization win with a latency bonus, not as a compromise you were forced into. That framing is more accurate and it lands much better.
 
 Second thing. The serving stack — five techniques, and I'll rank them by leverage.
 
@@ -26,7 +26,7 @@ Prefix key-value caching is next. Successive keystrokes share almost all of thei
 
 Speculative decoding. A tiny draft model proposes several tokens ahead, and the main model verifies all of them in a single pass. That's roughly a two-times speedup on decode, for bit-identical output. And it works especially well here because code is highly predictable — far more so than prose. Closing braces, expected parameter names, obvious next lines.
 
-Regional routing. Sixty milliseconds of transcontinental round trip is a third of your entire budget. So inference runs near the user. That's not an optimisation, that's arithmetic.
+Regional routing. Sixty milliseconds of transcontinental round trip is a third of your entire budget. So inference runs near the user. That's not an optimization, that's arithmetic.
 
 And admission control, with a twist. Under overload you shed load by not suggesting, rather than by queueing. And the reasoning is worth stating: a completion that arrives eight hundred milliseconds late is worse than no completion at all. It isn't degraded service, it's actively disruptive — the user has typed past it and now something is flickering at them.
 
@@ -48,11 +48,11 @@ First, should-fire filtering on the client, before anything else happens. Suppre
 
 A well-tuned filter of that kind suppresses twenty to forty percent of triggers with a negligible drop in acceptance rate.
 
-Sit with that for a second. That is a larger cost win than any inference optimisation on this entire page. And it costs you one function on the client. No new infrastructure, no model change, no serving work.
+Sit with that for a second. That is a larger cost win than any inference optimization on this entire page. And it costs you one function on the client. No new infrastructure, no model change, no serving work.
 
 Second mechanism, caching, in three layers.
 
-A client cache keyed on a hash of the assembled context. Backspace-and-retype is constant developer behaviour, so the hit rate is meaningful — and a client hit costs zero latency and zero dollars, which no server-side cache can match.
+A client cache keyed on a hash of the assembled context. Backspace-and-retype is constant developer behavior, so the hit rate is meaningful — and a client hit costs zero latency and zero dollars, which no server-side cache can match.
 
 A server key-value cache keyed on the context prefix, with a high hit rate, for the reason already covered.
 
@@ -64,8 +64,8 @@ Third mechanism, and it reframes something people treat as a user-interface cons
 
 <break time="0.8s" /> So, three things to carry.
 
-The small model is a specialisation win, not a compromise. Trained on edit sequences it beats a general large model at edit prediction, and it beats it tenfold on latency.
+The small model is a specialization win, not a compromise. Trained on edit sequences it beats a general large model at edit prediction, and it beats it tenfold on latency.
 
 Cancellation has to reach the accelerator. With eighty percent of requests abandoned, a cancel that only stops rendering means you're paying full price for all of that waste — it's the highest-value plumbing on the page.
 
-And suppression beats optimisation. A client-side filter that kills twenty to forty percent of triggers, at negligible acceptance cost, is worth more than every serving trick combined — and under overload you shed by not suggesting, because a late completion is worse than none.
+And suppression beats optimization. A client-side filter that kills twenty to forty percent of triggers, at negligible acceptance cost, is worth more than every serving trick combined — and under overload you shed by not suggesting, because a late completion is worse than none.

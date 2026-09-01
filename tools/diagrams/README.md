@@ -62,7 +62,7 @@ time — after that the `data-board` id is what finds it. A module must expose
 
 ## Rules that are not negotiable
 
-1. **No colours, weights or anchors as attributes.** Everything is a `dg-*`
+1. **No colors, weights or anchors as attributes.** Everything is a `dg-*`
    class defined once in `src/index.css`, so one copy of the markup reads in
    both themes. Adding a class means adding it to `render.py`'s token block too.
 2. **Arrowheads are explicit triangles, never `<marker>` defs.** Markers survive

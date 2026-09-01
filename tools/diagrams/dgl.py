@@ -1,6 +1,6 @@
 """Authoring aid for the design-page whiteboard SVGs.
 
-Boards are laid out on a 1000-unit viewBox. Nothing here emits colour or weight:
+Boards are laid out on a 1000-unit viewBox. Nothing here emits color or weight:
 every element carries a dg-* class and src/index.css supplies the theme, which is
 why one copy of the markup reads in light and dark. Arrowheads are explicit
 triangles because <marker> defs do not reliably survive parse5 -> hast -> React.
@@ -51,7 +51,7 @@ class Board:
         block = 13 + 16 * len(subs)
         # The width guard cannot see text spilling out of the *bottom* of a box,
         # which is what happens the moment a sub-line is added to a box that was
-        # already full. Centred content fits exactly while block <= h - 2.
+        # already full. Centered content fits exactly while block <= h - 2.
         if block > h - 2:
             self.warn.append(f'    TOO TALL {block} > {h - 2}: {title!r} with {len(subs)} sub-lines')
         top = y + (h - block) / 2 + 11

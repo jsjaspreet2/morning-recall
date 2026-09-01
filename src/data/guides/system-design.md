@@ -151,7 +151,7 @@ freshness annotation.
 **Failure path** — dependency timeout → retry budget consumed → degraded response or enqueue →
 alert → recovery and replay.
 
-At each hop, say five things: **latency, consistency, failure behaviour, ownership, and the metric
+At each hop, say five things: **latency, consistency, failure behavior, ownership, and the metric
 that proves it works.** You will not do all five at every hop, and you shouldn't — but doing it at
 the two hops that matter is what depth sounds like.
 
@@ -234,7 +234,7 @@ fanout-on-write because that's what feeds do."
 | Cross-region round trip | tens to 100+ ms | Writes across regions pay physics; no tuning removes it |
 | LLM response | 100 ms to many seconds | Stream it, cancel it, budget it (§12) |
 
-**The fanout consequence is worth internalising:** if a request fans out to 50 dependencies and each
+**The fanout consequence is worth internalizing:** if a request fans out to 50 dependencies and each
 has a 1% chance of being slow, the request is *very likely* to hit at least one slow call. Tail
 latency compounds, which is why p99 of a fanout system is dominated by fanout width rather than by
 the average dependency.
@@ -293,7 +293,7 @@ carries.
 
 - Core resources, identifiers, ownership, the state machine each entity moves through, and the
   invariants that must hold across it.
-- **2–4 representative APIs or events** — not an exhaustive REST catalogue. Pick the ones that
+- **2–4 representative APIs or events** — not an exhaustive REST catalog. Pick the ones that
   carry the product.
 - **Mutations** need: validation, authorization, an idempotency story, a concurrency token, and
   defined response semantics.
@@ -405,7 +405,7 @@ Choices` guide, which exists to answer exactly that and does it in more depth th
 
 | Index type | Serves | Cost to know |
 |---|---|---|
-| B-tree | Equality and range | Composite order matters: equality columns first, then range/sort; check leftmost-prefix behaviour |
+| B-tree | Equality and range | Composite order matters: equality columns first, then range/sort; check leftmost-prefix behavior |
 | Covering / index-only | A hot narrow query, with no heap fetch | Extra write amplification and storage |
 | Partial | Only the hot subset — active rows, recent rows | Planner must actually match the predicate |
 | Unique | Making an invariant race-safe | It's a constraint first and an index second |
@@ -459,7 +459,7 @@ Five questions. Answer all five and you have said everything a cache answer need
 - **Where** — browser/CDN, process-local, distributed cache, or a materialized projection?
 - **Freshness** — TTL, explicit invalidation, versioned key, or never-expire with async refresh?
 - **Ownership** — the source of truth stays elsewhere; define the refill path and the repair path.
-- **Economics** — expected hit rate, object size, eviction behaviour, the extra network hop, and
+- **Economics** — expected hit rate, object size, eviction behavior, the extra network hop, and
   crucially *whether the origin can survive a miss storm*.
 
 ### C. CACHE PATTERNS
@@ -490,7 +490,7 @@ does not have a cache — it has an undeclared tier of its database with no dura
 ### E. READ REPLICAS AND PROJECTIONS
 
 Replicas scale read QPS and isolate workloads. They introduce replication lag, stale reads, failover
-behaviour, and connection routing — four things that were not previously your problem.
+behavior, and connection routing — four things that were not previously your problem.
 
 **Read-your-writes** is the requirement that catches people, and there are four standard answers:
 pin the author to the primary for a short window; carry a write timestamp or LSN token and wait for
@@ -712,9 +712,9 @@ second late.
 
 ### F. CAP, USED CORRECTLY
 
-> CAP constrains behaviour **during a network partition**: you either preserve consistency by
+> CAP constrains behavior **during a network partition**: you either preserve consistency by
 > refusing or limiting operations, or preserve availability by accepting divergent or stale
-> behaviour.
+> behavior.
 
 It is not a three-way feature score for databases, it does not describe normal operation, and it
 does not replace the latency tradeoffs you make when nothing is broken. Using "we'll go AP" as a
@@ -754,7 +754,7 @@ The highest-stakes special case, and it comes up constantly:
 |---|---|---|
 | **Polling** | Freshness measured in seconds or minutes | Wasted requests; simplest and stateless |
 | **Long polling** | Near-realtime over plain HTTP | Held requests, reconnect churn |
-| **SSE** | Server → client streams, tokens, notifications | One direction only; connection limits and proxy behaviour |
+| **SSE** | Server → client streams, tokens, notifications | One direction only; connection limits and proxy behavior |
 | **WebSocket** | Genuinely bidirectional, low latency | Connection state, heartbeat, resume, routing all become yours |
 | **Push** | Background and mobile wake-up | Best-effort; platform limits |
 
@@ -854,10 +854,10 @@ indexing lag as a metric, and be able to rebuild the whole index from the author
 ### A. FAILURE IS A PATH, NOT A STATE
 
 For each critical dependency, name seven things: **timeout, retry eligibility, retry budget, circuit
-behaviour, fallback, data consistency during the failure, and the alert.** Seven sounds like a lot
+behavior, fallback, data consistency during the failure, and the alert.** Seven sounds like a lot
 until you notice that most designs specify zero of them.
 
-Distinguish the failure classes, because they need different defences: **partial** (some requests
+Distinguish the failure classes, because they need different defenses: **partial** (some requests
 fail), **slow** (nothing fails, everything queues — usually worse), **correlated** (the thing you
 thought was independent wasn't), and **bad-data** (the system is up and returning wrong answers).
 Replication helps with some crash failures and none of the others.
@@ -945,7 +945,7 @@ Rank features before the incident, not during: **must-work**, **important**, **o
 write correctness ahead of recommendations, counts, presence, and freshness — a user will forgive a
 stale like count and will not forgive a lost order.
 
-Concrete degradations worth naming: serve the cached catalogue without personalization; accept the
+Concrete degradations worth naming: serve the cached catalog without personalization; accept the
 upload and process it later; enter read-only mode; disable expensive search facets.
 
 Two properties the degraded mode itself needs: it must be **observable** (you can tell you're in
@@ -987,7 +987,7 @@ wrong while every entry on the left looks perfect.
 - **Authorization**: object-level *and* field-level on every read and write; tenant isolation; least
   privilege. Unguessable UUIDs are not authorization — object-level authz failures remain the most
   common serious API vulnerability.
-- **Input and resource abuse**: schema validation, injection defence, file scanning, query and page
+- **Input and resource abuse**: schema validation, injection defense, file scanning, query and page
   limits, per-principal quota *and cost* limits.
 - **Data**: TLS, encryption at rest, who owns the keys, a secrets manager, and an audit trail on
   sensitive-field access.
@@ -1076,7 +1076,7 @@ Treat it as the slowest, priciest, least reliable dependency in the system, beca
   conversation and tool outcomes live server-side.
 - **The streaming protocol** needs event types, sequence numbers, a resume cursor, final usage, an
   error channel, and cancellation. Decide deliberately whether partial output is persisted — the
-  answer is usually yes, because users read cancelled responses.
+  answer is usually yes, because users read canceled responses.
 
 ### C. THE RAG PIPELINE
 
@@ -1116,7 +1116,7 @@ runs it with an idempotency key and a timeout → the result is recorded → the
 - **Separate trusted instructions from untrusted retrieved content.** A retrieved document must
   never be able to grant tool authority. This is the central security property of an agent system
   and it is architectural, not a prompt-engineering trick.
-- Defence in depth: least-privilege tools, scoped credentials, sandboxing, network and domain
+- Defense in depth: least-privilege tools, scoped credentials, sandboxing, network and domain
   restrictions, output encoding, and confirmation gates.
 - The specific attacks to name: **cross-tenant retrieval, secret exfiltration, excessive tool
   parameters, and unsafe content propagation** into downstream systems.
@@ -1172,7 +1172,7 @@ rebuildable projections, and §08 D applies to them unchanged.
   takes seconds to tens of seconds — which is why streaming is structural rather than a nicety.
 - **Connections are the scarce resource, not QPS.** Little's Law on streams: 100 requests/s × 10 s
   average stream = **1,000 concurrent open connections**. Size gateways by concurrency and
-  per-connection memory. Long-lived SSE also changes load balancer and proxy behaviour, which is a
+  per-connection memory. Long-lived SSE also changes load balancer and proxy behavior, which is a
   real operational surprise.
 - **Cost is per token and asymmetric.** Output tokens typically cost several times input tokens, and
   long context inflates both cost *and* time-to-first-token. Trim, summarize, and cap output length
@@ -1318,7 +1318,7 @@ These are load-bearing sentences. Say them in your own words, but have the shape
 - *"I'm choosing the simple baseline, and here's the measurable trigger for replacing it."*
 - *"That's a product consistency decision: what exactly may this user see stale, and for how long?"*
 - *"This improves steady state and adds a failure mode. Here's the blast radius and the degraded
-  behaviour."*
+  behavior."*
 - *"We can pay at write time or at read time. The read ratio and the freshness target decide it."*
 - *"Before sharding, I'd validate query shape, one-node headroom, caching, and replicas with a
   benchmark."*

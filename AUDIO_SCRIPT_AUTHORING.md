@@ -129,7 +129,7 @@ repeating to an interviewer. The recap then restates it.
 A list is where narration most reliably falls apart. "Three things. How it works. What it
 guarantees. And the buy decision." reads fine and *sounds* like one long run-on, because nothing in
 the text tells the model these are three separate beats. Announcing the count buys you nothing if
-the delivery doesn't honour it.
+the delivery doesn't honor it.
 
 Three levers, in order of how much you should lean on them.
 

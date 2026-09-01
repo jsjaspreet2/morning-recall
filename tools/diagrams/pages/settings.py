@@ -29,7 +29,7 @@ b.text(30,552,"Retry twice, then ask the human. An auto-merge-and-retry loop wit
 b.text(30,574,"Push tier fully down? Clients fall back from a 15-minute poll to 60 seconds. There is only one recovery path, and it is also the normal path.",'dg-note')
 HLD_CAP = "The socket carries an entity and a version and nothing else. Draw that label on the arrow before you draw the gateway — it is what makes duplicate pushes free, lost pushes survivable, and the whole tier optional."
 
-s=Board(490,"Settings sync five-minute skeleton. The resolution function centred at the top over four layers, flanked by the client and the membership entity. Then the two tables and their compare-and-set predicate, the aggregate version, the manifest and If-Match calls, the socket-as-hint rule, the outbox chain, and two closing sentences.")
+s=Board(490,"Settings sync five-minute skeleton. The resolution function centered at the top over four layers, flanked by the client and the membership entity. Then the two tables and their compare-and-set predicate, the aggregate version, the manifest and If-Match calls, the socket-as-hint rule, the outbox chain, and two closing sentences.")
 s.banner("Minute five: everything below must be on the board. Badge numbers match the list.",y=10,h=34)
 s.box(280,68,440,96,"resolve() — evaluated per key",["1 · mandatory team policy","2 · user override","3 · team default","4 · product default"],cls='dg-good',badge=1)
 s.box(30,68,230,96,"Client",["source docs + versions","pending patch","works with server down"],badge=3)

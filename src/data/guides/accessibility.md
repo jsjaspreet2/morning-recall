@@ -113,7 +113,7 @@ Naming & description — mnemonic: a pointer beats a string beats the text beats
 
 Attr When
 
-`aria-labelledby` Name = other visible element(s), by id. Wins over everything.
+`aria-labeledby` Name = other visible element(s), by id. Wins over everything.
 
 `aria-label` Icon-only control; a raw string. Silently overrides visible text.
 
@@ -407,7 +407,7 @@ Tabs — the required wiring
    tabIndex={-1}>Billing</button>
 </div>
 <div role="tabpanel" id="p1"
-     aria-labelledby="t1" tabIndex={0}>…</div>
+     aria-labeledby="t1" tabIndex={0}>…</div>
 ```
 
 ## Definition of done + gotchas that read as a fail

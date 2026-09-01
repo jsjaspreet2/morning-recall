@@ -26,7 +26,7 @@ And then the rule everything depends on: the booking interface rejects any reque
 
 Second thing. The counter, and where it actually breaks. This is where a lot of candidates over-engineer.
 
-One key is one slot, one node, one core. The store serialises those increments single-threaded, and that serialisation is exactly what makes them atomic. So a single primary handles roughly a hundred to two hundred and fifty thousand simple operations a second.
+One key is one slot, one node, one core. The store serializes those increments single-threaded, and that serialization is exactly what makes them atomic. So a single primary handles roughly a hundred to two hundred and fifty thousand simple operations a second.
 
 Now put real events against that ceiling. A five-thousand-seat theatre gets maybe twenty thousand arrivals over several minutes — call it a hundred a second. That is a tenth of one percent of your budget. A twenty-thousand-seat arena, two hundred thousand arrivals over five minutes, is about seven hundred a second — still under one percent. A large stadium show, a million arrivals over five minutes, is around three thousand a second. About two percent.
 
@@ -38,7 +38,7 @@ And for the handful that do exceed it, you know which ones weeks in advance. So 
 
 Three escalations, and they are not equal.
 
-Block reservation is the good one. Workers reserve ten thousand positions at a time in a single increment and then hand them out locally. That's roughly ten thousand times fewer operations, and any cross-region round trip amortises across the whole block instead of being paid per user. The cost is that positions go approximate — a worker sitting on a stale block hands a lower number to someone who arrived later, and unused remainders leave gaps in the sequence.
+Block reservation is the good one. Workers reserve ten thousand positions at a time in a single increment and then hand them out locally. That's roughly ten thousand times fewer operations, and any cross-region round trip amortizes across the whole block instead of being paid per user. The cost is that positions go approximate — a worker sitting on a stale block hands a lower number to someone who arrived later, and unused remainders leave gaps in the sequence.
 
 Sharded counters spread throughput across several keys, with the global position computed from the local sequence and the shard number. But you still pay one round trip per arrival, so it fixes the ceiling without fixing the latency.
 
@@ -52,7 +52,7 @@ And strict first-in-first-out degrades — which matters much less than it sound
 
 So. Fairness. And this is worth a full minute in the room, because it's rarely mentioned and it separates people.
 
-Strict first-come-first-served, ordered by arrival, looks fair. It is not fair. It rewards low latency and fast automation — which means a datacentre bot on a fat pipe beats a human on a phone on a train, every single time. You have built a system that is procedurally neutral and substantively rigged.
+Strict first-come-first-served, ordered by arrival, looks fair. It is not fair. It rewards low latency and fast automation — which means a datacenter bot on a fat pipe beats a human on a phone on a train, every single time. You have built a system that is procedurally neutral and substantively rigged.
 
 The alternative is a lottery. Accept joins for a fixed window — say two minutes — and then randomly permute everyone who joined. Bots immediately lose their structural advantage, because arriving forty milliseconds earlier stops meaning anything at all.
 

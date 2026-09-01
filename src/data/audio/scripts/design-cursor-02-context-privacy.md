@@ -16,7 +16,7 @@ Strongest and free: the prefix and the suffix at the cursor. That's the literal 
 
 Next, recent edit history — and this is the single strongest predictor in the list. What you just changed predicts what you're about to change. Renames propagate. A new field needs a new accessor. It costs nothing and it's already sitting in the editor.
 
-Then open tabs. And the reasoning here is lovely: the user curated these. A human's working set beats a similarity score, because a person already did the relevance judgement for you and you can just read the answer.
+Then open tabs. And the reasoning here is lovely: the user curated these. A human's working set beats a similarity score, because a person already did the relevance judgment for you and you can just read the answer.
 
 Then language server symbols — exact type signatures and definitions for every identifier in scope. Note the word exact. This is precise information, not probabilistic. You are not guessing what a type is; you are being told.
 
@@ -42,7 +42,7 @@ And the first thing to do here is scope it, before you draw anything — because
 
 Tab's context is assembled in the editor from prefix, suffix, recent edits, open tabs, and language server symbols. It never queries a server index. It never needs one to be fresh.
 
-The synchronisation machinery exists for chat and agent — the surfaces that have to reach code outside the user's current working set, which is the one thing local signals structurally cannot provide. So if an interviewer asks why Tab needs a merkle tree, the correct answer is that it doesn't. Noticing that boundary is the point of the section.
+The synchronization machinery exists for chat and agent — the surfaces that have to reach code outside the user's current working set, which is the one thing local signals structurally cannot provide. So if an interviewer asks why Tab needs a merkle tree, the correct answer is that it doesn't. Noticing that boundary is the point of the section.
 
 Now, the sync itself. The naive approach is to upload the repository and re-upload on change. A hundred-thousand-file monorepo makes that untenable on cost alone — and separately, every upload is a privacy event, which is a different kind of expensive.
 
@@ -74,6 +74,6 @@ And name the catastrophic failure mode explicitly, because it's the one that end
 
 Exploit the structure you actually have before falling back on a fuzzy proxy for it. Code has a dependency graph, a type system, and a curated set of open tabs. Embedding search is the last resort here, and that's the inverse of a prose retrieval product for a reason you can state.
 
-Recent edits beat everything, and open tabs beat similarity — because a human already did the relevance judgement and you can just read it.
+Recent edits beat everything, and open tabs beat similarity — because a human already did the relevance judgment and you can just read it.
 
 And scope the sync before you draw it. Merkle trees and index freshness belong to chat and agent, not to Tab. Tab assembles locally, which is why it works unchanged in privacy mode.

@@ -116,7 +116,7 @@ would have broken every scrub bar. If audio and metadata ever disagree, run `--r
 **`--reindex` asserts that mp3s on disk were made with the *current* manifest settings.** It
 refreshes hashes as well as durations. Run it only when that's true, or it marks stale audio fresh.
 
-**Break tags destabilise the model in bulk.** ElevenLabs' own warning: too many "can cause
+**Break tags destabilize the model in bulk.** ElevenLabs' own warning: too many "can cause
 instability — the AI might speed up, or introduce artifacts." The linter fails above twelve. Use
 them only after a count announcement, between list items, and before the recap.
 

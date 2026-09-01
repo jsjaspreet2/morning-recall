@@ -221,7 +221,7 @@ POST /webhooks/psp                     signature-verified; 200 means "durably qu
   <text class="dg-lbl dg-c" x="577" y="192">outbox pump</text>
   <path class="dg-line" d="M 666,360 L 630,360 L 630,300 L 602,300"></path>
   <path class="dg-head" d="M 602,295 L 602,305 L 594,300 Z"></path>
-  <text class="dg-lbl" x="672" y="318">materialised balance</text>
+  <text class="dg-lbl" x="672" y="318">materialized balance</text>
   <path class="dg-box" d="M 190,567 L 190,617 A 210,7 0 0 0 610,617 L 610,567 A 210,7 0 0 0 190,567 Z"></path>
   <path class="dg-box" d="M 190,567 A 210,7 0 0 0 610,567" style="fill:none"></path>
   <text class="dg-t dg-c" x="400" y="592">Ledger — Postgres + Citus</text>
@@ -256,7 +256,7 @@ POST /webhooks/psp                     signature-verified; 200 means "durably qu
 <p class="diagram-cap">Draw the two dashed boxes before anything inside them. Left of the split nothing may block a request and everything is allowed to be approximate; right of it nothing may lose a write. The ledger is the only component that belongs to both halves.</p>
 
 <div class="diagram" data-board="flows">
-<svg viewBox="0 0 1000 712" role="img" aria-label="Billing high-level design, split down the middle. A header band: API request, inference gateway which admits synchronously and writes a usage event to a local outbox in the run's transaction, and the GPU pool. Left column, synchronous and approximate: admission service holding in-process leases, Redis holding budgets and reservations, and a spend-limit rejection whose overshoot is bounded. Right column, asynchronous and exact: Kafka usage.raw, rate-and-post workers that dedupe on run id, and ClickHouse. One arrow crosses the divide, carrying the materialised balance back to Redis. Both halves meet at an append-only ledger in Postgres, below which sit reconciliation, invoicing and the payment processor.">
+<svg viewBox="0 0 1000 712" role="img" aria-label="Billing high-level design, split down the middle. A header band: API request, inference gateway which admits synchronously and writes a usage event to a local outbox in the run's transaction, and the GPU pool. Left column, synchronous and approximate: admission service holding in-process leases, Redis holding budgets and reservations, and a spend-limit rejection whose overshoot is bounded. Right column, asynchronous and exact: Kafka usage.raw, rate-and-post workers that dedupe on run id, and ClickHouse. One arrow crosses the divide, carrying the materialized balance back to Redis. Both halves meet at an append-only ledger in Postgres, below which sit reconciliation, invoicing and the payment processor.">
   <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
   <text class="dg-banner-t dg-c" x="500" y="33.5">The vertical split is the consistency split. Left: sync, approximate, fails open. Right: async, exact, loses nothing.</text>
   <rect class="dg-box" x="30" y="90" width="140" height="60" rx="8"></rect>
@@ -312,7 +312,7 @@ POST /webhooks/psp                     signature-verified; 200 means "durably qu
   <text class="dg-s dg-c" x="750" y="436.5">~1 B rows/day · dashboards ≤60 s behind</text>
   <path class="dg-line" d="M 540,326 L 458,326"></path>
   <path class="dg-head" d="M 458,321 L 458,331 L 450,326 Z"></path>
-  <text class="dg-lbl dg-c" x="495" y="282">materialised balance</text>
+  <text class="dg-lbl dg-c" x="495" y="282">materialized balance</text>
   <path class="dg-line" d="M 750,452 L 750,478"></path>
   <path class="dg-head" d="M 745,478 L 755,478 L 750,486 Z"></path>
   <text class="dg-lbl" x="765" y="474">hourly aggregate per org</text>
@@ -348,7 +348,7 @@ POST /webhooks/psp                     signature-verified; 200 means "durably qu
 
 **The two properties to point at before walking a request through it:**
 
-1. **The vertical split is the consistency split.** Everything left of centre is synchronous, approximate, and allowed to fail open. Everything right of centre is asynchronous, exact, and not allowed to lose a write. The ledger is where they meet, and it is the only component both halves touch.
+1. **The vertical split is the consistency split.** Everything left of center is synchronous, approximate, and allowed to fail open. Everything right of center is asynchronous, exact, and not allowed to lose a write. The ledger is where they meet, and it is the only component both halves touch.
 2. **Nothing on the request path writes to a database.** Admission reads a lease it already holds in process; the usage event goes to a local outbox. The first durable, ordered, money-shaped write happens in a worker nobody is waiting on.
 
 ### Flow A — one metered request
@@ -489,7 +489,7 @@ Multiply tokens by a price constant at ingest and store the dollar amount. `amou
 
 **Rating as a pure function, and corrections instead of rewrites.**
 
-- **`rate(event, price_version, contract) → amount_nano`, with no clock inside it.** The price version is selected by `occurred_at`, never by `now()`. Given the same three inputs the function returns the same nano-dollars in 2026 that it did in 2024. **That determinism is the property that makes replay safe**, and it's worth naming as a property rather than describing as a behaviour.
+- **`rate(event, price_version, contract) → amount_nano`, with no clock inside it.** The price version is selected by `occurred_at`, never by `now()`. Given the same three inputs the function returns the same nano-dollars in 2026 that it did in 2024. **That determinism is the property that makes replay safe**, and it's worth naming as a property rather than describing as a behavior.
 - **The ledger entry records its inputs** — `price_version` and `rating_version` alongside the amount. An entry that can't tell you how it was computed is an entry you can't defend in a dispute.
 - **Re-rating emits correction entries carrying only the delta**, referencing the original `run_id`, with `source_id = run_id + rating_version`. It never touches the original row. If the correction is against a closed period it lands as a credit or a line on the next invoice — the same rule as late events in §7, which is not a coincidence: **both are the same policy, that a closed period never reopens.**
 - **Tiered discounts are computed at period close over aggregates**, not per event, and are written as their own ledger entries. Per-event rating gives you list price; the close applies the contract.
@@ -630,7 +630,7 @@ The volume is unremarkable — **~55 entries/s, ~1.7B rows/year** — which mean
 8. **Metering requests instead of tokens.** A request is not a unit of cost — one request can cost 10,000× another. This is the same mistake the ChatGPT page's §10 makes about rate limits, for the same reason.
 9. **Enforcing limits in the client SDK.** Trivially bypassed, and the bypass is profitable.
 10. **Refunds and service credits that bypass the ledger.** A credit issued by an admin tool that writes directly to a balance is money created outside the audit trail.
-11. **Forgetting that a cancelled or failed stream still cost money.** Tokens were generated. Decide the policy — we bill output tokens actually produced on a client-cancelled run, and bill nothing on a server-side 5xx — and put it in the docs before a customer discovers it.
+11. **Forgetting that a canceled or failed stream still cost money.** Tokens were generated. Decide the policy — we bill output tokens actually produced on a client-canceled run, and bill nothing on a server-side 5xx — and put it in the docs before a customer discovers it.
 12. **Reopening a closed period.** Late events and corrections land in the *next* period. One rule, applied to both, or accounting will never trust the system again.
 13. **Treating tax as a formatting concern.** It's a jurisdiction, a rate, a rounding rule, and a filing obligation. Scoping it out is correct; discovering it at the end is not.
 14. **A single global balance row.** The whale's row is 15k RMW/s and it will be the first thing that falls over.

@@ -4,7 +4,7 @@ title: "Cursor Tab, part one — the latency budget that destroys retrieval"
 source: src/data/designs/design-cursor.md §0-4
 minutes: 9
 ---
-This problem has a single sentence at its centre, and if you can say it with numbers attached you have essentially passed. It is this: the latency budget destroys the standard retrieval architecture, and everything else in the design is a consequence of rebuilding around that.
+This problem has a single sentence at its center, and if you can say it with numbers attached you have essentially passed. It is this: the latency budget destroys the standard retrieval architecture, and everything else in the design is a consequence of rebuilding around that.
 
 Two hundred milliseconds end to end means no reranker. No cross-encoder. No large model. And no network round trip you don't absolutely need. Candidates who walk in and describe a retrieval pipeline have answered the chat question instead of the Tab question, and the interviewer knows it immediately.
 
@@ -30,7 +30,7 @@ And now the unusual one. There is no correctness invariant. None. A wrong sugges
 
 That is remarkable, and it should change how you design. Here's the sentence: there's no correctness invariant here, which is unusual — a bad suggestion costs a keystroke. Which means I can be aggressive about caching, about speculation, and about using a small model, in ways I would never accept on a transactional system.
 
-Compare that to a ticketing system where a double sale is business-ending. Same interviewer, opposite freedom. Recognising which kind of system you're in is most of the skill.
+Compare that to a ticketing system where a double sale is business-ending. Same interviewer, opposite freedom. Recognizing which kind of system you're in is most of the skill.
 
 Two more requirements worth naming. Privacy — code must not be retained, and enterprise mode must not let it leave the network. That's the constraint that actually blocks deals. And availability degrades to nothing, silently: if the service is down, the editor still edits. You never block the keystroke path. Never.
 
@@ -40,7 +40,7 @@ Start with volume, because it's larger than the user count suggests. A developer
 
 That is a genuinely high-volume inference workload — and it is the exact opposite of a retrieval assistant, which runs at a couple of queries a second. Say that comparison out loud, because it is the reason those two products share almost no architecture despite sounding similar.
 
-Now the second fact, which is the economic centre of the product. At a twenty-five percent acceptance rate, three quarters of completions are never used. Add the ones cancelled mid-flight because the next keystroke arrived, and well over eighty percent of all issued inference produces nothing at all.
+Now the second fact, which is the economic center of the product. At a twenty-five percent acceptance rate, three quarters of completions are never used. Add the ones canceled mid-flight because the next keystroke arrived, and well over eighty percent of all issued inference produces nothing at all.
 
 Most of this product's work is thrown away by design.
 
@@ -54,7 +54,7 @@ That comparison is the single most useful thing you can state in this interview,
 
 One more number. Thirty output tokens on a small model costs a fraction of a cent per request. Trivially cheap. Multiply by three and a half billion a day and it is a seven-figure annual compute bill — of which roughly eighty percent is spent on completions nobody ever used.
 
-Which gives you the conclusion: the cheapest optimisation available is not firing. A filter that suppresses thirty percent of low-value requests is worth more than any inference optimisation on this entire page.
+Which gives you the conclusion: the cheapest optimization available is not firing. A filter that suppresses thirty percent of low-value requests is worth more than any inference optimization on this entire page.
 
 Fourth thing. Entities, and two of them are quietly the product.
 
@@ -72,6 +72,6 @@ The latency budget destroys retrieval, and you should be able to prove it with n
 
 There is no correctness invariant. A bad suggestion costs one keystroke, and that buys architectural freedom you'd never have on a transactional system.
 
-Over eighty percent of issued inference is wasted, so the cheapest optimisation is not running at all. Suppressing low-value requests beats optimising the ones you run.
+Over eighty percent of issued inference is wasted, so the cheapest optimization is not running at all. Suppressing low-value requests beats optimizing the ones you run.
 
 And edit history beats semantics. What somebody changed in the last minute predicts the next change better than any embedding of their codebase.

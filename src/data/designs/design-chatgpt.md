@@ -32,7 +32,7 @@ The constraint that shapes everything: **the thing producing those words is a fi
 
 > "The chat product itself is CRUD — conversations, messages, a sidebar — and I'll build that in about five minutes and not linger. What makes this hard is that the answer is produced by a fixed pool of GPUs, takes ten seconds, and costs real money, which gives me three problems. **First, the generation outlives the request that started it** — so I'm going to make a `Run` a first-class entity, split submit from stream, and make the stream resumable, because a refresh or a deploy must not cost a generation we're already paying for. **Second, capacity is fixed** — 20-odd thousand prompts a second against GPUs I can't buy more of today, so I need a queue and admission control, not autoscaling. **Third, cost is per token and conversations grow forever**, so context management is a real design problem rather than a footnote. I'd like to spend most of my time on the run lifecycle and on scheduling — roughly five minutes each — and I'll tie every choice back to the non-functional requirements as I go."
 
-**Why open this way:** it does three things at once — it *deprioritises* the CRUD out loud, which buys you the clock; it names the seam that makes the problem interesting; and it pre-commits two dives, so you choose the ground you fight on. Anyone who opens by designing the message table has spent their best minutes on the least interesting part of the system.
+**Why open this way:** it does three things at once — it *deprioritizes* the CRUD out loud, which buys you the clock; it names the seam that makes the problem interesting; and it pre-commits two dives, so you choose the ground you fight on. Anyone who opens by designing the message table has spent their best minutes on the least interesting part of the system.
 
 ---
 
@@ -59,7 +59,7 @@ Every row is a number and the decision it forces. Where a row says "eventually",
 | Total completion | 5–30 s, acceptable | **Only because it streams.** Without streaming this product does not exist |
 | **A run survives losing the client** | **100% of runs.** Reconnect resumes with **zero tokens lost**, within 2 s | Forces the token log in §8. A dropped connection is not a cancel |
 | **A run survives losing our streaming server** | 100%. Streaming tier drains in ≤ 30 s and a deploy costs zero runs | Forces splitting the streaming tier from the API tier as its own deploy unit (§7) |
-| A run survives losing its GPU worker | **Best-effort, and say so:** restart from scratch if < 50 tokens were emitted; otherwise finalise what we have and emit `error` | The one place we accept a partial failure, because restarting a 900-token generation costs more than it saves |
+| A run survives losing its GPU worker | **Best-effort, and say so:** restart from scratch if < 50 tokens were emitted; otherwise finalize what we have and emit `error` | The one place we accept a partial failure, because restarting a 900-token generation costs more than it saves |
 | Chat state consistency | **Read-your-writes for the author. ≤ 1 s staleness for everything else** | The sidebar may be a second stale on a second device; the tab you typed in may never be. Forces a stronger read (`LOCAL_QUORUM`) on exactly one query and the cheap read everywhere else |
 | Chat title freshness | Generated async, visible **≤ 2 s**, "New chat" until then | An extra model call must never sit in the send path |
 | Message durability | The assistant message is durable **≤ 1 s after `done`**, asynchronously. **Individual tokens are not durable** | Deliberate twice over: the token log is a replay buffer with a TTL, and persistence is buffered so a GPU never waits on the store (§8). The gap is covered by the client's own buffer |
@@ -74,7 +74,7 @@ Every row is a number and the decision it forces. Where a row says "eventually",
 
 ## 3 · Numbers that reframe the problem
 
-**Traffic, with the assumption labelled**
+**Traffic, with the assumption labeled**
 
 - 200M DAU × ~4 conversations × ~6 turns ≈ **5B generations/day ≈ 57k/sec average**, call it 2–3× at peak.
 - That 25-prompts-per-user-per-day figure is an *assumption about heavy users*. A lighter one — a few prompts a day — lands nearer 20k/sec. **Say which you're using and then say that nothing on this page changes between them**, because the shape of the design is set by the concurrency and the fixed capacity, not by the exact arrival rate.
@@ -108,13 +108,13 @@ Every row is a number and the decision it forces. Where a row says "eventually",
 - **User** — id, **tier** (`free` | `plus` | `pro`). The tier is not a billing detail here; it's an input to the scheduler (§10)
 - **Chat** — id, userId, title, createdAt, `lastMessageAt`
 - **Message** — id, chatId, **role** (`user` | `assistant`), content, createdAt, tokenCount
-- **Run** — id, chatId, messageId, **status** (`queued` | `running` | `done` | `cancelled` | `failed`), model, promptVersion, inputTokens, outputTokens, workerId
+- **Run** — id, chatId, messageId, **status** (`queued` | `running` | `done` | `canceled` | `failed`), model, promptVersion, inputTokens, outputTokens, workerId
 
 **Load-bearing details:**
 
-- **`Run` is the entity nobody creates, and creating it is most of the answer.** A `Message` is finished text; a run is *one attempt to produce it*, and that attempt has a life of its own — it can queue, start, stall, be cancelled, fail at token 300, and be retried, all before any assistant message exists to write down. Every hard thing on this page (resumable streams, cancellation, quotas, scheduling, cost attribution) is an operation on a run. **If your entity list is User/Chat/Message, you have no noun to hang any of it on**, and you'll end up smuggling run state into the message row as nullable columns.
+- **`Run` is the entity nobody creates, and creating it is most of the answer.** A `Message` is finished text; a run is *one attempt to produce it*, and that attempt has a life of its own — it can queue, start, stall, be canceled, fail at token 300, and be retried, all before any assistant message exists to write down. Every hard thing on this page (resumable streams, cancellation, quotas, scheduling, cost attribution) is an operation on a run. **If your entity list is User/Chat/Message, you have no noun to hang any of it on**, and you'll end up smuggling run state into the message row as nullable columns.
 - **`Run.status` is the thing the client polls when it has no stream**, and it's how "the tab closed but the answer finished" is even expressible.
-- **`Chat.lastMessageAt` is denormalised on purpose** — the sidebar is `ORDER BY lastMessageAt DESC` and computing it from messages on every sidebar load is the one query that would actually hurt.
+- **`Chat.lastMessageAt` is denormalized on purpose** — the sidebar is `ORDER BY lastMessageAt DESC` and computing it from messages on every sidebar load is the one query that would actually hurt.
 - **`Run.inputTokens` / `outputTokens`** are the quota ledger (§10) and the cost-attribution dataset. Without them you cannot answer "which users cost us money" or enforce anything but a request count.
 
 ---
@@ -379,7 +379,7 @@ Three tiers, and the split is the design:
 9. **Failure path — client disconnects.** Nothing happens to the run. It keeps generating, tokens keep landing in the log, the message gets persisted. **A closed socket is not a cancel** (§8).
 10. **Failure path — client reconnects.** The browser resends `Last-Event-ID`; whichever instance it lands on replays from that offset and continues live. The user sees a brief pause, not a truncated answer.
 11. **Failure path — a streaming instance is redeployed.** It drains, its clients reconnect elsewhere, and no run is affected — because no run state ever lived there (§7).
-12. **Failure path — an inference worker dies mid-generation.** Under 50 tokens emitted, requeue the run from scratch. Past that, finalise the partial message and emit `error` with `retryable: true` so the UI can offer regenerate. **Say which side of that line you're on and why** — it's an explicit cost trade, not an oversight.
+12. **Failure path — an inference worker dies mid-generation.** Under 50 tokens emitted, requeue the run from scratch. Past that, finalize the partial message and emit `error` with `retryable: true` so the UI can offer regenerate. **Say which side of that line you're on and why** — it's an explicit cost trade, not an oversight.
 13. **Failure path — the queue is over capacity.** Free tier gets `429` with a `Retry-After` and a visible "at capacity" state; paid tiers keep going. **We shed at the door and never kill work in flight** (§9).
 
 ### Flow B — resuming a conversation
@@ -402,7 +402,7 @@ One request: `POST /messages` that holds the connection open and streams the ans
 
 The run and the connection now share a lifetime, and three ordinary events kill a generation you're paying for:
 
-- **The user refreshes.** The connection dies, and with it the only channel the answer was travelling down. The tokens already generated are gone; the ones still coming have nowhere to go.
+- **The user refreshes.** The connection dies, and with it the only channel the answer was traveling down. The tokens already generated are gone; the ones still coming have nowhere to go.
 - **You deploy.** The instance holding that connection is also the instance holding the upstream call to the worker. A rolling deploy — several a day — kills every generation in flight on each instance it cycles. **At 570k concurrent streams, a deploy is a mass-extinction event.**
 - **A second device opens the same chat.** It cannot see the run at all, because the run exists only as a connection to another machine.
 
@@ -434,7 +434,7 @@ Even with SSE and a token log, **holding 570k long-lived connections in the same
 | Holds | Nothing | 570k sockets, ~23 GB of buffers |
 | Sized at | Normal web fleet | **~50 machines** |
 
-Bolt them together and every routine API deploy severs hundreds of thousands of live connections. Split them and the streaming tier becomes **stateless with respect to runs** — it holds sockets, but every byte it sends comes from the token log, so any instance can serve any run and a drain is just "reconnect somewhere else." **This is the single most practical thing on the page**, and it generalises: *any* tier holding stateful client connections wants to be its own deploy unit, whether the payload is tokens, presence, or collaborative edits.
+Bolt them together and every routine API deploy severs hundreds of thousands of live connections. Split them and the streaming tier becomes **stateless with respect to runs** — it holds sockets, but every byte it sends comes from the token log, so any instance can serve any run and a drain is just "reconnect somewhere else." **This is the single most practical thing on the page**, and it generalizes: *any* tier holding stateful client connections wants to be its own deploy unit, whether the payload is tokens, presence, or collaborative edits.
 
 **What it costs:** an extra network hop and an extra service to operate, and the token log becomes a hard dependency on the read path — if Redis is down, live streams stop even though generation continues. The mitigation is that `GET /runs/{id}` and the persisted message still work, so the product degrades to "your answer will appear when it's done" rather than failing.
 
@@ -548,7 +548,7 @@ Worse, naive per-request dispatch wastes the hardware even when it *isn't* busy 
 
 ### The mechanical floor — what a weight is and why one request wastes a GPU
 
-*You do not need this in an interview. You need it so the rest of §9 is derived rather than memorised, and so you can answer "why?" one level down without bluffing.*
+*You do not need this in an interview. You need it so the rest of §9 is derived rather than memorized, and so you can answer "why?" one level down without bluffing.*
 
 **A weight is just a number, and the model is a pile of them.** "70 billion parameters" means literally 70 billion numbers, arranged into matrices. Training decides what those numbers are; **after training they are frozen and byte-for-byte identical for every request, forever.** The weights *are* the model — there is nothing else to it.
 
@@ -597,7 +597,7 @@ Same 140 GB moved. Same ~40 ms. **Thirty-two tokens out instead of one.** The ma
 
 ### Prefill vs decode, from first principles
 
-**Start with the correct instinct: prefill is the more parallelisable half.** That is not a quirk — it is the definition, and it is exactly why prefill is compute-bound while decode is not. But "prefill is the first word" undersells what it does, and the gap is where the confusion lives.
+**Start with the correct instinct: prefill is the more parallelizable half.** That is not a quirk — it is the definition, and it is exactly why prefill is compute-bound while decode is not. But "prefill is the first word" undersells what it does, and the gap is where the confusion lives.
 
 **How a matrix multiply becomes a word, end to end.**
 
@@ -614,7 +614,7 @@ Position 3 predicts what follows position 3 — but you already *know* that; it'
 
 **And now decode.** One new token in, so a `[1 × 8192]` vector: through 80 layers, attending against the N cached positions and matrix-multiplying against the full weight set, out to logits, sample, **append its own K/V to the cache**, repeat.
 
-**Why decode cannot be parallelised within one request — and it genuinely cannot.** Token *N+2* depends on token *N+1* having been *sampled*. There is no vector to feed in until the previous step chose one. It is a true serial dependency, not an engineering shortcoming. **Prefill parallelises across positions; decode has only one position, so its only available parallelism is across *other users*.** That single sentence is why batching is a decode optimisation and barely matters for prefill.
+**Why decode cannot be parallelized within one request — and it genuinely cannot.** Token *N+2* depends on token *N+1* having been *sampled*. There is no vector to feed in until the previous step chose one. It is a true serial dependency, not an engineering shortcoming. **Prefill parallelizes across positions; decode has only one position, so its only available parallelism is across *other users*.** That single sentence is why batching is a decode optimization and barely matters for prefill.
 
 **The asymmetry in numbers**, for a 2,000-token prompt and a 500-token answer on a 70B model:
 
@@ -635,10 +635,10 @@ Position 3 predicts what follows position 3 — but you already *know* that; it'
 **A queue in front of a fixed pool, and continuous batching inside each worker.**
 
 - **Batching pays for the haul** — the mechanism above. One fetch of the weights advances every sequence in the batch by one token, so throughput scales with batch size while wall-clock barely moves.
-- **"Continuous" is the scheduling half, and it's the part that's actually a design decision.** *Static* batching forms a batch of 64, runs it to completion, and only then starts the next — so a one-line reply finishes in 10 steps and its slot **sits empty for the remaining 1,990** while a 2,000-token essay grinds on beside it. The batch decays toward one active sequence, which is exactly the starved case you built the batch to avoid. **Continuous batching re-forms the batch every single decode step**: a finished sequence is evicted the moment it emits its stop token and a queued one takes the slot on the next step. Utilisation stays flat instead of sawtoothing. *(vLLM and TGI are the production implementations; naming one is fine, but the mechanism is the point.)*
+- **"Continuous" is the scheduling half, and it's the part that's actually a design decision.** *Static* batching forms a batch of 64, runs it to completion, and only then starts the next — so a one-line reply finishes in 10 steps and its slot **sits empty for the remaining 1,990** while a 2,000-token essay grinds on beside it. The batch decays toward one active sequence, which is exactly the starved case you built the batch to avoid. **Continuous batching re-forms the batch every single decode step**: a finished sequence is evicted the moment it emits its stop token and a queued one takes the slot on the next step. Utilization stays flat instead of sawtoothing. *(vLLM and TGI are the production implementations; naming one is fine, but the mechanism is the point.)*
 - **The wrinkle worth volunteering:** a joining sequence needs its prefill done, and prefill is a big compute-bound burst (see above). Run it as one step and **every other sequence in the batch stalls for it** — one user pasting a 30k-token document adds a visible hitch to sixty-three other people's inter-token latency. The fix is **chunked prefill**: split the newcomer's prompt across several steps and interleave it with decode. **This is the concrete mechanism behind "one huge prompt degrades everyone," which is why §10 meters tokens rather than requests.**
 - **Prefill and decode are different workloads** — derived above from the same matrix multiply. **Prefill** is compute-bound and scales with input length; it is essentially all of your TTFT. **Decode** is memory-bandwidth bound and scales with output length. **The consequence: every token of context you add is paid at exactly the moment the user is staring at a blank screen** — and, because KV cache caps the batch, it's also paid by everyone else in the form of a slot. That's why §11 is a capacity dive as much as a cost dive.
-- **Speculative decoding** — derived above: a draft model's guesses give the large model several positions at once, converting a starved matrix-vector step back into a matrix-matrix one. Roughly 2× on decode for identical output, and it works especially well on code and boilerplate because they're highly predictable. **An optimisation inside the worker, not a change to anything above it.**
+- **Speculative decoding** — derived above: a draft model's guesses give the large model several positions at once, converting a starved matrix-vector step back into a matrix-matrix one. Roughly 2× on decode for identical output, and it works especially well on code and boilerplate because they're highly predictable. **An optimization inside the worker, not a change to anything above it.**
 - **Admission control at the door.** When queue depth exceeds what the pool can drain within the target wait, reject *new* runs with a clear, retryable state. **Never kill an in-flight run** — it has already consumed GPU-seconds, and killing it converts spent money into zero value. Shedding at the door is the only kind of shedding that saves anything.
 - **Route by KV-cache affinity where you can.** A follow-up turn in a chat shares almost all of its prefix with the previous turn; land it on the worker that still has that prefix cached and you skip most of prefill. Best-effort — a worker can be full — and worth naming as a routing *preference* rather than a rule.
 
@@ -656,7 +656,7 @@ A rate limit: N requests per minute per user, maybe a higher N for paid tiers.
 
 ### What breaks
 
-**A request is not a unit of cost.** One user pasting a 30,000-token document and asking for a long summary consumes more GPU-seconds than a hundred users asking one-line questions. A requests-per-minute cap prices those identically, which means it fails at both jobs at once: it does not stop the expensive user from monopolising the pool, and it *does* throttle the cheap user who's doing nothing wrong. **The limiter is measuring the wrong thing, so no value of N is correct.**
+**A request is not a unit of cost.** One user pasting a 30,000-token document and asking for a long summary consumes more GPU-seconds than a hundred users asking one-line questions. A requests-per-minute cap prices those identically, which means it fails at both jobs at once: it does not stop the expensive user from monopolizing the pool, and it *does* throttle the cheap user who's doing nothing wrong. **The limiter is measuring the wrong thing, so no value of N is correct.**
 
 It also can't express business priority. Free, Plus, and Pro are not "different N" — they're a claim on scarce capacity that should mean something specific when the pool is full, and a flat cap says nothing about who waits.
 
@@ -703,13 +703,13 @@ Two things, one gradual and one absolute:
 [ the new prompt         ]  ← always unique
 ```
 
-**2. Summarise asynchronously, never in the send path.** When a chat crosses a token threshold, a background job asks a *small, cheap* model to fold the oldest turns into the existing summary, and caches the result on the chat. Doing this inline would add a second model call to the moment the user is waiting, which trades the cost problem for a worse latency problem. **Update it incrementally** — fold new turns into the previous summary rather than re-summarising the whole transcript — or the summariser's own cost grows quadratically with conversation length, which is the failure mode of the naive version wearing a disguise.
+**2. Summarize asynchronously, never in the send path.** When a chat crosses a token threshold, a background job asks a *small, cheap* model to fold the oldest turns into the existing summary, and caches the result on the chat. Doing this inline would add a second model call to the moment the user is waiting, which trades the cost problem for a worse latency problem. **Update it incrementally** — fold new turns into the previous summary rather than re-summarizing the whole transcript — or the summarizer's own cost grows quadratically with conversation length, which is the failure mode of the naive version wearing a disguise.
 
 **3. Order the prompt static → dynamic, and know exactly why.** Inference caches KV state by prefix: an identical leading span skips prefill for that span. The ordering above is stable-prefix-first, so turn N's system prompt and summary are already warm and only the tail needs prefilling. **Put anything volatile early — a timestamp, the user's name, a retrieved snippet — and you invalidate the entire prefix on every single turn.** Same tokens, same bill on paper, several hundred milliseconds of TTFT difference. **It is the highest ratio of impact to effort on this page and it is invisible unless you know to look.** **→ ties directly to the TTFT NFR.**
 
 ### What it costs
 
-**Summarisation loses detail, and it loses it silently.** Something in turn 3 that the summary dropped is gone, and the assistant will confidently proceed without it — this is the real cost and it's a product decision, not an engineering one. Mitigations to name: keep more verbatim turns, tune the threshold, or (the next step up, and the bridge to the RAG variant in §15) index the full transcript and retrieve from it semantically instead of summarising, which trades a summariser for a retriever. And the summary is now a cached derived value with an invalidation story you own.
+**Summarization loses detail, and it loses it silently.** Something in turn 3 that the summary dropped is gone, and the assistant will confidently proceed without it — this is the real cost and it's a product decision, not an engineering one. Mitigations to name: keep more verbatim turns, tune the threshold, or (the next step up, and the bridge to the RAG variant in §15) index the full transcript and retrieve from it semantically instead of summarizing, which trades a summarizer for a retriever. And the summary is now a cached derived value with an invalidation story you own.
 
 ---
 
@@ -740,7 +740,7 @@ Two things, one gradual and one absolute:
 |---|---|---|---|---|
 | **Messages** | Range scan by `chatId`, newest first; append-only; ~1.8 PB/yr | Must not lose an acked write | **ScyllaDB**, `PRIMARY KEY ((chat_id), created_at, message_id)`, clustering DESC | The three-way debate above — chosen on the petabyte bill, not the data model |
 | **Runs** | Point read/write by `runId` from three different services | High, but small and short-lived | **ScyllaDB**, separate table, `PRIMARY KEY (run_id)` | "It gets its own table rather than living under `chat_id`, because the streaming tier and the cancel endpoint both arrive holding a `runId` and nothing else. In a wide-column store the answer to a second access pattern is a second table, not a secondary index" |
-| **Chat sidebar** | Newest-first list per user, ~50 rows | High | **ScyllaDB**, `chats_by_user`, `PRIMARY KEY ((user_id), last_message_at, chat_id)` DESC | "Query-driven denormalisation — the wide-column answer to a second access pattern. Bumping `last_message_at` is a delete-plus-insert of a mutable clustering key, normally an anti-pattern; **it's fine at ~200 bytes across a partition of dozens of rows**, and if the tombstones ever bit I'd move the ordering into a Redis sorted set per user and keep Scylla for the rows" |
+| **Chat sidebar** | Newest-first list per user, ~50 rows | High | **ScyllaDB**, `chats_by_user`, `PRIMARY KEY ((user_id), last_message_at, chat_id)` DESC | "Query-driven denormalization — the wide-column answer to a second access pattern. Bumping `last_message_at` is a delete-plus-insert of a mutable clustering key, normally an anti-pattern; **it's fine at ~200 bytes across a partition of dozens of rows**, and if the tombstones ever bit I'd move the ordering into a Redis sorted set per user and keep Scylla for the rows" |
 | **Token log** | Append + replay-from-offset, 10-min TTL | **None, deliberately** | **Redis Streams**, `run:{runId}`, `EXPIRE` after `done` | The §8 debate — chosen for replay-from-offset, which is what makes reconnect free |
 | Queue + scheduler state | Enqueue/dequeue by tier, ~57k/sec | Low — a lost queued run is retryable | **Redis sorted sets** per tier, score = enqueue time adjusted by aging | "Kafka is durable and ordered but I want priority and aging, and reordering is exactly what a log doesn't do. SQS has no priority. A sorted set is a priority queue with a score I control" |
 | Quota counters | Read-modify-write per send | None | **Redis**, sliding window, **fails open** | "A quota check is not worth an outage. If it's down I lose metering for a minute; §9's admission control still protects the pool" |
@@ -781,7 +781,7 @@ Then the compliance edge that comes with it: **deletion must reach all three tie
 11. **Autoscaling the GPU pool.** You cannot buy 9,000 servers during a spike. It's a scheduling problem, not a capacity problem.
 12. **Volatile content early in the prompt.** Destroys prefix caching and hundreds of milliseconds of TTFT for free.
 13. **Replaying the full transcript every turn.** Cost and TTFT grow with conversation length, and it hits a hard ceiling.
-14. **Summarising synchronously in the send path.** Trades a cost problem for a worse latency problem.
+14. **Summarizing synchronously in the send path.** Trades a cost problem for a worse latency problem.
 15. **Offset pagination on messages.** A growing list makes offsets skip and repeat, and deep offsets are slow.
 16. **No idempotency key on send.** A retried submit double-charges a scarce resource and streams two answers into one bubble.
 17. **The GPU worker writing to the database itself.** Couples the most expensive resource in the system to the availability of the cheapest, so a storage p99 spike becomes a capacity outage.
@@ -789,11 +789,11 @@ Then the compliance edge that comes with it: **deletion must reach all three tie
 19. **Unbounded token-log memory.** A Redis OOM takes out every live stream simultaneously. Bound the buffer, TTL the key.
 20. **No data lifecycle.** 1.8 PB/year of append-only chat with no tiering is a bill that compounds.
 21. **Pricing your own serving cost off published API rates.** Overstates it by more than 10×; the unit is GPU-seconds.
-22. **Optimising total completion time instead of TTFT.** Users tolerate ten seconds of streaming and not three seconds of blank screen.
+22. **Optimizing total completion time instead of TTFT.** Users tolerate ten seconds of streaming and not three seconds of blank screen.
 
 **Interview-performance traps** → `00-interview-mechanics.md` §6. The two specific to this problem:
 
-23. **Spending fifteen minutes inside the model.** Attention, quantisation, and fine-tuning are a different interview. The model is a black box with a latency, a cost, and a capacity; the engineering is everything around it.
+23. **Spending fifteen minutes inside the model.** Attention, quantization, and fine-tuning are a different interview. The model is a black box with a latency, a cost, and a capacity; the engineering is everything around it.
 24. **Designing the message schema first.** It's the most familiar part and the least interesting, and the clock it eats comes straight out of §9 and §10.
 
 ---
@@ -881,7 +881,7 @@ Then the compliance edge that comes with it: **deletion must reach all three tie
 <p class="diagram-cap">Thirteen marks, and the top row carries the argument: ~50 machines against ~9,000 is why the tiers are separate deploys. Say the ratio before you draw the second box.</p>
 
 1. **Three tiers: API (CRUD), Streaming (sockets), Inference (GPUs).** Say the ~50 machines vs ~9,000 ratio — that ratio is the reason they're separate.
-2. **`Run` is an entity.** Queued → running → done / cancelled / failed. Everything hard is an operation on it.
+2. **`Run` is an entity.** Queued → running → done / canceled / failed. Everything hard is an operation on it.
 3. **Submit and stream are two calls.** `POST /messages` returns `{ userMessageId, runId }` immediately; `GET /runs/{id}/stream` is SSE. Optimistic echo hides the round trip.
 4. **SSE over WebSocket** — one-way tokens, free reconnect via `Last-Event-ID`; cancel is a separate POST and that's the price.
 5. **Inference worker → Redis Stream `run:{runId}` → streaming tier.** Neither side knows the other. **SSE event id = Redis entry id**, so reconnect is a replay from an offset.
@@ -890,7 +890,7 @@ Then the compliance edge that comes with it: **deletion must reach all three tie
 8. **Fixed GPU pool + priority queue + continuous batching.** You cannot autoscale it. Shed at the door, never kill in-flight.
 9. **Prefill is compute-bound (that's your TTFT); decode is bandwidth-bound.** Every context token is paid while the user watches a blank screen.
 10. **Meter tokens, not requests**, per user; **weighted queues with aging**, not strict priority, per tier. Fairness and priority are different mechanisms.
-11. **Context: system prompt → rolling summary → last K turns → new prompt.** Async incremental summariser, stable prefix first for the KV cache.
+11. **Context: system prompt → rolling summary → last K turns → new prompt.** Async incremental summarizer, stable prefix first for the KV cache.
 12. **ScyllaDB partitioned on `chatId`** (no time bucket — unlike Discord, a chat has one writer and is bounded), a second table for the sidebar, **hot/warm/cold at 30 and 180 days** with whole chats to S3.
 13. **Numbers to have in the margin:** 57k gen/sec · **570k concurrent streams** · ~72k GPUs · **~$3.5M/day** · 1.8 PB/yr.
 
@@ -905,9 +905,9 @@ Then the compliance edge that comes with it: **deletion must reach all three tie
 | **This page — pure conversation** | Nothing | Run lifecycle, scheduling, and context cost are the whole design |
 | **Chat over private documents** (internal assistant, support bot) | **Retrieval, and permissions** | Retrieval quality now bounds answer quality, and the model must never receive a chunk the asker can't read — **filter before prompt assembly, never after generation, and never cache an answer under a key that omits permission context.** The run lifecycle is unchanged; the hard invariant moves from "don't lose the run" to "don't leak the document" |
 | **Editing or branching a message** | A conversation is a tree, not a list | Messages get a `parentId`; the sidebar shows a path through the tree. Cheap on the read side, and it makes prefix caching *better* — siblings share a prefix by construction |
-| **Multimodal input** | Images and audio in | Tokenisation changes and inputs get much larger, so **prefill dominates and TTFT degrades**. Upload becomes its own async pipeline; the streaming half is untouched |
+| **Multimodal input** | Images and audio in | Tokenization changes and inputs get much larger, so **prefill dominates and TTFT degrades**. Upload becomes its own async pipeline; the streaming half is untouched |
 | **Tool calling / agent runs** | The model acts | A run becomes **multi-step with unpredictable duration**, so the token log carries step events, not just tokens. New problems: **authorization per tool call**, idempotency on retried actions, **termination conditions**, and cost explosion via loops. Everything on this page still applies and is no longer sufficient |
-| **Inline code completion** | A ~200 ms ceiling | **Too tight for a queue, a large model, or retrieval.** Small specialised model, aggressive suppression, cancellation as the dominant cost lever. A different architecture — see the Cursor Tab page, which is this row worked out in full |
-| **Batch / offline generation** | No user waiting | **The latency requirement vanishes entirely.** No streaming, no TTFT, no run lifecycle — batch the pool to ~100% utilisation and optimise purely for throughput per GPU-hour. The inverse of this page |
+| **Inline code completion** | A ~200 ms ceiling | **Too tight for a queue, a large model, or retrieval.** Small specialized model, aggressive suppression, cancellation as the dominant cost lever. A different architecture — see the Cursor Tab page, which is this row worked out in full |
+| **Batch / offline generation** | No user waiting | **The latency requirement vanishes entirely.** No streaming, no TTFT, no run lifecycle — batch the pool to ~100% utilization and optimize purely for throughput per GPU-hour. The inverse of this page |
 
 **The general lesson:** pure conversation is the *simplest* point in this family and the only one where the run lifecycle is the whole story. Everything below it inherits §7 through §11 intact and adds either an authorization problem or a termination problem on top.

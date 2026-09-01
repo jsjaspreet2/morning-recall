@@ -12,10 +12,10 @@ version. Pointers to the deep sections are at the bottom.
 | **0–3** | Clarify. Then state the contract out loud. **Do not type yet.** |
 | **3–7** | Type the prop signature. Say why each prop exists as you write it. |
 | **7–12** | Skeleton renders. Hardcoded data is fine. Something on screen. |
-| **12–35** | Core behaviour. The one thing they actually asked for. |
+| **12–35** | Core behavior. The one thing they actually asked for. |
 | **35–38** | Checkpoint out loud: what works, what's left, what you'd cut. |
 | **38–50** | **Tests. Non-negotiable.** Whatever state the component is in. |
-| **50–55** | Extensions, or the highest-value missing behaviour. |
+| **50–55** | Extensions, or the highest-value missing behavior. |
 | **55–60** | Name what you skipped and what you'd do next. |
 
 **If you are behind at 35, you are still writing tests at 38.** Test quality is a named axis; a
@@ -63,7 +63,7 @@ type Props = {
 
 - *"Controlled when the parent owns it, uncontrolled with a default when it doesn't, never both."*
 - *"`items` rather than compound children, so the ARIA wiring stays my responsibility and it
-  virtualises later without an API change. I'd add `renderItem` if rows need to differ."*
+  virtualizes later without an API change. I'd add `renderItem` if rows need to differ."*
 - *"The fetcher is injected with the signal — the component owns rendering and lifecycle, the
   caller owns transport. That's what makes it testable with no network."*
 - *"One `status` union, not three booleans — `isLoading` and `isError` can both be true and most
@@ -141,7 +141,7 @@ re-runs an effect. Different jobs.
 |---|---|
 | **Correctness** | The keyboard contract, the async race, the empty/error/loading states |
 | **API design** | Saying why each prop exists — and naming one you refused to add |
-| **Test quality** | Behaviour not implementation; the race; a11y queries over test-ids |
+| **Test quality** | Behavior not implementation; the race; a11y queries over test-ids |
 
 **Five tests that always earn**, in this order: renders the happy path · the keyboard contract ·
 the async race (two in flight, only the last lands) · the error state · the empty state.
@@ -171,7 +171,7 @@ you hit it live, say what's happening and switch rather than thrashing.
 Say these unprompted near the end — each is a follow-up you pre-empt:
 
 > *"I'd make it controlled-or-uncontrolled; right now it's uncontrolled."*
-> *"Virtualisation is the next thing this needs at a thousand rows — `items` means that's an
+> *"Virtualization is the next thing this needs at a thousand rows — `items` means that's an
 > internal change."*
 > *"I'd add `renderItem` when rows need to differ, and keep the wrapper so the ARIA stays mine."*
 > *"The thing I deliberately skipped is X, because Y — I'd do it next."*

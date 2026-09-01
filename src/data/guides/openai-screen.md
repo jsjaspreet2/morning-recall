@@ -31,7 +31,7 @@ existing pages to reread and which material is new.
 | **Shape** | One open-ended design, driven by your requirements pass | One practical problem, extended in parts by follow-up |
 | **Interviewer** | One engineer, working-session posture | One engineer, working-session posture |
 | **Scope** | UI wireframe → API contract → storage → scale | React + TypeScript, or plain TS |
-| **Graded on** | Requirements discipline, trade-off reasoning, depth on chosen tech, behaviour at 10×/100×/1000× | Solution design, code quality, performance, **test coverage**, communication |
+| **Graded on** | Requirements discipline, trade-off reasoning, depth on chosen tech, behavior at 10×/100×/1000× | Solution design, code quality, performance, **test coverage**, communication |
 | **AI tools** | Assume not allowed unless the recruiter says otherwise — confirm | Same. CoderPad has no Copilot |
 
 **Two rounds on two days is the standard OpenAI screen**, split for scheduling rather than
@@ -109,7 +109,7 @@ token." Requirements reported alongside it: incremental rendering, async state m
 the UI responsive, preventing duplicate submits, loading/error/cancel states.
 
 **2. "Text editor concepts" is what the *other* half of a chat surface is made of.** The half
-people don't practise. Every ChatGPT-shaped product has an editing surface, and it is where the
+people don't practice. Every ChatGPT-shaped product has an editing surface, and it is where the
 fiddly correctness lives:
 
 | Surface | Editor concepts it forces |
@@ -124,7 +124,7 @@ fiddly correctness lives:
 holds, the highest-probability shape for 9/17 is:
 
 > **A chat surface where the assistant response streams in, and one part of the problem makes the
-> text surface itself non-trivial** — either the composer gains behaviour (mentions, slash
+> text surface itself non-trivial** — either the composer gains behavior (mentions, slash
 > commands, Enter semantics, auto-resize), or the transcript becomes editable (edit-and-resubmit),
 > or the streamed output lands in an editable document rather than a read-only bubble.
 
@@ -159,7 +159,7 @@ transition, and that time is tight. Before you write a line:
 2. **The notes column is the scoring surface.** Write functional requirements, non-functional
    requirements, and the two or three numbers you derive there, and **never erase them**. When the
    interviewer pushes to 1000×, you point at the number rather than re-deriving it.
-3. **Rectangle, arrow, text. That is the whole tool.** Do not colour-code, do not use the library.
+3. **Rectangle, arrow, text. That is the whole tool.** Do not color-code, do not use the library.
 4. **Wireframe first, and literally.** For an OpenAI prompt, a small box-drawing of the actual
    screen — transcript, composer, model controls, stop button — earns more in the first five
    minutes than any box-and-arrow diagram, because it is what makes the requirements concrete.
@@ -178,8 +178,8 @@ be to treat this as a fresh subject. It is mostly a **re-index** of what you hav
 | Inference serving, GPU scheduling, cancellation reaching the GPU | `Designs → Cursor Tab §9–§10` | Reuse for the queue/GPU half |
 | Undo/redo, inverse ops, batching, coalescing | `Figma Screen §06` | The document-model half of `§09` |
 | Command/inverse pattern, document invariants | `Figma Screen §04` | Same |
-| Race guards: abort + generation counter | `UIE Components §17 F` | Memorise. It appears in both rounds |
-| Debounce/throttle in React, key handler placement | `UIE Components §17 K, §17 M` | Composer behaviour |
+| Race guards: abort + generation counter | `UIE Components §17 F` | Memorize. It appears in both rounds |
+| Debounce/throttle in React, key handler placement | `UIE Components §17 K, §17 M` | Composer behavior |
 | Roving tabindex, focus trap, live regions | `UIE Components §17 A, B, E` | The a11y extension |
 | Combobox / typeahead full build | `UIE Components §06` | The `@`-mention popup is this component |
 | Virtualized list | `UIE Components §13` | The "thousands of messages" follow-up |
@@ -225,7 +225,7 @@ are not empty weeks: **Discord is 8/26, Cursor is 8/28, Figma is 9/9.** The plan
 those three screens own their surrounding days and takes what is left.
 
 The good news is that the overlap is enormous. Cursor prep *is* OpenAI streaming prep. Figma prep
-*is* OpenAI editor prep. Weeks 1 and 2 below are mostly labelled "borrowed" for that reason — you
+*is* OpenAI editor prep. Weeks 1 and 2 below are mostly labeled "borrowed" for that reason — you
 are not adding four weeks of work, you are adding about six focused sessions plus two mocks.
 
 | Window | Days | Focus | Session |
@@ -309,7 +309,7 @@ working core in twenty minutes.
 | **`@`-mention or `/`-command autocomplete in the composer** | Trigger token before the caret, `setRangeText`, anchored popup, combobox ARIA |
 | **Accessible announcements for a stream** | *Not* `aria-live` on the streamed text. A batched `role="status"` line. See `UIE Components §14 C` |
 | **Thousands of messages** — keep it responsive | Virtualization with variable heights, or a windowed transcript with a "jump to latest" |
-| **Refactor deeply nested code to support a new requirement, keeping tests green** | Reported at OpenAI explicitly. Read the tests first; change structure, not behaviour |
+| **Refactor deeply nested code to support a new requirement, keeping tests green** | Reported at OpenAI explicitly. Read the tests first; change structure, not behavior |
 | **Build an iterator: sequence → 2D → async** | Reported at OpenAI explicitly. `Symbol.iterator`, then `Symbol.asyncIterator`, laziness, early exit |
 
 **Tier 3 — reported at OpenAI but off the frontend path. Read once; do not drill.**
@@ -505,12 +505,12 @@ Then actually deliver depth on the server side you *do* own, which for this syst
 
 | Server-side area | You genuinely own this |
 |---|---|
-| Transport: SSE vs WebSocket vs chunked, and proxy/buffering behaviour | ✅ Yes — `§05 B` |
+| Transport: SSE vs WebSocket vs chunked, and proxy/buffering behavior | ✅ Yes — `§05 B` |
 | Conversation storage, message schema, pagination | ✅ Yes |
 | Resumable generation, `Last-Event-ID`, a durable token log | ✅ Yes — `§05 E` |
 | Idempotency on submit, exactly-once message creation | ✅ Yes |
 | Rate limiting and quota by tier | ✅ Yes |
-| Context-window truncation and summarisation policy | ✅ Yes — `LLM assistant §9` |
+| Context-window truncation and summarization policy | ✅ Yes — `LLM assistant §9` |
 | Queueing and admission control under overload | ✅ Yes |
 | Prompt-cache ordering for TTFT | ✅ Yes — `LLM assistant §9` |
 | Continuous batching, KV cache, tensor parallelism internals | ⚠️ Shape only — say so |
@@ -769,7 +769,7 @@ times that at peak. If a generation streams for 10 s, **concurrent open streams 
 tier a first-class component rather than an afterthought, and it is the one you point back at when
 they say "1000×".
 
-**Wireframe (draw this, small, top-left):** left rail of conversations · centre transcript of
+**Wireframe (draw this, small, top-left):** left rail of conversations · center transcript of
 alternating bubbles with the last one streaming · composer with a send/stop button · a model
 picker.
 
@@ -784,7 +784,7 @@ picker.
 | `GET /conversations?cursor=` | Keyset pagination, newest first |
 | `GET /conversations/{id}/messages?before=` | Keyset on `(conversationId, createdAt, id)` |
 | `POST /conversations/{id}/messages` | Body: text. Header: `Idempotency-Key`. Returns `{userMessageId, generationId}` **immediately** |
-| `GET /generations/{id}/stream` | SSE. Honours `Last-Event-ID` |
+| `GET /generations/{id}/stream` | SSE. Honors `Last-Event-ID` |
 | `POST /generations/{id}/cancel` | Sets the worker's stop flag |
 
 **The split of submit from stream is the design decision to highlight.** One request that both
@@ -804,9 +804,9 @@ newest generation is still `running`, open its stream with no `Last-Event-ID` an
 from offset 0 — which is exactly the same code path as reconnect.
 
 **Dive 1 — context management.** The prompt is bounded; conversations are not. The policy ladder:
-keep the system prompt, keep the last K turns verbatim, summarise the middle into a rolling
+keep the system prompt, keep the last K turns verbatim, summarize the middle into a rolling
 summary, and optionally retrieve semantically from the rest. **Order the prompt stable-prefix-first
-so the prompt cache hits.** The trade-off to state: summarisation costs an extra model call and
+so the prompt cache hits.** The trade-off to state: summarization costs an extra model call and
 loses detail, so it should trigger on a token threshold, be cached on the conversation, and be
 recomputed incrementally rather than from scratch each turn.
 
@@ -825,7 +825,7 @@ engineering one."*
 **Traps, ranked:**
 1. Not splitting submit from stream, so resume is impossible without a redesign.
 2. Treating a closed connection as success. Completion and failure must be distinguishable.
-3. Cancelling the HTTP request and calling it Stop. The GPU keeps going.
+3. Canceling the HTTP request and calling it Stop. The GPU keeps going.
 4. Offset-based pagination on messages. Use keyset; a growing list makes offsets wrong and slow.
 5. Forgetting the idempotency key, so a retried submit double-charges and double-generates.
 6. Handwaving "we'll use WebSockets" without the reconnect story.
@@ -1087,7 +1087,7 @@ work*. Concretely, in a sixty-minute pad, that means:
 ## 08 — Text streaming, done properly
 
 > This is the chapter that decides 9/17. `UIE Components §14` is its component-shaped sibling and
-> should be reread alongside; this section is the same material organised around the *problem*
+> should be reread alongside; this section is the same material organized around the *problem*
 > rather than the component, plus the four extensions `§14` does not cover.
 
 ### A. THE FIVE FAILURE MODES, WHICH ARE WHAT IS ACTUALLY BEING TESTED
@@ -1221,7 +1221,7 @@ async function readStream(
 - **`reader.read()` does not reject on abort in every implementation** — depending on how the
   fetch was set up, the abort may surface as a rejected `fetch` promise, a rejected `read()`, or
   simply `done`. Wrap the whole thing and branch on `signal.aborted` rather than on the error type.
-- **`reader.cancel()` versus aborting the request.** Cancelling the reader stops you consuming;
+- **`reader.cancel()` versus aborting the request.** Canceling the reader stops you consuming;
   aborting the request tells the network to stop. Do both — and remember from `§05 E` that neither
   one stops the server's GPU, which needs an explicit cancel call.
 
@@ -1492,10 +1492,10 @@ Real assistant output is markdown, and markdown arrives cut in half. The naive
 2. **Reparse cost.** Parsing the whole accumulated string per delta is O(n²) over the response. Two
    fixes, and it is worth naming both: **debounce the reparse to ~50–100 ms** (kills flicker and
    cost together, at an imperceptible latency price), and/or **parse block-by-block** — everything
-   before the last blank line is stable and can be parsed once and memoised; only the trailing
+   before the last blank line is stable and can be parsed once and memoized; only the trailing
    incomplete block is reparsed.
-3. **Sanitisation is not optional.** Model output is untrusted input. Never
-   `dangerouslySetInnerHTML` raw parser output; render to React elements, or sanitise. Say it in
+3. **Sanitization is not optional.** Model output is untrusted input. Never
+   `dangerouslySetInnerHTML` raw parser output; render to React elements, or sanitize. Say it in
    one clause — it is a cheap security point in an AI-product interview.
 
 **Two smaller ones worth a sentence each:** partial links (`[text](htt`) should render as literal
@@ -1681,7 +1681,7 @@ component. `UIE Components §17 K` has the debounce mechanics.
 
 ### C. `@`-MENTION AND `/`-COMMAND AUTOCOMPLETE
 
-**The realisation to lead with:** *"this is a combobox whose anchor is the caret rather than the
+**The realization to lead with:** *"this is a combobox whose anchor is the caret rather than the
 input, and whose value is a range rather than the whole field."* That sentence reframes an
 intimidating problem into one you have already built — `UIE Components §06` is the component, and
 its ARIA contract, keyboard contract, and active-descendant handling all transfer unchanged.
@@ -1803,7 +1803,7 @@ function transform(p: number, op: Op): number {
 **The three sentences that make this answer complete:**
 
 - *"A selection is two positions, so transform both endpoints — and if they collapse to the same
-  index the selection becomes a caret, which is the correct behaviour when the user's selection is
+  index the selection becomes a caret, which is the correct behavior when the user's selection is
   deleted out from under them."*
 - *"Tie-breaking at an equal index is a policy, not a fact: an insert exactly at the caret can go
   before or after it. Pick one, be consistent, and say which."*
@@ -1850,9 +1850,9 @@ the real design**, not an immediate `contentEditable` div.
 2. **The Selection API** — `window.getSelection()`, `Range`, and `anchorNode`/`focusOffset` — maps
    DOM positions to model positions. That mapping, in both directions, is the hardest part of any
    contenteditable editor.
-3. **IME composition cannot be cancelled**, so `beforeinput` interception has to let composition
+3. **IME composition cannot be canceled**, so `beforeinput` interception has to let composition
    through and reconcile afterwards. This is the reason "just intercept everything" doesn't work.
-4. **Paste**: you must handle `text/html`, `text/plain`, and files, and sanitise — pasted HTML is
+4. **Paste**: you must handle `text/html`, `text/plain`, and files, and sanitize — pasted HTML is
    untrusted input.
 5. **Undo**: once you intercept input, the browser's native undo stack is meaningless and you own
    undo entirely. Which is exactly the machinery in `§09 E`.
@@ -1913,7 +1913,7 @@ twelve lines.
 |---|---|---|
 | 1 | Submitting renders the user message immediately and an empty assistant message | Optimistic echo; the assistant bubble exists before the first token |
 | 2 | Text accumulates across chunks and the final text equals the full response | The reader loop and the decoder |
-| 3 | Stop mid-stream keeps the partial text and sets status to `stopped`, not `error` | The single most important behavioural distinction in the component |
+| 3 | Stop mid-stream keeps the partial text and sets status to `stopped`, not `error` | The single most important behavioral distinction in the component |
 | 4 | Tokens arriving after Stop do not change the rendered text | The generation counter — the test most candidates never write |
 | 5 | A rejected fetch surfaces an error and leaves any partial text visible | Error mid-stream does not discard output |
 
@@ -1965,7 +1965,7 @@ difference between designing from a description and designing from experience. A
 | **Canvas** | How model edits appear in a document you're also editing; whether your cursor survives; what undo does after a model edit |
 | **The Playground** (platform.openai.com/playground) | Model controls as state; what a share link captures; the "view code" panel; how streaming previews |
 | **Codex / agent tasks** | A long-running task with a streaming log and a diff you review; what happens if you close the tab |
-| **The Responses / Chat Completions API with `stream: true`** | Actually run one from a terminal and watch the SSE frames. Twenty minutes, and it makes `§05 C` concrete rather than memorised |
+| **The Responses / Chat Completions API with `stream: true`** | Actually run one from a terminal and watch the SSE frames. Twenty minutes, and it makes `§05 C` concrete rather than memorized |
 | **Atlas / ChatGPT Apps** | Skim only. Know they exist and roughly what they are |
 
 **Do the API one.** Watching real `data:` frames arrive, with a `[DONE]` terminator, is worth more
@@ -2015,7 +2015,7 @@ Pick from these; ask one, not three.
 ### D. THE MISSION QUESTION, WHICH IS ASKED IN TECHNICAL ROUNDS TOO
 
 Reports are consistent that OpenAI weights motivation and safety-awareness heavily, and that it
-comes up outside the dedicated behavioural round. Have ninety seconds ready. The shape that works:
+comes up outside the dedicated behavioral round. Have ninety seconds ready. The shape that works:
 
 1. **Something specific you've built or used that changed your view of the technology.** Concrete,
    first-person, ideally with a detail only someone who did it would know.
@@ -2069,8 +2069,8 @@ disk — ignore it. The better starting point is `cursor-11-streaming-markdown`,
 screen: an incremental **tokenizer**, chunk boundaries and all. That is a different layer from this
 drill, which is the **renderer** — and it changes what drill 6 is actually for. Problem #1 in
 `§08 I` (fences flickering) is *dissolved* by owning a tokenizer rather than solved by speculative
-closing, so drill 6's genuinely new content is the other three: reparse cost and block memoisation,
-sanitisation, and **scroll pinning**, which nothing in either repo covers. Budget the hour
+closing, so drill 6's genuinely new content is the other three: reparse cost and block memoization,
+sanitization, and **scroll pinning**, which nothing in either repo covers. Budget the hour
 accordingly — 20 minutes on markdown, 40 on pinning.
 
 **What drill 1 takes, and what it deliberately does not.** It reuses the reference's `StreamStatus`
