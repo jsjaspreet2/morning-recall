@@ -45,7 +45,7 @@
 
 Requirement 1 says *exactly once* about an operation whose failure mode is a network timeout at a third party. That makes it a correctness invariant, not a feature, and §7 is where it gets paid for.
 
-**Out of scope (say them):** the card networks' own internals — message formats, routing, and the issuing side are a different industry and you should say the words *ISO 8583* once and move on; the acquiring relationship and interchange rate negotiation; fraud and risk scoring, which is a model this flow calls and blocks on; KYC, onboarding, and underwriting; tax; PCI *certification* as a programme (the architectural consequence is in §2 and §12); currency conversion and treasury; and the merchant's own checkout — **that's its own page, and it's the inverse of this one.**
+**Out of scope (say them):** the card networks' own internals — message formats, routing, and the issuing side are a different industry and you should say the words *ISO 8583* once and move on; the acquiring relationship and interchange rate negotiation; fraud and risk scoring, which is a model this flow calls and blocks on; KYC, onboarding, and underwriting; tax; PCI *certification* as a program (the architectural consequence is in §2 and §12); currency conversion and treasury; and the merchant's own checkout — **that's its own page, and it's the inverse of this one.**
 
 **Below the line, likely follow-ups:** 3-D Secure and the SCA liability shift, network tokens and account updater, multi-currency presentment and settlement, split payments to connected accounts, subscriptions and stored-credential rules, smart retries on soft declines, and instant payouts.
 
@@ -57,7 +57,7 @@ Requirement 1 says *exactly once* about an operation whose failure mode is a net
 
 | Property | Target | Why this number |
 |---|---|---|
-| **Exactly-once charge creation** | **Zero double charges** from client retries, enforced by a `(merchant, idempotency-key)` record written **before** the money call, with a documented **24 h** minimum retention | The single defining requirement. A double charge is the failure that ends the relationship, and the retry that causes it is the correct client behaviour — so the guarantee has to live on our side |
+| **Exactly-once charge creation** | **Zero double charges** from client retries, enforced by a `(merchant, idempotency-key)` record written **before** the money call, with a documented **24 h** minimum retention | The single defining requirement. A double charge is the failure that ends the relationship, and the retry that causes it is the correct client behavior — so the guarantee has to live on our side |
 | **Ledger integrity** | **Every transfer sums to zero; the global sum per currency is zero, checked continuously.** Append-only, no `UPDATE`, ever | This is the invariant that makes the product auditable at all. It is cheap to check and it catches classes of bug — a partially applied transfer, a double-applied event — that no amount of testing finds |
 | **Authorization latency** | **p99 ≤ 1 s end to end**, of which the network round trip is 300–600 ms and ours is **≤ 150 ms** | We sit inside the merchant's Place Order, which the Amazon checkout page budgets at p99 800 ms for the whole saga. **Our budget is set by somebody else's page**, and saying so is the correct framing |
 | **Availability — authorization** | **99.99%**, and **it fails closed** | Everywhere else in this repo the answer is fail open. Here failing open means approving a payment we cannot prove was authorized, and eating it. A decline is recoverable; a fabricated approval is not |
@@ -90,7 +90,7 @@ Requirement 1 says *exactly once* about an operation whose failure mode is a net
 
 **Disputes — the number that sizes the reserve**
 
-- **Card networks put a merchant into a monitoring programme at roughly 0.9% dispute rate**, and *assume* a healthy portfolio averages ~0.1%. At $1T/yr that's **~$1B/year in disputed volume** flowing backwards through the system, arriving **up to 540 days after the payment**. A design that pays out 100% of a merchant's balance on schedule has no way to claw that back from a merchant who has since disappeared — **which is the entire argument for reserves, and it's a number, not a policy preference.**
+- **Card networks put a merchant into a monitoring program at roughly 0.9% dispute rate**, and *assume* a healthy portfolio averages ~0.1%. At $1T/yr that's **~$1B/year in disputed volume** flowing backwards through the system, arriving **up to 540 days after the payment**. A design that pays out 100% of a merchant's balance on schedule has no way to claw that back from a merchant who has since disappeared — **which is the entire argument for reserves, and it's a number, not a policy preference.**
 
 **Webhooks — the number that forces per-endpoint isolation**
 
@@ -166,7 +166,7 @@ POST   /v1/disputes/{id}/evidence   { files[], text }        deadline enforced b
 ## 6 · High-level design — flows
 
 <div class="diagram" data-board="architecture">
-<svg viewBox="0 0 1000 810" role="img" aria-label="Payment processor architecture, split horizontally by the settlement boundary. A top row: the merchant's server calling the API tier, the card vault, and — in its own right-hand column — the acquirer. Above the boundary, a synchronous tier holding the idempotency claim in DynamoDB, risk scoring, and authorization against the acquirer, which fails closed. At the centre, the double-entry ledger in Postgres and Citus, with a Redis balance cache beside it. Below the boundary, an outbox feeding Kafka, the acquirer's daily settlement file in S3 with Object Lock, and three consumers: webhook senders partitioned by endpoint, daily three-way reconciliation, and payouts.">
+<svg viewBox="0 0 1000 810" role="img" aria-label="Payment processor architecture, split horizontally by the settlement boundary. A top row: the merchant's server calling the API tier, the card vault, and — in its own right-hand column — the acquirer. Above the boundary, a synchronous tier holding the idempotency claim in Postgres, colocated with the ledger, plus risk scoring, and authorization against the acquirer, which fails closed. At the center, the double-entry ledger in Postgres and Citus, with a Redis balance cache beside it. Below the boundary, an outbox feeding Kafka, the acquirer's daily settlement file in S3 with Object Lock, and three consumers: webhook senders partitioned by endpoint, daily three-way reconciliation, and payouts.">
   <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
   <text class="dg-banner-t dg-c" x="500" y="33.5">The dashed line is the settlement boundary. Above it, permission. Below it, money that has actually moved.</text>
   <rect class="dg-box" x="20" y="100" width="170" height="60" rx="8"></rect>
@@ -191,8 +191,8 @@ POST   /v1/disputes/{id}/evidence   { files[], text }        deadline enforced b
   <text class="dg-group-t" x="36" y="218">SYNCHRONOUS — PERMISSION, NOT MONEY</text>
   <path class="dg-box" d="M 36,235 L 36,285 A 115,7 0 0 0 266,285 L 266,235 A 115,7 0 0 0 36,235 Z"></path>
   <path class="dg-box" d="M 36,235 A 115,7 0 0 0 266,235" style="fill:none"></path>
-  <text class="dg-t dg-c" x="151" y="252">DynamoDB</text>
-  <text class="dg-s dg-c" x="151" y="268">(merchant_id, key) claim</text>
+  <text class="dg-t dg-c" x="151" y="252">Postgres — claim</text>
+  <text class="dg-s dg-c" x="151" y="268">(merchant_id, key), colocated</text>
   <text class="dg-s dg-c" x="151" y="284">written BEFORE the money call</text>
   <rect class="dg-box" x="290" y="228" width="170" height="64" rx="8"></rect>
   <text class="dg-t dg-c" x="375" y="256.5">Risk</text>
@@ -368,7 +368,7 @@ POST   /v1/disputes/{id}/evidence   { files[], text }        deadline enforced b
 
 **Failure path — we crash between step 4 and step 5.** The money moved at the acquirer and nothing in our system records it. The idempotency record is still `in_flight` and expires on its lease (§7), so the merchant's retry proceeds — and the acquirer, which received our derived key on the capture, returns the *original* result rather than capturing twice. **The settlement file then catches whatever the retry didn't**, which is why reconciliation is a component and not a report.
 
-**Failure path — the settlement file is late or malformed (step 8).** Nothing moves from `pending` to `available` and payouts for that window don't run. **The correct behaviour is to stall, not to estimate**: paying out against unsettled money is lending, and we are not a lender. The exception queue gets an entry with an owner and an SLA.
+**Failure path — the settlement file is late or malformed (step 8).** Nothing moves from `pending` to `available` and payouts for that window don't run. **The correct behavior is to stall, not to estimate**: paying out against unsettled money is lending, and we are not a lender. The exception queue gets an entry with an owner and an SLA.
 
 ### Flow B — a refund, three weeks later
 
@@ -386,7 +386,7 @@ POST   /v1/disputes/{id}/evidence   { files[], text }        deadline enforced b
 3. The merchant is notified, and a timer is armed with alerts at 7 and 2 days remaining (§2).
 4. Evidence is submitted; weeks later an outcome arrives. **Won** books a reversing transfer that returns the amount. **Lost** leaves the debit in place and the transfer that already happened is the final word.
 
-**Failure path — the deadline passes with no evidence.** It is an automatic loss, full stop, and the only defence is the timer. **This is the one deadline in the system enforced by an external party with no appeal**, and it is why dispute deadlines are a first-class scheduled component rather than a field on a row.
+**Failure path — the deadline passes with no evidence.** It is an automatic loss, full stop, and the only defense is the timer. **This is the one deadline in the system enforced by an external party with no appeal**, and it is why dispute deadlines are a first-class scheduled component rather than a field on a row.
 
 ### Flow D — payout day
 
@@ -536,7 +536,7 @@ REQUIRES_AUTH ─▶ AUTHORIZED ─▶ CAPTURED ─▶ SETTLED ─▶ PAID_OUT
 
 ### What it costs
 
-**Merchants see money as "pending" for days and find it baffling**, and the support load from that is real and permanent — the honest answer, "we don't have it yet either," is not one people enjoy. **You have taken a hard batch dependency**: the settlement file is a daily deadline owned by someone else, and when it is late nothing settles and no payouts run (§6). **Reversal advices are best-effort** — the network may not honour one, so a cardholder can carry a hold for days on a payment that never existed, which generates its own complaints. And the three-state model has to be **exposed in the API rather than hidden**, because a merchant who can't distinguish captured from settled will build their own accounting on the wrong number.
+**Merchants see money as "pending" for days and find it baffling**, and the support load from that is real and permanent — the honest answer, "we don't have it yet either," is not one people enjoy. **You have taken a hard batch dependency**: the settlement file is a daily deadline owned by someone else, and when it is late nothing settles and no payouts run (§6). **Reversal advices are best-effort** — the network may not honor one, so a cardholder can carry a hold for days on a payment that never existed, which generates its own complaints. And the three-state model has to be **exposed in the API rather than hidden**, because a merchant who can't distinguish captured from settled will build their own accounting on the wrong number.
 
 ---
 
@@ -596,7 +596,7 @@ Refund is a negative charge. A dispute subtracts from the balance. A payout send
 
 - **Every reversal is a new transfer, never an edit.** A refund, a won dispute, a failed payout — all of them book opposite entries and leave the originals untouched (§8).
 - **Negative balances are legal.** The payout job refuses to run on a negative balance; past a threshold and a grace period we debit the merchant's bank account; failing that, it books to `loss`. **Making negative a valid state is what lets refunds always succeed**, and refunds always succeeding is the correct priority — the cardholder is not the party we should be pushing the risk onto.
-- **Reserves hold back a slice of `available`**, either a rolling window (funds held N days beyond settlement) or a percentage, sized by the merchant's dispute rate, chargeback history, and how far in advance they deliver goods. **A merchant selling concert tickets a year out is a fundamentally different credit exposure from a merchant shipping tomorrow, and the reserve is where that judgement is expressed** — an appeals path is required, because getting it wrong strangles a legitimate business's cash flow.
+- **Reserves hold back a slice of `available`**, either a rolling window (funds held N days beyond settlement) or a percentage, sized by the merchant's dispute rate, chargeback history, and how far in advance they deliver goods. **A merchant selling concert tickets a year out is a fundamentally different credit exposure from a merchant shipping tomorrow, and the reserve is where that judgment is expressed** — an appeals path is required, because getting it wrong strangles a legitimate business's cash flow.
 - **The payout schedule has a deliberate lag** (T+2 default, longer for new or risky merchants), and the amount is always computed from the ledger rather than the cache (§6D).
 - **Dispute deadlines are scheduled timers with escalating alerts**, not a field someone queries. A missed deadline is an automatic, unappealable loss, so this is the one place where a cron job's reliability is directly a dollar figure.
 
@@ -610,15 +610,17 @@ Refund is a negative charge. A dispute subtracts from the balance. A payout send
 
 **Everything shards by `merchant_id`.** Unlike the Amazon checkout page — where orders shard by customer and inventory by SKU, and the incompatibility of those two keys is *why* it needs a saga — this system has one natural key and every important query is inside it: this merchant's payments, this merchant's balance, this merchant's payouts. **That single-key property is what lets the ledger transfer and the idempotency record and the payment row commit in one local transaction**, and it's the biggest structural simplification on the page. Say it out loud, because it's the reason this design has no saga.
 
+**Colocation is the property, not sharding.** Citus does not shard Postgres for you — you declare the distribution column and live with it; what it automates is routing and online rebalancing. What it buys here is that tables distributed on `merchant_id` with the same shard count have their shards **on the same node**, so a payment intent, its authorization, the ledger transfer's several entries, the stored idempotency response and the outbox row all commit **locally**. §6's "one local transaction" is a claim about colocation, and it is the reason this page never needs a saga.
+
 **The hot shard is a whale merchant on Black Friday** — a single merchant at ~500 payments/s, ~4,000 ledger entries/s. It's real and it's intentional: they are on their own shard, and because ledger writes are **appends rather than updates** (§8) the shard absorbs it. The design that couldn't survive this is the one with a balance column, which is the point.
 
 ### Storage decisions — every stateful component
 
 | Component | Access pattern | Durability | Choice | What you say |
 |---|---|---|---|---|
-| **Ledger — transfers + entries** | ~5,100 appends/s, aggregate reads per account, ~440M rows/day | **Zero loss. No degraded mode. 7–10 year retention** | **Postgres + Citus**, sharded by `merchant_id`, monthly partitions, synchronous replica | "Money at five thousand appends a second wants the most boring, most auditable transactional engine that exists. Appends parallelise; the balance column it replaces does not" |
+| **Ledger — transfers + entries** | ~5,100 appends/s, aggregate reads per account, ~440M rows/day | **Zero loss. No degraded mode. 7–10 year retention** | **Postgres**, distributed with **Citus** on `merchant_id`, **colocated** with intents and idempotency records, monthly partitions, synchronous replica | "Money at five thousand appends a second wants the most boring, most auditable transactional engine that exists — and unlike the checkout page, here the write rate justifies distributing it on its own. Colocation is what keeps a transfer's entries, the intent and the idempotency response in **one local commit**. Appends parallelize; the balance column they replace does not" |
 | **Balance materialization** | Read on every dashboard load, updated per transfer | **Rebuildable** — it's a cache | **Redis**, per `(merchant, account, currency)`, rebuilt from the ledger | "A cache of a `SUM`. It's allowed to be five seconds stale and it is never allowed to be the number we pay out" |
-| **Idempotency records** | Read-before-write on **every** money call, ~55M/day | **A lost record is a double charge** | **DynamoDB**, key `(merchant_id, key)`, strongly consistent reads, TTL 24 h | "The one store whose miss is a correctness bug, so it can't be eventually consistent — and the conditional write is what gives us the claim without a lock" |
+| **Idempotency records** | Read-before-write on **every** money call, ~55M/day | **A lost record is a double charge** | **Postgres**, colocated with the ledger on `merchant_id`, `UNIQUE (merchant_id, key)`, swept at 24 h | "It has to be Postgres, and colocated, for one reason: §7 requires the stored response to commit **in the same transaction as the ledger transfer**. Put it in a separate store and that's a dual write — the exact failure the outbox exists to prevent, sitting on the money path. The unique index gives the claim without a lock" |
 | **Card vault** | Tokenize on write, detokenize only inside the authorization path | Loss is catastrophic; exposure is worse | **Isolated service**, separate account and network segment, HSM-backed keys, its own audit log | "The only component that sees a PAN. Everything else in this diagram handles tokens, and that boundary is what keeps our merchants at SAQ-A" |
 | **Payment intents / authorizations / refunds** | Written once, read by merchant and support | High; reconciled against settlement | **Postgres**, same cluster as the ledger | "Same transaction as the ledger transfer, which is only possible because they share a shard key" |
 | **Event stream + outbox** | Fan-out to webhooks, materialization, analytics | At-least-once, replayable | **Outbox in Postgres → Kafka**, keyed by object id, 7-day retention | "The outbox row commits with the transfer, so there is no dual write. Keyed by object id, which is the only ordering any consumer needs" |
@@ -634,7 +636,7 @@ Refund is a negative charge. A dispute subtracts from the balance. A payout send
 | **Ledger entries** | 90 days in Postgres, ms aggregate reads | 2 years, monthly partitions, detached but attached-on-demand | **7–10 years** in S3 Parquet, Athena, seconds per query | Chargeback windows reach 540 days; financial audit and tax reach seven years; some jurisdictions ten. **Nothing is ever deleted** — a gap in a double-entry ledger is indistinguishable from fraud |
 | **Payment intents** | 90 days | 2 years | 7 years alongside the ledger | Support reads the recent tail; disputes and audits read the archive |
 | **Webhook deliveries** | 30 days, then **deleted** | — | — | Debugging material, not evidence. The events themselves are durable in Kafka and re-derivable |
-| **Settlement files** | Parsed lines hot for 90 days | — | **Raw files forever**, WORM | It is the one artefact we did not author, which is exactly why we keep the original bytes |
+| **Settlement files** | Parsed lines hot for 90 days | — | **Raw files forever**, WORM | It is the one artifact we did not author, which is exactly why we keep the original bytes |
 
 **Restore cost, stated:** the balance cache rebuilds from the ledger in minutes. Webhook history is not restored at all — it is regenerated from the event stream. **The ledger has no acceptable restore story**, which is what "does not survive loss of the ledger" in §2 means, and why it is the one component running synchronous replication and continuous archiving.
 

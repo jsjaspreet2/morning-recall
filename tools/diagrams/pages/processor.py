@@ -5,7 +5,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 from dgl import Board          # noqa: E402
 from splice import place       # noqa: E402
 
-a = Board(810, "Payment processor architecture, split horizontally by the settlement boundary. A top row: the merchant's server calling the API tier, the card vault, and — in its own right-hand column — the acquirer. Above the boundary, a synchronous tier holding the idempotency claim in DynamoDB, risk scoring, and authorization against the acquirer, which fails closed. At the centre, the double-entry ledger in Postgres and Citus, with a Redis balance cache beside it. Below the boundary, an outbox feeding Kafka, the acquirer's daily settlement file in S3 with Object Lock, and three consumers: webhook senders partitioned by endpoint, daily three-way reconciliation, and payouts.")
+a = Board(810, "Payment processor architecture, split horizontally by the settlement boundary. A top row: the merchant's server calling the API tier, the card vault, and — in its own right-hand column — the acquirer. Above the boundary, a synchronous tier holding the idempotency claim in Postgres, colocated with the ledger, plus risk scoring, and authorization against the acquirer, which fails closed. At the center, the double-entry ledger in Postgres and Citus, with a Redis balance cache beside it. Below the boundary, an outbox feeding Kafka, the acquirer's daily settlement file in S3 with Object Lock, and three consumers: webhook senders partitioned by endpoint, daily three-way reconciliation, and payouts.")
 a.banner("The dashed line is the settlement boundary. Above it, permission. Below it, money that has actually moved.")
 a.box(20, 100, 170, 60, "Merchant server", ["Idempotency-Key required"])
 a.box(220, 100, 240, 60, "API tier", ["every money call claims a key first"])
@@ -16,7 +16,7 @@ a.arrow((460, 130), (500, 130))
 a.arrow((340, 160), (340, 196))
 
 a.group(20, 196, 740, 140, "SYNCHRONOUS — PERMISSION, NOT MONEY")
-a.cyl(36, 228, 230, 64, "DynamoDB", ["(merchant_id, key) claim", "written BEFORE the money call"])
+a.cyl(36, 228, 230, 64, "Postgres — claim", ["(merchant_id, key), colocated", "written BEFORE the money call"])
 a.box(290, 228, 170, 64, "Risk", ["a terminal decline"])
 a.box(484, 228, 260, 64, "Authorization", ["300–600 ms · FAILS CLOSED", "timeout → reversal advice"])
 a.arrow((266, 260), (290, 260))
