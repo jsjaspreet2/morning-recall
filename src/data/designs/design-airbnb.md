@@ -436,7 +436,7 @@ What it does provide is **durable execution**: the workflow's state and history 
 | Steps | Hold → authorize → commit → capture | Constraint → authorize → *approval wait* → confirm → external calendar push → **capture at check-in, possibly months later** |
 | Services involved | 2 | 5+ |
 | Volume | **1–2k writes/sec on one shard** through an onsale (~500k conditional updates) | **~23/sec globally** |
-| Verdict | **Overkill** — every workflow event is persisted, so you'd durably record hundreds of thousands of *failed* hold attempts | **Well matched** — long, multi-service, failure-prone, and low-volume |
+| Verdict | **Overkill *for the hold path*** — every workflow event is persisted, so you'd durably record hundreds of thousands of *failed* hold attempts. Note the scope: this judges the contended loop, not that page's post-purchase lifecycle, which is longer and far rarer. **The verdict belongs to a phase, not to a system** | **Well matched** — long, multi-service, failure-prone, and low-volume |
 
 **The general rule to state:** *durable orchestration is for workflows that are long, cross-service, and rare. It is not for hot paths, and it is never a substitute for a constraint.* Ticketmaster's checkout is short, contended, and enormously frequent — exactly the wrong profile. Airbnb's is long, quiet, and spans days.
 
@@ -638,7 +638,7 @@ Three consumers, three representations, and conflating them is a modeling mistak
   <text class="dg-s" x="48" y="326">Expiry is active here, a workflow timer. A constraint cannot evaluate now().</text>
   <circle class="dg-num" cx="30" cy="346" r="9"></circle>
   <text class="dg-num-t" x="30" y="349.4">4</text>
-  <text class="dg-s" x="48" y="350">Availability is derived from reservations + rules, and materialised only into the index.</text>
+  <text class="dg-s" x="48" y="350">Availability is derived from reservations + rules, and materialized only into the index.</text>
   <path class="dg-div" d="M 440,376 L 440,452"></path>
   <circle class="dg-num" cx="22" cy="384" r="9"></circle>
   <text class="dg-num-t" x="22" y="387.4">11</text>
