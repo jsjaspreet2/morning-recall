@@ -646,10 +646,10 @@ at a fixed depth and drop from the bottom (cheap, and what most editors actually
 adjacent same-target changes so a burst of typing is one entry (§06 D). Both are two-line answers
 and neither needs implementing unless asked.
 
-## 05 — Five problems, worked
+## 05 — Six problems, worked
 
-Four are the reported question family; the fifth is deliberately not Figma-shaped, because the
-point is to rehearse the *method*, not to have four answers memorized. If you get handed
+Five sit in or beside the reported question family; **E is deliberately not Figma-shaped**, because
+the point is to rehearse the *method*, not to have five answers memorized. If you get handed
 "implement a spreadsheet's fill-down," E is why you'll be fine.
 
 **Use these as reps, not as reading.** Set a timer, do the problem, then open the collapsible.
@@ -1233,6 +1233,129 @@ they push on it — say so rather than writing it.
 it is the same `parse → data → one step function → make the query fast` skeleton as everything
 else. If the 9th hands you a problem nobody has reported, this is the shape to fall back on.
 
+### F. LEVELED TOKENS INTO NESTED LISTS
+
+> **The prompt, roughly.** Implement `readRichText(tokens)`. Each token is a pair `(level, text)` in
+> document order, where level is a positive integer. Return a nested list that represents the
+> levels. Then: go the other way — given the nesting, hand back the tokens.
+
+```
+[(1, "food"), (4, "banana")]              ->  ["food", [[["banana"]]]]
+[(1, "a"), (2, "b"), (2, "c"), (1, "d")]  ->  ["a", ["b", "c"], "d"]
+[]                                        ->  []
+```
+
+The body is nine lines, which is exactly why it is on this list. Nine lines means **the grade is
+entirely in what you say**, and there is one thing to say that is worth the whole round.
+
+**Your first three questions.** Is the input guaranteed to start at level 1? Can a level be 0 or
+negative — and if the contract says no, what do I do with one anyway? Are the texts opaque, or is
+anything expected to parse them?
+
+<details>
+<summary><strong>Model answer — both directions, and the trap</strong></summary>
+
+**The trap is not the deep jump.** Everyone handles `(1, "food")` then `(4, "banana")`; you create
+one list per missing level and drop the text in the innermost. The trap is the **return**.
+
+Keep a map — or an array — of *"the container for level N"* and reuse it on the way back down, and
+watch it fail on `[(1,"a"), (2,"b"), (1,"c"), (2,"d")]`. The cached level-2 container is still the
+one holding `"b"`, so `"d"` lands next to it:
+
+```
+what you get   ["a", ["b", "d"], "c"]
+what is right  ["a", ["b"], "c", ["d"]]
+```
+
+Two sibling lists, not one shared one. **A stack destroys the stale container for free; a cache
+keeps it alive.** That is the sentence to say out loud, and it is the reason to reach for a stack
+before you have written anything.
+
+**Then make the stack's length *be* the current level.** Once that is true by construction, both
+directions of travel are the same while-comparison and there is no arithmetic left to fumble:
+
+```ts
+type Token = readonly [level: number, text: string]
+type RichNode = string | RichNode[]
+
+function readRichText(tokens: readonly Token[]): RichNode[] {
+  const root: RichNode[] = []
+  // stack[i] is the open container for level i + 1, so stack.length === level.
+  const stack: RichNode[][] = [root]
+
+  for (const [level, text] of tokens) {
+    if (!Number.isInteger(level) || level < 1) {
+      throw new Error(`level must be a positive integer, got ${level}`)
+    }
+
+    // Shallower: return to an ancestor that already exists. Creating nothing
+    // here is what makes the next descent build a NEW sibling list.
+    while (stack.length > level) stack.pop()
+
+    // Deeper: one new list per missing level, each nested in the one before.
+    while (stack.length < level) {
+      const child: RichNode[] = []
+      stack[stack.length - 1].push(child)
+      stack.push(child)
+    }
+
+    stack[stack.length - 1].push(text)
+  }
+
+  return root
+}
+```
+
+The guard is not padding. It rejects what the contract already forbids rather than clamping it —
+clamping hides a producer bug inside output that still looks like a document — and it makes the pop
+loop provably unable to empty the stack, which is the only way this function can crash.
+
+**The second direction is easier than it looks.** Level is `1 +` how many containers deep you are,
+so the recursion carries it and there is no state to keep:
+
+```ts
+function flattenRichText(nodes: readonly RichNode[]): Token[] {
+  const out: Token[] = []
+
+  const walk = (list: readonly RichNode[], level: number): void => {
+    for (const node of list) {
+      if (typeof node === 'string') out.push([level, node])
+      else walk(node, level + 1)
+    }
+  }
+
+  walk(nodes, 1)
+  return out
+}
+```
+
+**Name the asymmetry before they do.** `flatten(read(tokens))` is always the original tokens.
+`read(flatten(nodes))` is not always the original nodes — an empty container emits no tokens and so
+disappears. That is not a bug to fix: `readRichText` can never produce an empty container, so
+nothing is lost on any input it could have built. Saying that is worth more than defending against
+it.
+
+**The complexity answer, in their terms** — `n` tokens, `c` created list nodes:
+
+> *"Time is O(n + c). Each token is O(1) plus its pops and pushes, and every container is pushed
+> once and popped at most once, so the two while-loops are amortized, not nested. Auxiliary space
+> is O(d) for the deepest level reached — the stack holds one reference per open level. The output
+> is O(n + c), but that's required output, not auxiliary."*
+
+</details>
+
+**The follow-ups:** render it to HTML `<ul>`/`<li>`, where the same stack drives `openTag`/`closeTag`
+instead of arrays · a token that carries a style as well as a level, which is §05 C bolted on ·
+"what if the document doesn't start at level 1," where the honest answer is that the pop loop
+already handles a too-deep start gracefully and the real question is whether that is silent
+data loss you should surface · streaming tokens, which changes nothing, because the algorithm is
+already a single forward pass with no lookahead.
+
+**What a weak answer looks like:** a level→container cache that breaks on the return · recursion
+with an index that isn't shared, so the walk restarts · creating a list on the way *shallower* ·
+computing the descent from the previous token's level instead of the current stack depth · treating
+the deep jump as the interesting case and never testing `[1, 2, 1, 2]`.
+
 ## 06 — Undo/redo, done properly
 
 It is the highest-probability single topic in the hour. It is the reported part 2 of the highest-
@@ -1659,7 +1782,7 @@ pass it.
 
 ## 10 — The drills, and how to run them
 
-All eight live in `uie-practice`, under `src/exercises/`. Each ships as a stub plus a **failing**
+All ten live in `uie-practice`, under `src/exercises/`. Each ships as a stub plus a **failing**
 spec suite:
 
 ```
@@ -1685,7 +1808,7 @@ Non-negotiable, or the reps measure the wrong thing:
 6. **Grade with §03 G before looking at anything.**
 7. **Only then** open §05 and diff.
 
-### B. THE EIGHT
+### B. THE TEN
 
 | Slug | Min | What it drills | Why it's on the list |
 |---|---:|---|---|
@@ -1697,6 +1820,8 @@ Non-negotiable, or the reps measure the wrong thing:
 | `figma-06-command-stream` | 35 | Parse → data → step → checkpoint | The unfamiliar-problem fallback shape — §05 E |
 | `figma-07-coalescing-history` | 35 | Gesture coalescing, forced boundaries, bounded history | The two follow-ups most likely to arrive if you're fast — §06 D and §04 F |
 | `figma-08-sealed` | 50 | **Unknown.** | **Do not read it before D-3.** Forces derivation rather than recall — the only rep that measures the method |
+| `figma-09-rich-text-levels` | 30 | Leveled tokens → nesting, and back | Nine lines of body, so the grade is all in the narration — §05 F |
+| `figma-01-practice-8-31` | 45 | Drill 1 again, from a blank file | The hints are stripped out on purpose: regenerating the four things you say before typing *is* the rep |
 
 ### C. THE FULL MOCK (D-6, Thu 9/3)
 
