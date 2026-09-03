@@ -5,6 +5,7 @@ import reactCssMd from './guides/react-css.md?raw'
 import accessibilityMd from './guides/accessibility.md?raw'
 import codingPatternsMd from './guides/coding-patterns.md?raw'
 import systemDesignMd from './guides/system-design.md?raw'
+import dataModelingMd from './guides/data-modeling.md?raw'
 import animationMd from './guides/animation.md?raw'
 import technologyMd from './guides/technology.md?raw'
 import componentRoundMd from './guides/component-round.md?raw'
@@ -104,6 +105,16 @@ export const guides: Guide[] = [
     md: systemDesignMd,
     // No PDF: the markdown has diverged from the shipped PDF. Regenerate before
     // re-adding the link rather than serving the older text.
+  },
+  // The storage half of System Design, as a procedure: what to write down in the
+  // five minutes a round spends on tables, and the rep that makes it automatic.
+  {
+    id: 'data-modeling',
+    title: 'Data Modeling Under Pressure',
+    subtitle:
+      'From prompt to a written data model in five minutes: the six-step procedure, the notation, the four stores as modeling rules, the ten questions interviewers press on, ten worked models, and the drill.',
+    accent: 'amber',
+    md: dataModelingMd,
   },
   // The client half of System Design, salvaged from the retired Cursor screen guide:
   // the chapters that were never Cursor-specific.
