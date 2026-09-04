@@ -183,20 +183,37 @@ of step five, written out in full.
 ### A. RELATIONAL FORM, ANNOTATED
 
 ```text
-orders            PG   PK order_id uuidv7                     ← time-ordered id: index locality
-  user_id, status enum(created|paid|fulfilled|cancelled),     ← lifecycle as an enum, not booleans
-  total_cents, currency, idempotency_key, version int,        ← version: optimistic concurrency
+orders            PG   shard customer_id   PK (customer_id, order_id uuidv7)   ← shard key leads every key
+  status enum(created|paid|fulfilled|cancelled),              ← lifecycle as an enum, not booleans
+  total_cents, currency, checkout_session_id, version int,    ← version: optimistic concurrency
   created_at, updated_at
-  IDX (user_id, created_at DESC)                              ← serves R "my orders, newest first"
-  UQ  (idempotency_key)                                       ← serves "retry must not duplicate"
+  IDX (customer_id, created_at DESC)                          ← serves R "my orders, newest first": one shard, one seek
   ~150/s × 86400 × 1000d ≈ 13B rows × 400B ≈ 5TB
-  partition by created_at month; 90d hot, 2y warm, 7y S3     ← year-three line
+  monthly partitions on the uuidv7 range; 90d hot, 2y warm, 7y S3     ← year-three line
+
+checkout_sessions PG   same shard          PK (customer_id, session_id)   order_id NULL, response
+  UPDATE … SET order_id = $1 WHERE order_id IS NULL, in the order's transaction   ← serves "retry must not duplicate"
 ```
 
-Rules of the block: store and primary key on the first line; columns on the next one to three
-lines, **only the ones that carry a decision**; one `IDX` or `UQ` line per hot read or invariant
-with the pattern it serves after the arrow; then the size line and the lifecycle line. Six to nine
-lines. If a table needs more, it is two tables.
+Rules of the block: store, shard key, and primary key on the first line; columns on the next one to
+three lines, **only the ones that carry a decision**; one `IDX` or `UQ` line per hot read or
+invariant with the pattern it serves after the arrow; then the size line and the lifecycle line. Six
+to nine lines. If a table needs more, it is two tables.
+
+Three layers are on that first line and the last, and they are three different decisions:
+
+| Layer | Decides | Written as | The rule |
+|---|---|---|---|
+| **Shard key** | Which node holds the row | `shard customer_id` | Every table that commits with the root is colocated on it, and it leads every key. Lookup by `order_id` alone still routes, because the customer is on every order URL |
+| **Partition unit** | Which physical piece on that node | `monthly partitions on the uuidv7 range` | Lifecycle only — drop old months, keep the hot month's index in RAM. It moves nothing between nodes. Partition on the time-ordered id, not on a timestamp column, so a lookup by id prunes to one partition |
+| **Primary key** | Identity | `PK (customer_id, order_id)` | Must contain the shard key, and on a partitioned table the partition column too |
+
+That last rule has a consequence people miss: **a sharded or partitioned table cannot carry a global
+unique constraint on anything but its keys.** There is no cross-shard or cross-partition unique
+index. So `UQ (idempotency_key)` on `orders` does not exist; the invariant "a retry must not
+duplicate" lives on the `checkout_sessions` row, colocated on the same shard, claimed by a
+conditional update inside the order's transaction. Every worked model in §06 that shards a table
+does this — the unique thing is either keyed by the shard key or it has its own small table.
 
 ### B. WIDE-COLUMN AND DYNAMO FORM
 
@@ -437,7 +454,7 @@ the differences are visible side by side.
 
 | | Postgres | DynamoDB | Cassandra | Redis |
 |---|---|---|---|---|
-| **Layout** | `messages (PK message_id)`, `IDX (conversation_id, seq DESC)`, table partitioned by month | `PK=conversation_id#bucket`, `SK=seq` (numeric, descending `Query`) | `PK (conversation_id, bucket)`, `CLUSTER seq DESC` | `ZSET msgs:{conversation_id}` member=message_id score=seq, capped at 200 |
+| **Layout** | `messages (PK message_id uuidv7)`, `IDX (conversation_id, seq DESC)`, monthly partitions on the id range | `PK=conversation_id#bucket`, `SK=seq` (numeric, descending `Query`) | `PK (conversation_id, bucket)`, `CLUSTER seq DESC` | `ZSET msgs:{conversation_id}` member=message_id score=seq, capped at 200 |
 | **The read** | Index range scan, one partition if bucketed by time | `Query` with `ScanIndexForward=false`, `Limit 50` | Single-partition slice, walk buckets backward | `ZREVRANGE 0 49`, then hydrate from the truth store |
 | **Dense `seq`** | `UPDATE conversations SET seq = seq+1 … RETURNING`, same transaction as the insert | A counter item with a conditional update, then the put — two writes, a burned number on failure | Only via LWT at ~10× cost; use a sortable id instead | `INCR seq:{conv}` — fast, and a failover can reissue a number |
 | **Invariant: no duplicate `(conversation, seq)`** | `UNIQUE` | Condition `attribute_not_exists(SK)` | Not enforceable cheaply; make the id unique upstream | Not enforceable |
@@ -640,9 +657,11 @@ R  find my order from March (search)                               cold
 orders            PG/Citus  distributed on customer_id     PK (customer_id, order_id uuidv7)
   status enum(placed|authorized|reserved|fulfilled|cancelled), total_cents, currency,
   checkout_session_id, version, placed_at
-  UQ  (checkout_session_id)                                 ← one order per session, whatever the cache says
-  IDX (customer_id, placed_at DESC)                         ← R "my orders"
-  150/s × 86400 × 1000d ≈ 13B rows; monthly partitions; 90d hot, 2y warm, 7y S3 Parquet
+  IDX (customer_id, placed_at DESC)                         ← R "my orders": one shard, one seek
+  150/s × 86400 × 1000d ≈ 13B rows; monthly partitions on the uuidv7 range; 90d hot, 2y warm, 7y S3 Parquet
+
+checkout_sessions PG/Citus  colocated on customer_id       PK (customer_id, session_id)
+  cart_snapshot, order_id NULL, response                    ← claimed once: UPDATE … WHERE order_id IS NULL
 
 order_lines       PG/Citus  colocated on customer_id       PK (customer_id, order_id, line_no)
   sku, qty, unit_price_cents (snapshot — not a foreign key to the price book), fc_id
@@ -666,9 +685,12 @@ carts, sessions:  loss is survivable; orders: none acceptable — synchronous re
 ```
 
 **4. Invariants.** *Available never goes negative*: the DynamoDB condition expression, per line, no
-lock. *One order per checkout session*: `UNIQUE (checkout_session_id)` on `orders` — **the
-idempotency cache short-circuits the double-click, but correctness lives in the unique index**, so a
-lost cache record cannot produce a second order. *Order, lines, payment ref, outbox commit together*:
+lock. *One order per checkout session*: the `checkout_sessions` row is claimed with a conditional
+`UPDATE … SET order_id WHERE order_id IS NULL` in the same transaction as the order insert — a
+sharded, partitioned `orders` cannot carry a global unique constraint, so the guarantee lives on the
+session row, colocated on the same shard. **The idempotency cache short-circuits the double-click,
+but correctness lives in that conditional update**, so a lost cache record cannot produce a second
+order. *Order, lines, payment ref, outbox commit together*:
 one local transaction, possible only because all four are colocated on `customer_id`. Inventory is
 outside that boundary, so placing an order is a **saga**: reserve → authorize → commit, with
 reservations released by the sweeper on failure or expiry, and eventual consistency between "order
@@ -678,11 +700,11 @@ placed" and "stock decremented" of a few seconds.
 
 | Component | Access pattern | Durability | Choice | What you say |
 |---|---|---|---|---|
-| Orders, lines, outbox | 150 w/s, single-shard reads by customer, 13B rows | Zero loss | **Postgres + Citus on `customer_id`, colocated** | "I'm not sharding for throughput — 150 a second fits on one box. I'm sharding for volume and buying colocation, which is what keeps the order commit local. DynamoDB would make the outbox a dual write" |
+| Orders, lines, sessions, outbox | 150 w/s, single-shard reads by customer, 13B rows | Zero loss | **Postgres + Citus on `customer_id`, colocated** | "I'm not sharding for throughput — 150 a second fits on one box. I'm sharding for volume and buying colocation, which is what keeps the order commit local. DynamoDB would make the outbox a dual write" |
 | Inventory | Conditional decrements by SKU, 1.5k/s peak | Correctness-critical, reconciled physically | **DynamoDB conditional writes** | "The condition is the correctness. Postgres would do it too, and I'd take Postgres at a tenth of the SKU count; DynamoDB because there's no transaction with anything else and I want the hot SKU to be a capacity problem, not a lock problem" |
 | Reservations | Written with the reserve, swept by expiry | Recoverable — a stranded hold costs a minute of availability | Same table, GSI on expiry minute | "A row with a state and a clock. Ticketmaster evaluates expiry inline on the seat row; I can't, because what I test is an aggregate" |
 | Cart | Per customer, no money | Survivable | **DynamoDB**, TTL | "Intents, not prices" |
-| Idempotency keys | Read-before-write on place order | A miss costs a wasted reserve, never a duplicate | **DynamoDB TTL 24h, backed by the unique index** | "The fast store is an optimization; the constraint is the guarantee" |
+| Idempotency keys | Read-before-write on place order | A miss costs a wasted reserve, never a duplicate | **DynamoDB TTL 24h, backed by the session-row claim** | "The fast store is an optimization; the conditional update on the shard is the guarantee" |
 | Order search | "Find my order from March" | Derived | **OpenSearch** from the outbox stream | "Allowed to be down" |
 
 **6. Year three.** Orders: 13 billion rows in the two-year hot window; monthly partitions, 90 days
@@ -692,7 +714,9 @@ intentional and bounded by the reservation pool.
 **Where they press.** "Why isn't inventory in the same Postgres?" — because it partitions by SKU and
 orders by customer, and no key reconciles them; that gap is why the saga exists. "Why not put the
 idempotency record in Postgres too?" — you could, and the payments page does, because there the
-stored response must commit with the ledger; here the unique index is enough. Full derivation:
+stored response must commit with the ledger; here the claim on the session row is enough. "Why not shard by `order_id`?" — the order aggregate
+is already inside one customer, so customer gives the same colocation *and* makes "my orders" a
+one-shard read; by order id it would be a scatter across every shard. Full derivation:
 **the Amazon checkout design page, §12.**
 
 </details>
@@ -880,7 +904,7 @@ seats             PG  sharded by event_id            PK (event_id, seat_id)
   20k rows per event; trivially small. The point is contention, not size
 
 orders            PG  same shard as the event        PK (event_id, order_id)   user_id, seat_ids[], status, paid_at
-  UQ (idempotency_key)
+  UQ (event_id, idempotency_key)                            ← the shard key has to be in it
 
 queue:seq:{event_id}, queue:admitted:{event_id}   REDIS  STRING, INCR / SET
   positions are display values; a rewind over-admits briefly and cannot double-sell
