@@ -183,15 +183,15 @@ of step five, written out in full.
 ### A. RELATIONAL FORM, ANNOTATED
 
 ```text
-orders            PG   shard customer_id   PK (customer_id, order_id uuidv7)   ← shard key leads every key
-  status enum(created|paid|fulfilled|cancelled),              ← lifecycle as an enum, not booleans
+orders            PG   shard customer_id   PK order_id uuidv7            ← the id is the identity; it implies the customer
+  customer_id, status enum(created|paid|fulfilled|cancelled), ← lifecycle as an enum, not booleans
   total_cents, currency, checkout_session_id, version int,    ← version: optimistic concurrency
   created_at, updated_at
   IDX (customer_id, created_at DESC)                          ← serves R "my orders, newest first": one shard, one seek
   ~150/s × 86400 × 1000d ≈ 13B rows × 400B ≈ 5TB
   monthly partitions on the uuidv7 range; 90d hot, 2y warm, 7y S3     ← year-three line
 
-checkout_sessions PG   same shard          PK (customer_id, session_id)   order_id NULL, response
+checkout_sessions PG   same shard          PK session_id   customer_id, order_id NULL, response
   UPDATE … SET order_id = $1 WHERE order_id IS NULL, in the order's transaction   ← serves "retry must not duplicate"
 ```
 
@@ -204,16 +204,20 @@ Three layers are on that first line and the last, and they are three different d
 
 | Layer | Decides | Written as | The rule |
 |---|---|---|---|
-| **Shard key** | Which node holds the row | `shard customer_id` | Every table that commits with the root is colocated on it, and it leads every key. Lookup by `order_id` alone still routes, because the customer is on every order URL |
+| **Shard key** | Which node holds the row | `shard customer_id` | Every table that commits with the root is colocated on it, and it is a column on every one of them. Lookup by `order_id` alone still routes, because the customer is on every order URL, or is encoded in the id |
 | **Partition unit** | Which physical piece on that node | `monthly partitions on the uuidv7 range` | Lifecycle only — drop old months, keep the hot month's index in RAM. It moves nothing between nodes. Partition on the time-ordered id, not on a timestamp column, so a lookup by id prunes to one partition |
-| **Primary key** | Identity | `PK (customer_id, order_id)` | Must contain the shard key, and on a partitioned table the partition column too |
+| **Primary key** | Identity | `PK order_id uuidv7` | The id alone. An order has exactly one customer, so the customer is a column, not part of the key. Across shards the id is unique because it is *generated* unique, not because a constraint checks it |
 
-That last rule has a consequence people miss: **a sharded or partitioned table cannot carry a global
-unique constraint on anything but its keys.** There is no cross-shard or cross-partition unique
-index. So `UQ (idempotency_key)` on `orders` does not exist; the invariant "a retry must not
-duplicate" lives on the `checkout_sessions` row, colocated on the same shard, claimed by a
-conditional update inside the order's transaction. Every worked model in §06 that shards a table
-does this — the unique thing is either keyed by the shard key or it has its own small table.
+The consequence people miss: **a sharded table cannot enforce uniqueness across shards, and a
+partitioned table cannot enforce it across partitions.** There is no global unique index. The
+primary key survives because a uuidv7 never collides in practice, so the constraint only has to hold
+per shard. Anything else that must be unique — an idempotency key, a checkout session — has to be
+a row that lives on the shard where the check happens: `checkout_sessions` is colocated with the
+customer and claimed by a conditional update inside the order's transaction, so "a retry must not
+duplicate" is enforced by the row's presence, not by a cross-shard constraint. Two mechanical
+footnotes you can say if asked: Citus physically adds the distribution column to every unique index,
+which changes nothing about the model; and with application-level sharding across plain Postgres
+instances, the key is exactly as written.
 
 ### B. WIDE-COLUMN AND DYNAMO FORM
 
@@ -654,20 +658,20 @@ R  find my order from March (search)                               cold
 **3. Tables.** Two partition keys, and the gap between them is the design.
 
 ```text
-orders            PG/Citus  distributed on customer_id     PK (customer_id, order_id uuidv7)
-  status enum(placed|authorized|reserved|fulfilled|cancelled), total_cents, currency,
+orders            PG/Citus  distributed on customer_id     PK order_id uuidv7
+  customer_id, status enum(placed|authorized|reserved|fulfilled|cancelled), total_cents, currency,
   checkout_session_id, version, placed_at
   IDX (customer_id, placed_at DESC)                         ← R "my orders": one shard, one seek
   150/s × 86400 × 1000d ≈ 13B rows; monthly partitions on the uuidv7 range; 90d hot, 2y warm, 7y S3 Parquet
 
-checkout_sessions PG/Citus  colocated on customer_id       PK (customer_id, session_id)
-  cart_snapshot, order_id NULL, response                    ← claimed once: UPDATE … WHERE order_id IS NULL
+checkout_sessions PG/Citus  colocated on customer_id       PK session_id
+  customer_id, cart_snapshot, order_id NULL, response                    ← claimed once: UPDATE … WHERE order_id IS NULL
 
-order_lines       PG/Citus  colocated on customer_id       PK (customer_id, order_id, line_no)
+order_lines       PG/Citus  colocated on customer_id       PK (order_id, line_no)   customer_id
   sku, qty, unit_price_cents (snapshot — not a foreign key to the price book), fc_id
 
-outbox            PG/Citus  colocated on customer_id       PK (customer_id, event_id uuidv7)
-  order_id, type, payload, published_at NULL               ← same transaction as the order
+outbox            PG/Citus  colocated on customer_id       PK event_id uuidv7
+  customer_id, order_id, type, payload, published_at NULL               ← same transaction as the order
 
 inventory         DDB    PK sku   SK fc_id
   on_hand, reserved, version                               ← available = on_hand − reserved
@@ -903,7 +907,7 @@ seats             PG  sharded by event_id            PK (event_id, seat_id)
   W best-available: SELECT … WHERE status='available' AND section=? LIMIT n FOR UPDATE SKIP LOCKED
   20k rows per event; trivially small. The point is contention, not size
 
-orders            PG  same shard as the event        PK (event_id, order_id)   user_id, seat_ids[], status, paid_at
+orders            PG  same shard as the event        PK order_id   event_id, user_id, seat_ids[], status, paid_at
   UQ (event_id, idempotency_key)                            ← the shard key has to be in it
 
 queue:seq:{event_id}, queue:admitted:{event_id}   REDIS  STRING, INCR / SET
@@ -968,7 +972,7 @@ R  fare quote by QUOTE_ID, single-use, 5 min                       warm
 **3. Tables.**
 
 ```text
-rides             PG/Citus  sharded by region_id           PK (region_id, ride_id uuidv7)
+rides             PG/Citus  sharded by region_id           PK ride_id uuidv7   region_id
   rider_id, driver_id NULL, status enum(requested|matched|en_route|in_trip|completed|cancelled),
   quote_id, fare_cents, version, requested_at
   W match: UPDATE rides SET driver_id=?, status='matched', version=version+1
@@ -1112,11 +1116,11 @@ W  replay TRANSFER with same (merchant, key) → stored response     hot    ever
 **3. Tables.**
 
 ```text
-transfers         PG/Citus  distributed on merchant_id     PK (merchant_id, transfer_id uuidv7)
+transfers         PG/Citus  distributed on merchant_id     PK transfer_id uuidv7   merchant_id
   type enum(charge|refund|payout|fee), intent_id, amount_cents, currency, status, created_at
   5k/s × 86400 ≈ 440M/day; monthly partitions; 90d hot, 2y warm, 10y S3 Parquet — never deleted
 
-entries           PG/Citus  colocated on merchant_id       PK (merchant_id, entry_id uuidv7)
+entries           PG/Citus  colocated on merchant_id       PK entry_id uuidv7   merchant_id
   transfer_id, account_id, amount_cents signed, currency, created_at   ← immutable; corrections are new entries
   IDX (account_id, created_at DESC)                              ← R "entries for account"
   CHECK: SUM(amount_cents) per transfer = 0, asserted in the transaction before commit
@@ -1193,7 +1197,7 @@ W  share NAMESPACE with USER                                         cold
 **3. Tables.**
 
 ```text
-files             PG  sharded by namespace_id             PK (namespace_id, file_id uuidv7)
+files             PG  sharded by namespace_id             PK file_id uuidv7   namespace_id
   path, current_version, size, block_hashes text[], modified_at, deleted bool, version
   UQ  (namespace_id, path) WHERE NOT deleted                        ← live paths unique
   ~50B files × 300B ≈ 15TB across shards; rename is a metadata write, never a block rewrite
@@ -1252,8 +1256,9 @@ audit history is kept for compliance.
 <summary><strong>Key — the six artifacts</strong></summary>
 
 **1. Entities.** Tenant, User, Membership, Group, GroupMember, Resource (document, folder),
-Permission (principal → resource → role), AuditEvent. Root: **the Tenant** — `tenant_id` is the
-first column of every primary key, every index, every cache key, and the shard key. **A row that
+Permission (principal → resource → role), AuditEvent. Root: **the Tenant** — `tenant_id` is a column
+on every row, the leading column of every index, in every cache key, in every `WHERE`, and the shard
+key. **A row that
 doesn't carry it is a cross-tenant leak waiting to happen.**
 
 **2. Access patterns.**
@@ -1274,22 +1279,22 @@ R  audit for RESOURCE / TENANT in RANGE                             cold   compl
 tenants           PG   PK tenant_id     plan, shard_hint         ← a whale can be pinned to its own shard
 memberships       PG   PK (tenant_id, user_id)    role
 
-resources         PG  sharded by tenant_id        PK (tenant_id, resource_id uuidv7)
+resources         PG  sharded by tenant_id        PK resource_id uuidv7   tenant_id
   parent_id, owner_id, type, created_at            ← inheritance walks parent_id; depth capped at ~10
 
-permissions       PG  same shard                  PK (tenant_id, resource_id, principal_type, principal_id)
+permissions       PG  same shard                  PK (resource_id, principal_type, principal_id)   tenant_id
   role enum(viewer|commenter|editor|owner), granted_by, granted_at
   IDX (tenant_id, principal_id, granted_at DESC)   ← R "shared with me" — the reverse index
   the PK *is* the grant, so grant and revoke are naturally idempotent
 
-groups / group_members   PG  same shard           PK (tenant_id, group_id, user_id)
+groups / group_members   PG  same shard           PK (group_id, user_id)   tenant_id
   IDX (tenant_id, user_id)                          ← "groups of user", read on every check
 
 perm:{tenant}:{user}:{resource}   REDIS STRING = role, EX 60
   read on every check; a revoke DELs it (write-through) and the TTL bounds a missed delete at 60s
   derived — loss sends 115k/s to Postgres reads, which is survivable on replicas
 
-audit             PG  partitioned by month        PK (tenant_id, event_id uuidv7)   actor, action, resource_id, at
+audit             PG  partitioned by month        PK event_id uuidv7   tenant_id, actor, action, resource_id, at
   append-only; 90d hot, then S3 Parquet, 7y
 
 DynamoDB variant: PK=TENANT#t#RES#r  SK=PRINCIPAL#type#id  (role)    GSI1 PK=TENANT#t#PRINCIPAL#id (shared-with-me)
