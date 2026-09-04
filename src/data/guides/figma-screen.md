@@ -854,6 +854,13 @@ every method.
 Part 1 is four minutes. **Part 2 is the whole question**, and it has a trap in it that is worth
 more than the solution.
 
+**See it move first.** [Reading Order Sweep](/morning-recall/viz/reading-order.html) is an
+interactive page that runs the drill's exact code in your browser: Part 1's `(y, x)` sort on an
+aligned grid and then on a misaligned row, where it breaks; the tolerance comparator producing
+three different outputs from one set of boxes; and the Part 2 sweep stepped one box at a time with
+the `rowBottom` line drawn on the canvas. Ten minutes there before the first timed rep, and the
+model answer below reads as a description of something you have already watched.
+
 **Your first three questions.** Is the origin top-left with y increasing downward? Do I have width
 and height, or just a point? What counts as "the same row" — is there a stated tolerance, or is
 that mine to define?

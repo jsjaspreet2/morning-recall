@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="../favicon.svg">
+<title>Reading Order Sweep</title>
+<style>
+  :root {
+    --bg: #faf9fc;
+    --panel: #ffffff;
+    --ink: #1c1a24;
+    --muted: #6b6878;
+    --line: #e4e1ec;
+    --accent: #7c3aed;
+    --accent-soft: #ede7fb;
+    --ok: #15803d;
+    --ok-soft: #dcfce7;
+    --bad: #b91c1c;
+    --bad-soft: #fee2e2;
+    --warn: #b45309;
+    --warn-soft: #fef3c7;
+    --code-bg: #f3f1f8;
+    --row0: rgba(124, 58, 237, 0.10);
+    --row1: rgba(14, 165, 233, 0.12);
+    --row2: rgba(234, 88, 12, 0.12);
+    --row3: rgba(22, 163, 74, 0.12);
+    --box: #ffffff;
+    --box-stroke: #9a95aa;
+    --hl: #7c3aed;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #141219; --panel: #1d1a25; --ink: #ece9f3; --muted: #a49fb3; --line: #322d3f;
+      --accent: #a78bfa; --accent-soft: #2a2140; --ok: #4ade80; --ok-soft: #14301e;
+      --bad: #f87171; --bad-soft: #3a1a1a; --warn: #fbbf24; --warn-soft: #3a2c10;
+      --code-bg: #17141f; --row0: rgba(167,139,250,0.16); --row1: rgba(56,189,248,0.16);
+      --row2: rgba(251,146,60,0.16); --row3: rgba(74,222,128,0.16);
+      --box: #262130; --box-stroke: #6f6884; --hl: #a78bfa;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #141219; --panel: #1d1a25; --ink: #ece9f3; --muted: #a49fb3; --line: #322d3f;
+    --accent: #a78bfa; --accent-soft: #2a2140; --ok: #4ade80; --ok-soft: #14301e;
+    --bad: #f87171; --bad-soft: #3a1a1a; --warn: #fbbf24; --warn-soft: #3a2c10;
+    --code-bg: #17141f; --row0: rgba(167,139,250,0.16); --row1: rgba(56,189,248,0.16);
+    --row2: rgba(251,146,60,0.16); --row3: rgba(74,222,128,0.16);
+    --box: #262130; --box-stroke: #6f6884; --hl: #a78bfa;
+  }
+
+  body { background: var(--bg); color: var(--ink); font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; }
+  main { max-width: 980px; margin: 0 auto; padding: 32px 20px 80px; }
+  h1 { font-size: 28px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  h2 { font-size: 20px; margin: 44px 0 10px; padding-top: 18px; border-top: 1px solid var(--line); }
+  h2 .k { display: inline-block; font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin-right: 10px; vertical-align: middle; }
+  p { margin: 8px 0; max-width: 72ch; }
+  .lede { color: var(--muted); font-size: 16px; margin-bottom: 4px; }
+  .note { font-size: 13.5px; color: var(--muted); }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; }
+  code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+  pre { background: var(--code-bg); padding: 12px 14px; border-radius: 8px; overflow-x: auto; margin: 10px 0; line-height: 1.5; }
+  pre .ln { display: block; padding: 0 6px; margin: 0 -6px; border-radius: 3px; white-space: pre; }
+  pre .ln.on { background: var(--accent-soft); outline: 1px solid var(--accent); }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin: 14px 0; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 720px) { .grid2 { grid-template-columns: 1fr; } }
+  .caption { font-size: 13.5px; color: var(--muted); margin-top: 6px; }
+  .caption b { color: var(--ink); }
+  svg { display: block; width: 100%; height: auto; }
+  .canvas { background: repeating-linear-gradient(0deg, transparent 0 9px, var(--line) 9px 10px), repeating-linear-gradient(90deg, transparent 0 9px, var(--line) 9px 10px); border-radius: 8px; border: 1px solid var(--line); }
+  .canvas.plain { background: none; }
+  .out { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 15px; letter-spacing: .18em; padding: 4px 10px; border-radius: 6px; display: inline-block; }
+  .out.good { background: var(--ok-soft); color: var(--ok); }
+  .out.badv { background: var(--bad-soft); color: var(--bad); }
+  .out.warnv { background: var(--warn-soft); color: var(--warn); }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0; }
+  button, select { font: inherit; font-size: 14px; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button:disabled { opacity: .45; cursor: default; }
+  .log { min-height: 3.2em; font-size: 14px; padding: 8px 12px; border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 0 8px 8px 0; margin-top: 10px; }
+  .log b { font-family: ui-monospace, Menlo, monospace; }
+  table { border-collapse: collapse; font-size: 14px; width: 100%; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; }
+  td.mono, th.mono { font-family: ui-monospace, Menlo, monospace; letter-spacing: .12em; }
+  .table-wrap { overflow-x: auto; }
+  .pill { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; color: var(--muted); margin-top: 8px; }
+  .legend span::before { content: ""; display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -2px; }
+  .legend .l-rb::before { background: var(--bad); }
+  .legend .l-cur::before { background: var(--hl); }
+  .legend .l-row::before { background: var(--row0); border: 1px solid var(--accent); }
+  .say { border-left: 3px solid var(--accent); padding: 4px 14px; color: var(--ink); font-style: italic; margin: 10px 0; }
+  .backlink { font-size: 13.5px; color: var(--muted); }
+  a { color: var(--accent); }
+  .tabs { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .tabs button { border: 0; border-radius: 0; }
+  .tabs button.on { background: var(--accent); color: #fff; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Reading Order Sweep</h1>
+  <p class="lede">Drill <code>figma-03-reading-order</code>: what Part 1 does, why it stops working, the comparator trap, and what Part 2's sweep actually computes. Every output below is computed live in your browser with the drill's exact code.</p>
+  <p class="backlink">Companion to guide §05 B and the drill's trap card. The test cases here are the drill's own, plus one extra (the staircase) that is worth knowing about.</p>
+
+  <!-- ============================================================ 0 -->
+  <h2><span class="k">0</span>The problem</h2>
+  <p>Objects on a canvas, each a box <code>{ id, x, y, w, h }</code>. Origin top-left, y grows downward. Return them in the order a reader's eye takes them: row by row, left to right within a row. The output must be a <b>permutation of the input</b>: same length, same ids, nothing invented, nothing lost.</p>
+  <div class="panel">
+    <div id="viz-problem"></div>
+    <p class="caption">The five boxes are one visual row of three and a second row of two. The correct reading order is <span class="out good">ABCDE</span>. Notice that inside the top row, <b>B sits higher than A</b> even though A comes first. That single fact is the whole drill.</p>
+  </div>
+
+  <!-- ============================================================ 1 -->
+  <h2><span class="k">Part 1</span>Aligned rows: sort by y, then by x</h2>
+  <p>When rows are perfectly aligned, every box in a row shares the same <code>y</code>. So "reading order" is just a lexicographic sort on the pair <code>(y, x)</code>: smaller <code>y</code> first, and when <code>y</code> ties, smaller <code>x</code> first.</p>
+<pre><span class="ln">function readingOrderAligned(boxes: Box[]): Box[] {</span><span class="ln">  return [...boxes].sort((a, b) =&gt; a.y - b.y || a.x - b.x)</span><span class="ln">}</span></pre>
+  <p class="note"><code>a.y - b.y || a.x - b.x</code>: the first difference is the answer unless it is <code>0</code>, which is falsy, and then the second difference decides. <code>[...boxes]</code> copies first because <code>sort</code> mutates in place.</p>
+
+  <div class="grid2">
+    <div class="panel">
+      <div id="viz-p1-grid"></div>
+      <p class="caption"><b>The drill's grid test.</b> Input order is D, A, C, B. Sorted by <code>(y, x)</code>: <span id="p1-grid-keys" class="mono"></span>. Output <span class="out good" id="p1-grid-out"></span>. The numbered path snakes exactly the way a reader would.</p>
+    </div>
+    <div class="panel">
+      <div id="viz-p1-misrow"></div>
+      <p class="caption"><b>The same sort on the misaligned row.</b> <code>y</code> is compared as an exact number. B's top is 0 and A's is 4, so B is placed first. Output <span class="out badv" id="p1-misrow-out"></span>: the path jumps right, then back left. Part 1 has no concept of "a row"; it only has a number.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================ 2 -->
+  <h2><span class="k">The trap</span>"Same row if the tops are within 5"</h2>
+  <p>The obvious patch is to soften the <code>y</code> comparison: treat two boxes as the same row when <code>Math.abs(a.y - b.y) &lt; 5</code>, and compare <code>x</code> in that case.</p>
+<pre><span class="ln">// DO NOT SHIP THIS</span><span class="ln">[...boxes].sort((a, b) =&gt; Math.abs(a.y - b.y) &lt; 5 ? a.x - b.x : a.y - b.y)</span></pre>
+  <p>"Within 5 of each other" is <b>not transitive</b>. A can be within 5 of B, B within 5 of C, and A not within 5 of C. That means the comparator sometimes decides by <code>x</code> and sometimes by <code>y</code> for boxes in the <em>same</em> visual row, and the two rules can disagree.</p>
+
+  <div class="grid2">
+    <div class="panel">
+      <div id="viz-trap-canvas"></div>
+      <p class="caption"><b>The staircase.</b> Tops at 8, 4 and 0, with x increasing left to right. Visually one row; a reader says <span class="out good">ABC</span>.</p>
+    </div>
+    <div class="panel">
+      <div id="viz-trap-triangle"></div>
+      <p class="caption">Each edge shows which rule the comparator uses for that pair, and who it says comes first. Follow the arrows: <b>A before B, B before C, C before A.</b> A cycle. There is no order that satisfies all three, so <code>sort</code> is being asked a question with no answer.</p>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="controls">
+      <span class="pill">Live</span>
+      <span>Run the tolerance comparator on every input ordering of</span>
+      <span class="tabs">
+        <button id="trap-tab-stair" class="on">the staircase</button>
+        <button id="trap-tab-chain">the drill's 0 / 4 / 8 case</button>
+      </span>
+    </div>
+    <div class="table-wrap"><table id="trap-table"></table></div>
+    <p class="caption" id="trap-summary"></p>
+  </div>
+  <p class="note"><b>Why the drill's own "tops at 0, 4 and 8" test is survivable.</b> In that case x and y increase together (A is leftmost <em>and</em> highest), so the x-rule and the y-rule agree on every pair and there is no cycle. The comparator is still broken as a matter of principle, and the test still guards the right thing (the sweep must not care about the chain), but the visible damage needs x to run one way while y runs the other. If you want a test that fails a tolerance comparator outright, the staircase is it.</p>
+
+  <!-- ============================================================ 3 -->
+  <h2><span class="k">Part 2</span>Group first, sort second: the sweep</h2>
+  <p>The fix is to stop asking "are these two boxes in the same row?" and instead ask a question with running state: <b>"does this box still overlap the row I am currently building?"</b> A sweep is allowed to be non-transitive, because it never compares two boxes with each other. It compares one box against one number.</p>
+  <p>Three phases. <b>Sort</b> every box by its top edge. <b>Sweep</b> down the sorted list, tracking <code>rowBottom</code>, the lowest edge seen in the current row: a box whose top is at or below <code>rowBottom</code> starts a new row; otherwise it joins, and may push <code>rowBottom</code> further down. <b>Then sort each row</b> by x.</p>
+
+  <div class="panel">
+    <div class="controls">
+      <label for="scenario">Scenario</label>
+      <select id="scenario"></select>
+      <button id="btn-reset">Reset</button>
+      <button id="btn-step" class="primary">Step →</button>
+      <button id="btn-play">Play</button>
+      <span class="note" id="step-counter"></span>
+    </div>
+    <div class="grid2">
+      <div>
+        <div id="viz-sweep"></div>
+        <div class="legend"><span class="l-cur">current box</span><span class="l-rb">rowBottom</span><span class="l-row">row being built</span></div>
+      </div>
+      <div>
+<pre id="sweep-code"><span class="ln" data-l="sort">const byTop = [...boxes].sort((a, b) =&gt; a.y - b.y || a.x - b.x)</span><span class="ln" data-l="init">const rows: Box[][] = []</span><span class="ln" data-l="init">let rowBottom = -Infinity</span><span class="ln" data-l="loop">for (const box of byTop) {</span><span class="ln" data-l="test">  if (box.y &gt;= rowBottom) rows.push([])</span><span class="ln" data-l="push">  rows[rows.length - 1].push(box)</span><span class="ln" data-l="max">  rowBottom = Math.max(rowBottom, box.y + box.h)</span><span class="ln" data-l="loop">}</span><span class="ln" data-l="within">return rows.flatMap((row) =&gt; row.sort((a, b) =&gt; a.x - b.x))</span></pre>
+        <div class="log" id="sweep-log"></div>
+        <div class="table-wrap" style="margin-top:10px"><table id="sweep-rows"></table></div>
+      </div>
+    </div>
+  </div>
+
+  <p class="note"><b>Why the sweep survives the staircase and the chain.</b> Sorted by top, the staircase is C(0), B(4), A(8). C opens a row and sets <code>rowBottom</code> to 10. B's top is 4, below 10, so it joins. A's top is 8, still below 10, so it joins. One row, then sorted by x: A, B, C. The sweep never asked whether A and C were "close". It asked whether each one started above the row's current bottom.</p>
+  <p class="note"><b>The stated limitation.</b> Pick the <em>Tall element</em> scenario. T is 100 tall, so <code>rowBottom</code> jumps to 100 on the first step and everything beside T joins its row, including B at y=50. That is a defensible choice (a full-height sidebar arguably <em>is</em> beside everything), but say it before the interviewer finds it. The alternative, comparing against the first element's band instead of the running maximum, caps the damage at the cost of making the result depend on which box opened the row.</p>
+
+  <!-- ============================================================ 4 -->
+  <h2><span class="k">Side by side</span>The three algorithms on the selected scenario</h2>
+  <div class="panel">
+    <div class="table-wrap"><table id="compare"></table></div>
+    <p class="caption">"Tolerance sort" lists every distinct output across all input orderings. One entry means the comparator happened to be consistent on this input. More than one means the output depends on the order the caller passed the boxes in, which is the bug the drill is about.</p>
+  </div>
+
+  <!-- ============================================================ 5 -->
+  <h2><span class="k">Say it</span>What to say out loud at the Part 2 boundary</h2>
+  <p class="say">"The instinct is a tolerance in the comparator, but that isn't transitive: tops at 0, 4 and 8 make A~B and B~C but not A~C, and <code>sort</code> needs a strict weak ordering. So I'll group first and sort second. One pass down the boxes sorted by top, tracking the current row's bottom edge; a box joins if it overlaps, otherwise it starts a new row. Then left-to-right inside each row. The sort dominates at O(n log n); the sweep is linear."</p>
+  <p class="say">"One thing to flag: a tall element merges the rows it spans, because I extend the band as I go. I'd want to know what these objects are before deciding whether that's right."</p>
+</main>
+
+<script>
+(() => {
+  // ------------------------------------------------------------ data
+  const B = (id, x, y, w = 10, h = 10) => ({ id, x, y, w, h })
+  const ids = (bs) => bs.map((b) => b.id).join('')
+
+  const SCEN = {
+    misrow: { name: 'Misaligned row (the problem above)', boxes: [B('A', 0, 4), B('B', 40, 0), B('C', 80, 6), B('D', 0, 44), B('E', 40, 40)] },
+    grid:   { name: 'Aligned grid (part 1 test)',          boxes: [B('D', 20, 20), B('A', 0, 0), B('C', 0, 20), B('B', 20, 0)] },
+    below:  { name: 'Object clearly below (drill test)',    boxes: [B('C', 0, 30), B('A', 0, 0), B('B', 30, 2), B('D', 30, 33)] },
+    aligned:{ name: 'Visually aligned despite tops (drill test)', boxes: [B('B', 30, 3), B('A', 0, 0), B('C', 60, 6), B('D', 0, 40)] },
+    chain:  { name: 'Tops at 0, 4, 8 (drill test)',        boxes: [B('C', 40, 8), B('A', 0, 0), B('B', 20, 4)] },
+    stair:  { name: 'Staircase (the comparator cycle)',    boxes: [B('A', 0, 8), B('B', 20, 4), B('C', 40, 0)] },
+    tall:   { name: 'Tall element merges rows (drill test)', boxes: [B('T', 0, 0, 10, 100), B('A', 20, 0), B('B', 20, 50)] },
+  }
+
+  // ------------------------------------------------------------ the drill's algorithms, verbatim
+  const part1 = (boxes) => [...boxes].sort((a, b) => a.y - b.y || a.x - b.x)
+  const tolerance = (boxes) => [...boxes].sort((a, b) => (Math.abs(a.y - b.y) < 5 ? a.x - b.x : a.y - b.y))
+  const sweep = (boxes) => {
+    const byTop = [...boxes].sort((a, b) => a.y - b.y || a.x - b.x)
+    const rows = []
+    let rowBottom = -Infinity
+    for (const box of byTop) {
+      if (box.y >= rowBottom) rows.push([])
+      rows[rows.length - 1].push(box)
+      rowBottom = Math.max(rowBottom, box.y + box.h)
+    }
+    return rows.flatMap((row) => row.sort((a, b) => a.x - b.x))
+  }
+  const perms = (a) => (a.length <= 1 ? [a] : a.flatMap((x, i) => perms([...a.slice(0, i), ...a.slice(i + 1)]).map((p) => [x, ...p])))
+
+  // ------------------------------------------------------------ svg helpers
+  const ROWFILL = ['var(--row0)', 'var(--row1)', 'var(--row2)', 'var(--row3)']
+  const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+
+  function frame(boxes, pad = 8) {
+    const minX = Math.min(...boxes.map((b) => b.x)) - pad
+    const minY = Math.min(...boxes.map((b) => b.y)) - pad
+    const maxX = Math.max(...boxes.map((b) => b.x + b.w)) + pad
+    const maxY = Math.max(...boxes.map((b) => b.y + b.h)) + pad
+    return { minX, minY, w: maxX - minX, h: maxY - minY }
+  }
+
+  // Draws boxes; opts.order = array of boxes in output order (numbers + path);
+  // opts.rows = array of arrays for shaded bands; opts.current = id; opts.rowBottom = number|null
+  function drawCanvas(boxes, opts = {}) {
+    const f = frame(boxes)
+    const s = 4 // units -> px scale for text sizing
+    const parts = []
+    parts.push(`<svg viewBox="${f.minX} ${f.minY} ${f.w} ${f.h}" class="canvas${opts.plain ? ' plain' : ''}" style="max-height:${Math.min(360, f.h * s)}px" role="img" aria-label="${esc(opts.label || 'canvas')}">`)
+    // row bands
+    if (opts.rows) {
+      opts.rows.forEach((row, i) => {
+        if (!row.length) return
+        const top = Math.min(...row.map((b) => b.y))
+        const bot = Math.max(...row.map((b) => b.y + b.h))
+        const on = opts.activeRow === i
+        parts.push(`<rect x="${f.minX + 1}" y="${top - 1}" width="${f.w - 2}" height="${bot - top + 2}" fill="${ROWFILL[i % ROWFILL.length]}" stroke="${on ? 'var(--accent)' : 'none'}" stroke-width="0.5" stroke-dasharray="1.5 1" rx="1"/>`)
+        parts.push(`<text x="${f.minX + f.w - 2}" y="${top + 3.2}" font-size="3" text-anchor="end" fill="var(--muted)">row ${i + 1}</text>`)
+      })
+    }
+    // rowBottom line
+    if (typeof opts.rowBottom === 'number' && isFinite(opts.rowBottom)) {
+      parts.push(`<line x1="${f.minX}" y1="${opts.rowBottom}" x2="${f.minX + f.w}" y2="${opts.rowBottom}" stroke="var(--bad)" stroke-width="0.6" stroke-dasharray="2 1.2"/>`)
+      parts.push(`<text x="${f.minX + 1.5}" y="${opts.rowBottom - 1.2}" font-size="3" fill="var(--bad)">rowBottom = ${opts.rowBottom}</text>`)
+    }
+    // path
+    if (opts.order && opts.order.length > 1) {
+      const pts = opts.order.map((b) => `${b.x + b.w / 2},${b.y + b.h / 2}`).join(' ')
+      parts.push(`<polyline points="${pts}" fill="none" stroke="${opts.pathColor || 'var(--accent)'}" stroke-width="0.7" stroke-linejoin="round" opacity="0.85" marker-end="url(#arrow)"/>`)
+      parts.push(`<defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="${opts.pathColor || 'var(--accent)'}"/></marker></defs>`)
+    }
+    // boxes
+    const rank = new Map((opts.order || []).map((b, i) => [b.id, i + 1]))
+    const done = new Set(opts.done || [])
+    for (const b of boxes) {
+      const cur = opts.current === b.id
+      const dim = opts.done && !done.has(b.id) && !cur
+      parts.push(`<g opacity="${dim ? 0.35 : 1}">`)
+      parts.push(`<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" rx="1" fill="var(--box)" stroke="${cur ? 'var(--hl)' : 'var(--box-stroke)'}" stroke-width="${cur ? 1.1 : 0.6}"/>`)
+      parts.push(`<text x="${b.x + b.w / 2}" y="${b.y + Math.min(b.h, 10) / 2 + 1.6}" font-size="4.6" font-weight="700" text-anchor="middle" fill="var(--ink)">${esc(b.id)}</text>`)
+      if (opts.showCoords) parts.push(`<text x="${b.x + b.w / 2}" y="${b.y + b.h + 3.4}" font-size="2.6" text-anchor="middle" fill="var(--muted)">(${b.x}, ${b.y})</text>`)
+      if (rank.has(b.id)) parts.push(`<circle cx="${b.x + b.w - 0.5}" cy="${b.y + 0.5}" r="2.4" fill="${opts.pathColor || 'var(--accent)'}"/><text x="${b.x + b.w - 0.5}" y="${b.y + 1.6}" font-size="3" font-weight="700" text-anchor="middle" fill="#fff">${rank.get(b.id)}</text>`)
+      parts.push(`</g>`)
+    }
+    parts.push('</svg>')
+    return parts.join('')
+  }
+
+  const $ = (id) => document.getElementById(id)
+
+  // ------------------------------------------------------------ 0: the problem
+  $('viz-problem').innerHTML = drawCanvas(SCEN.misrow.boxes, { showCoords: true, order: sweep(SCEN.misrow.boxes), label: 'misaligned row problem' })
+
+  // ------------------------------------------------------------ 1: part 1
+  {
+    const g = SCEN.grid.boxes
+    const out = part1(g)
+    $('viz-p1-grid').innerHTML = drawCanvas(g, { showCoords: true, order: out, label: 'aligned grid sorted' })
+    $('p1-grid-keys').textContent = out.map((b) => `${b.id}(${b.y},${b.x})`).join(' → ')
+    $('p1-grid-out').textContent = ids(out)
+    const m = SCEN.misrow.boxes
+    const mo = part1(m)
+    $('viz-p1-misrow').innerHTML = drawCanvas(m, { showCoords: true, order: mo, pathColor: 'var(--bad)', label: 'misaligned row under part 1' })
+    $('p1-misrow-out').textContent = ids(mo)
+  }
+
+  // ------------------------------------------------------------ 2: the trap
+  {
+    const st = SCEN.stair.boxes
+    $('viz-trap-canvas').innerHTML = drawCanvas(st, { showCoords: true, order: sweep(st), label: 'staircase' })
+
+    // triangle: nodes A,B,C; edges annotated with the comparator's rule and verdict
+    const [A, Bb, C] = [...st].sort((a, b) => a.id.localeCompare(b.id))
+    const pos = { A: [30, 85], B: [100, 15], C: [170, 85] }
+    const edge = (p, q) => {
+      const same = Math.abs(p.y - q.y) < 5
+      const first = same ? (p.x < q.x ? p : q) : (p.y < q.y ? p : q)
+      const second = first === p ? q : p
+      return { same, first, second, d: Math.abs(p.y - q.y) }
+    }
+    const E = [edge(A, Bb), edge(Bb, C), edge(A, C)]
+    const mid = (p, q) => [(pos[p][0] + pos[q][0]) / 2, (pos[p][1] + pos[q][1]) / 2]
+    let t = `<svg viewBox="0 0 200 110" class="canvas plain" style="max-height:300px" role="img" aria-label="comparator cycle">`
+    t += `<defs><marker id="tri" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--ink)"/></marker></defs>`
+    for (const e of E) {
+      const [x1, y1] = pos[e.first.id], [x2, y2] = pos[e.second.id]
+      // shorten so arrowheads land on the node edge
+      const dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy), ux = dx / L, uy = dy / L, r = 11
+      t += `<line x1="${x1 + ux * r}" y1="${y1 + uy * r}" x2="${x2 - ux * r}" y2="${y2 - uy * r}" stroke="var(--ink)" stroke-width="1.2" marker-end="url(#tri)"/>`
+      const [mx, my] = mid(e.first.id, e.second.id)
+      const off = e.first.id + e.second.id === 'AC' || e.first.id + e.second.id === 'CA' ? 9 : -7
+      const label = e.same ? `|Δy| = ${e.d} < 5 → same row → by x` : `|Δy| = ${e.d} ≥ 5 → by y`
+      t += `<text x="${mx}" y="${my + off}" font-size="4.6" text-anchor="middle" fill="${e.same ? 'var(--ok)' : 'var(--bad)'}" font-weight="600">${label}</text>`
+      t += `<text x="${mx}" y="${my + off + 5.2}" font-size="4.4" text-anchor="middle" fill="var(--muted)">${e.first.id} before ${e.second.id}</text>`
+    }
+    for (const b of [A, Bb, C]) {
+      const [x, y] = pos[b.id]
+      t += `<circle cx="${x}" cy="${y}" r="10" fill="var(--box)" stroke="var(--box-stroke)" stroke-width="1"/>`
+      t += `<text x="${x}" y="${y + 2.4}" font-size="7" font-weight="700" text-anchor="middle" fill="var(--ink)">${b.id}</text>`
+      t += `<text x="${x}" y="${y + 17}" font-size="4.2" text-anchor="middle" fill="var(--muted)">y = ${b.y}</text>`
+    }
+    t += '</svg>'
+    $('viz-trap-triangle').innerHTML = t
+
+    const renderTrapTable = (key) => {
+      const boxes = SCEN[key].boxes
+      const rows = perms(boxes).map((p) => ({ inp: ids(p), out: ids(tolerance(p)) }))
+      const distinct = [...new Set(rows.map((r) => r.out))]
+      const good = ids(sweep(boxes))
+      let h = `<tr><th class="mono">input order</th><th class="mono">tolerance sort output</th><th></th></tr>`
+      for (const r of rows) {
+        const ok = r.out === good
+        h += `<tr><td class="mono">${r.inp}</td><td class="mono"><span class="out ${ok ? 'good' : 'badv'}">${r.out}</span></td><td class="note">${ok ? 'happens to be right' : 'wrong, and silently'}</td></tr>`
+      }
+      $('trap-table').innerHTML = h
+      $('trap-summary').innerHTML = distinct.length === 1
+        ? `<b>One output</b> across all ${rows.length} orderings. The comparator is inconsistent in principle but this input never makes it contradict itself.`
+        : `<b>${distinct.length} different outputs</b> from the same set of boxes, depending only on the order they arrived in. <code>Array.prototype.sort</code> did not throw. Nothing warned you.`
+      $('trap-tab-stair').classList.toggle('on', key === 'stair')
+      $('trap-tab-chain').classList.toggle('on', key === 'chain')
+    }
+    $('trap-tab-stair').onclick = () => renderTrapTable('stair')
+    $('trap-tab-chain').onclick = () => renderTrapTable('chain')
+    renderTrapTable('stair')
+  }
+
+  // ------------------------------------------------------------ 3: the sweep stepper
+  const sel = $('scenario')
+  for (const [k, v] of Object.entries(SCEN)) {
+    const o = document.createElement('option'); o.value = k; o.textContent = v.name; sel.appendChild(o)
+  }
+  let frames = [], fi = 0, timer = null
+
+  function buildFrames(boxes) {
+    const byTop = [...boxes].sort((a, b) => a.y - b.y || a.x - b.x)
+    const out = []
+    out.push({ line: 'sort', rows: [], rowBottom: -Infinity, current: null, done: [],
+      msg: `<b>Sort by top.</b> byTop = ${byTop.map((b) => `${b.id}(y=${b.y})`).join(', ')}. The x tie-break only makes the sweep deterministic; it does not decide rows.` })
+    const rows = []
+    let rowBottom = -Infinity
+    const done = []
+    for (const box of byTop) {
+      const newRow = box.y >= rowBottom
+      if (newRow) rows.push([])
+      rows[rows.length - 1].push(box)
+      const before = rowBottom
+      rowBottom = Math.max(rowBottom, box.y + box.h)
+      done.push(box.id)
+      const rbTxt = before === -Infinity ? '-∞' : before
+      const why = newRow
+        ? `<b>${box.id}</b>: y = ${box.y} ≥ rowBottom = ${rbTxt} → <b>starts row ${rows.length}</b>.`
+        : `<b>${box.id}</b>: y = ${box.y} &lt; rowBottom = ${rbTxt} → overlaps, <b>joins row ${rows.length}</b>.`
+      const grow = rowBottom > before ? `rowBottom = max(${rbTxt}, ${box.y} + ${box.h}) = <b>${rowBottom}</b>.` : `rowBottom stays ${rowBottom} (this box ends higher).`
+      out.push({ line: newRow ? 'test' : 'push', rows: rows.map((r) => [...r]), rowBottom, current: box.id, done: [...done], msg: `${why} ${grow}` })
+    }
+    const finalRows = rows.map((r) => [...r].sort((a, b) => a.x - b.x))
+    out.push({ line: 'within', rows: finalRows, rowBottom: null, current: null, done: [...done], order: finalRows.flat(),
+      msg: `<b>Sort within each row by x.</b> ${finalRows.map((r, i) => `row ${i + 1}: ${ids(r)}`).join(' · ')}. Output <b>${ids(finalRows.flat())}</b>.` })
+    return out
+  }
+
+  function renderFrame() {
+    const boxes = SCEN[sel.value].boxes
+    const f = frames[fi]
+    const activeRow = f.current ? f.rows.findIndex((r) => r.some((b) => b.id === f.current)) : -1
+    $('viz-sweep').innerHTML = drawCanvas(boxes, { showCoords: true, rows: f.rows, rowBottom: f.rowBottom, current: f.current, done: fi === 0 ? null : f.done, order: f.order, activeRow, label: 'sweep state' })
+    $('sweep-log').innerHTML = f.msg
+    document.querySelectorAll('#sweep-code .ln').forEach((el) => el.classList.toggle('on', el.dataset.l === f.line))
+    $('step-counter').textContent = `step ${fi + 1} of ${frames.length}`
+    let h = `<tr><th>row</th><th class="mono">members (in sweep order)</th><th>bottom edge</th></tr>`
+    f.rows.forEach((r, i) => { h += `<tr><td>${i + 1}</td><td class="mono">${ids(r)}</td><td>${Math.max(...r.map((b) => b.y + b.h))}</td></tr>` })
+    $('sweep-rows').innerHTML = f.rows.length ? h : ''
+    $('btn-step').disabled = fi >= frames.length - 1
+    renderCompare(boxes)
+  }
+
+  function renderCompare(boxes) {
+    const p1 = ids(part1(boxes)), sw = ids(sweep(boxes))
+    const tols = [...new Set(perms(boxes).map((p) => ids(tolerance(p))))]
+    const cell = (v) => `<span class="out ${v === sw ? 'good' : 'badv'}">${v}</span>`
+    $('compare').innerHTML = `
+      <tr><th>algorithm</th><th>output</th><th>verdict</th></tr>
+      <tr><td>Part 1: <code>sort((y, x))</code></td><td>${cell(p1)}</td><td class="note">${p1 === sw ? 'correct here, because every row happens to be aligned or its leftmost box is also its highest' : 'wrong: exact y ordering splits a visual row'}</td></tr>
+      <tr><td>Tolerance comparator</td><td>${tols.map(cell).join(' ')}</td><td class="note">${tols.length > 1 ? `${tols.length} different outputs depending on input order` : 'consistent on this input, still not a valid comparator'}</td></tr>
+      <tr><td>Part 2: sweep, then sort within rows</td><td>${cell(sw)}</td><td class="note">the reference answer; independent of input order</td></tr>`
+  }
+
+  function reset() { clearInterval(timer); timer = null; $('btn-play').textContent = 'Play'; frames = buildFrames(SCEN[sel.value].boxes); fi = 0; renderFrame() }
+  function step() { if (fi < frames.length - 1) { fi++; renderFrame() } else { clearInterval(timer); timer = null; $('btn-play').textContent = 'Play' } }
+  $('btn-reset').onclick = reset
+  $('btn-step').onclick = step
+  $('btn-play').onclick = () => {
+    if (timer) { clearInterval(timer); timer = null; $('btn-play').textContent = 'Play'; return }
+    if (fi >= frames.length - 1) { fi = 0; renderFrame() }
+    $('btn-play').textContent = 'Pause'
+    timer = setInterval(step, 1300)
+  }
+  sel.onchange = reset
+  try { const saved = localStorage.getItem('reading-order-viz:scenario'); if (saved && SCEN[saved]) sel.value = saved } catch (_) {}
+  sel.addEventListener('change', () => { try { localStorage.setItem('reading-order-viz:scenario', sel.value) } catch (_) {} })
+  reset()
+})()
+</script>
+</body>
+</html>
