@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="../favicon.svg">
+<link rel="stylesheet" href="viz.css">
+<title>Drill Visualizations</title>
+</head>
+<body>
+<main>
+  <h1>Drill Visualizations</h1>
+  <p class="lede">One interactive page per Figma drill. Each runs the drill's own reference code live in your browser, so what you see is what the tests grade — no re-implementation, no drift.</p>
+  <p class="backlink">Companions to the <a href="../#/learn/figma-screen">Figma Screen guide</a> and the <code>figma-0X</code> exercises in <code>uie-practice</code>. Read one <b>before</b> the first timed rep of that drill, or <b>after</b> a rep that went badly — not during.</p>
+
+  <ul class="viz-index">
+    <li>
+      <a href="document-undo.html">Undo as Data</a>
+      <div class="d"><code>figma-01-document-undo</code> · 45 min · The document model, why a change is a record of <code>(target, before, after)</code>, and a stepper through set / undo / delete. Plus the two decisions in part 1 that part 2 charges you for.</div>
+    </li>
+    <li>
+      <a href="undo-redo-batch.html">Two Stacks and a Buffer</a>
+      <div class="d"><code>figma-02-undo-redo-batch</code> · 40 min · Redo, batching, and why new work throws the redo branch away — with both stacks and the batch buffer drawn side by side. <b>The single highest-probability topic in the hour.</b></div>
+    </li>
+    <li>
+      <a href="reading-order.html">Reading Order Sweep</a>
+      <div class="d"><code>figma-03-reading-order</code> · 35 min · The <code>(y, x)</code> sort, the non-transitive tolerance comparator producing three different answers from one input, and the Part 2 sweep stepped box by box with <code>rowBottom</code> on the canvas.</div>
+    </li>
+    <li>
+      <a href="styled-text.html">Runs Over Text</a>
+      <div class="d"><code>figma-04-styled-text-ranges</code> · 40 min · Half-open intervals over a string. Drag a range and watch slice clip-then-rebase, and apply split three ways and merge back.</div>
+    </li>
+    <li>
+      <a href="layer-tree.html">Z-Order Under Grouping</a>
+      <div class="d"><code>figma-05-layer-tree</code> · 45 min · The sibling array is the z-stack. Where a new group has to land, drawn on a canvas you can see change — and what reparenting into your own subtree does to a traversal.</div>
+    </li>
+    <li>
+      <a href="command-stream.html">Replay and Checkpoints</a>
+      <div class="d"><code>figma-06-command-stream</code> · 35 min · Deliberately not Figma-flavoured: the fallback method. Parse into a union, one <code>step</code>, then the checkpoint trade with both cost curves plotted against <code>k</code>.</div>
+    </li>
+    <li>
+      <a href="coalescing.html">One Undo Per Gesture</a>
+      <div class="d"><code>figma-07-coalescing-history</code> · 35 min · "Ten characters — one undo or ten?" A keystroke timeline that regroups as you drag the window, plus what a bounded history costs the user.</div>
+    </li>
+    <li>
+      <a href="align-distribute.html">Align and Distribute</a>
+      <div class="d"><code>figma-08-sealed</code> · 50 min · <b>Sealed.</b> This page is behind a confirmation, because drill 8 is the one rep that measures the method rather than recall. Open it only after the cold rep on D-3.</div>
+    </li>
+    <li>
+      <a href="rich-text-levels.html">The Stack Is The Level</a>
+      <div class="d"><code>figma-09-rich-text-levels</code> · 30 min · Nine lines of body and the highest ratio of trap to code in the folder. A stack of containers versus a map of levels, side by side, failing on four tokens.</div>
+    </li>
+  </ul>
+
+  <h2><span class="k">How to use these</span></h2>
+  <p><b>Not during a rep.</b> The value of a drill is the forty minutes where you do not know the answer; a page that shows you the answer converts that into a reading exercise. Ten minutes here before the first attempt, or after the timer stops and you have given the closing summary out loud, and the model answer in the guide then reads as a description of something you have already watched.</p>
+  <p>Every page has the same shape: the model first, then part 1, then the specific way part 1 stops working, then part 2, then the sentences to say out loud. The last section is the one that matters on 9/9 — the hour is graded on stated invariants and named trade-offs at least as much as on finished code.</p>
+</main>
+</body>
+</html>

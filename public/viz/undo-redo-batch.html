@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="../favicon.svg">
+<link rel="stylesheet" href="viz.css">
+<title>Two Stacks and a Buffer</title>
+</head>
+<body>
+<main>
+  <h1>Two Stacks and a Buffer</h1>
+  <p class="lede">Drill <code>figma-02-undo-redo-batch</code>: where redo lives, why new work throws the redo branch away, and what a batch actually is. This is the highest-probability hour of the Figma screen — the reported question is drill 1, then "now redo", then "now group these into one undoable step".</p>
+  <p class="backlink"><a href="./">All drill visualizations</a> · companion to guide §05 A and §06 · previous: <a href="document-undo.html">Undo as data</a></p>
+
+  <!-- =============================================== -->
+  <h2><span class="k">0</span>What part 2 adds is three fields and one function</h2>
+  <p>If part 1 was built with a single <code>commit()</code> choke point and a stack of <code>Commit = Change[]</code>, then redo and batching land almost entirely inside that one function. <code>set</code>, <code>get</code>, <code>createLayer</code>, <code>deleteLayer</code> and <code>applyChange</code> do not change at all.</p>
+  <div class="grid2">
+    <div class="panel">
+      <div class="stack-title">part 1</div>
+<pre><span class="ln">private commit(change: Change) {</span><span class="ln">  this.applyChange(change)</span><span class="ln">  this.undoStack.push([change])</span><span class="ln">}</span></pre>
+    </div>
+    <div class="panel">
+      <div class="stack-title">part 2 &amp; 3</div>
+<pre><span class="ln">private commit(change: Change) {</span><span class="ln">  this.applyChange(change)</span><span class="ln"><span style="color:var(--ok)">  if (this.batch) { this.batch.push(change); return }</span></span><span class="ln">  this.undoStack.push([change])</span><span class="ln"><span style="color:var(--ok)">  this.redoStack.length = 0</span></span><span class="ln">}</span></pre>
+    </div>
+  </div>
+  <p class="note">Two added lines. That is the whole payoff of the part-1 design, and saying it out loud as you type the second version is worth more than the code: <em>"both new features land in the same function, which is why I put the choke point in earlier."</em></p>
+
+  <!-- =============================================== -->
+  <h2><span class="k">1</span>Undo reverses twice; redo does not reverse at all</h2>
+  <p>A batch is a <em>list</em> of changes in one stack entry. To undo it you must reverse the order of the list <b>and</b> invert each change in it. To redo it you walk the list forward, applying each change as recorded. Get one of those two reversals wrong and single-change commits still pass every test, because a list of one reads the same in both directions.</p>
+  <div class="panel"><div id="viz-reverse"></div>
+    <p class="caption">A batch that sets <code>x</code>, then <code>y</code>, then deletes a layer. Undo removes the layer's deletion first, then <code>y</code>, then <code>x</code> — the way you unwind a call stack. Redo replays them in the order they happened. <b>The same list object moves between the two stacks</b>; nothing is rebuilt.</p>
+  </div>
+
+  <!-- =============================================== -->
+  <h2><span class="k">2</span>Step through it</h2>
+  <div class="panel">
+    <div class="controls">
+      <label for="scenario">Scenario</label>
+      <select id="scenario"></select>
+      <button id="btn-reset">Reset</button>
+      <button id="btn-back">← Back</button>
+      <button id="btn-step" class="primary">Step →</button>
+      <button id="btn-play">Play</button>
+      <span class="note" id="step-counter"></span>
+    </div>
+    <div class="grid2">
+      <div>
+        <div class="stack-title">Calls</div>
+        <div class="table-wrap"><table id="calls"></table></div>
+      </div>
+      <div>
+        <div class="stack-title">Document</div>
+        <div class="kv" id="doc"></div>
+      </div>
+    </div>
+    <div class="grid3" style="margin-top:14px">
+      <div><div class="stack-title">undoStack</div><div class="stack" id="undo-stack"></div></div>
+      <div><div class="stack-title">redoStack</div><div class="stack" id="redo-stack"></div></div>
+      <div><div class="stack-title">batch buffer</div><div class="stack" id="batch-buf"></div></div>
+    </div>
+    <div class="log" id="log"></div>
+<pre id="code" style="margin-top:12px"><span class="ln" data-l="undo">undo() {</span><span class="ln" data-l="guard">  if (this.batch) return            // history is intermediate mid-batch</span><span class="ln" data-l="pop">  const commit = this.undoStack.pop()</span><span class="ln" data-l="popempty">  if (!commit) return</span><span class="ln" data-l="rev">  for (const c of [...commit].reverse()) this.applyChange(invert(c))</span><span class="ln" data-l="rev">  this.redoStack.push(commit)       // the same object moves across</span><span class="ln" data-l="undo">}</span><span class="ln" data-l="redo">redo() {</span><span class="ln" data-l="guard">  if (this.batch) return</span><span class="ln" data-l="popredo">  const commit = this.redoStack.pop()</span><span class="ln" data-l="popredoempty">  if (!commit) return</span><span class="ln" data-l="fwd">  for (const c of commit) this.applyChange(c)   // forward, uninverted</span><span class="ln" data-l="fwd">  this.undoStack.push(commit)</span><span class="ln" data-l="redo">}</span><span class="ln" data-l="begin">beginBatch() { if (this.batch) return; this.batch = [] }   // nested begin ignored</span><span class="ln" data-l="cb">commitBatch() {</span><span class="ln" data-l="stray">  const batch = this.batch; if (!batch) return       // stray commit ignored</span><span class="ln" data-l="cb">  this.batch = null</span><span class="ln" data-l="empty">  if (batch.length === 0) return                     // empty batch is not a step</span><span class="ln" data-l="cbpush">  this.undoStack.push(batch)</span><span class="ln" data-l="clear">  this.redoStack.length = 0</span><span class="ln" data-l="cb">}</span><span class="ln" data-l="abort">abortBatch() {</span><span class="ln" data-l="abort">  const batch = this.batch; if (!batch) return</span><span class="ln" data-l="abort">  this.batch = null</span><span class="ln" data-l="abortrev">  for (const c of [...batch].reverse()) this.applyChange(invert(c))</span><span class="ln" data-l="abort">}</span><span class="ln" data-l="commit">private commit(change: Change) {</span><span class="ln" data-l="commit">  this.applyChange(change)</span><span class="ln" data-l="buffer">  if (this.batch) { this.batch.push(change); return }</span><span class="ln" data-l="push">  this.undoStack.push([change])</span><span class="ln" data-l="clear">  this.redoStack.length = 0</span><span class="ln" data-l="commit">}</span></pre>
+  </div>
+
+  <!-- =============================================== -->
+  <h2><span class="k">3</span>Why new work has to throw the redo branch away</h2>
+  <p>History is not a line, it is a tree, and undo walks you back up it. If you then edit, you have created a second branch from that point. Keeping the old redo entries would mean pressing redo replays changes recorded against a document that no longer exists — <code>before</code> values that were captured in a world you have left.</p>
+  <div class="grid2">
+    <div class="panel"><div id="viz-branch"></div>
+      <p class="caption">Undo to the fork, then make a new edit. Every editor you have used discards the grey branch; almost none offer to keep it, because a redo tree needs UI nobody wants to build. <b>Say that you know it is a product decision, not a technical necessity</b> — that sentence is the difference between "implemented undo" and "designed undo".</p>
+    </div>
+    <div class="panel">
+      <div class="stack-title">Where the clear has to live</div>
+      <p class="note">In <b>one</b> place: <code>commit()</code>, and its twin in <code>commitBatch()</code>. Put it in <code>set()</code> instead and the day someone adds <code>reorderLayer()</code> the redo stack survives a new edit, which is a corruption bug that reproduces only after a specific five-key sequence.</p>
+      <div class="table-wrap"><table id="clears"></table></div>
+    </div>
+  </div>
+
+  <!-- =============================================== -->
+  <h2><span class="k">4</span>The semantics are the question</h2>
+  <p>Batching has no single correct answer, which is exactly why it is asked. Every row below is a decision you should state before you implement it — and the drill's tests encode one particular set, so if you pick differently, say so and the interviewer will grade the reasoning, not the match.</p>
+  <div class="table-wrap"><table id="semantics"></table></div>
+
+  <!-- =============================================== -->
+  <h2><span class="k">5</span>The five invariants, checked live</h2>
+  <p>These run in your browser against the reference implementation right now. In the room you would type three of them as asserts; the point is that they are statements about <em>any</em> sequence, not about one example.</p>
+  <div class="table-wrap"><table id="invariants"></table></div>
+  <p class="note">Number five is the one to write first if you only write one: <b>undo then redo returns the document to an identical state</b>. It catches a wrong reversal direction, a lost <code>before</code>, an aliased map, and a redo that rebuilds instead of replays — four separate bugs, one assert.</p>
+
+  <!-- =============================================== -->
+  <h2><span class="k">6</span>Say it out loud</h2>
+  <div class="say">"Redo is the same commit object moving back the other way. Undo pops undo and pushes redo; redo pops redo and pushes undo. Nothing gets recomputed, so they can't disagree."</div>
+  <div class="say">"New work clears the redo stack, and I'm putting that clear in <code>commit</code> rather than in each method, so no future mutation path can forget it."</div>
+  <div class="say">"A batch is one stack entry holding several changes. Undo reverses twice — the list, and each change in it. That's invisible with single-change commits, so it's worth a test of its own."</div>
+  <div class="say">"For the edge cases I'm choosing: nested begin is ignored rather than counted, a stray commit is ignored, an empty batch is not an undo step, and undo mid-batch does nothing because the history is intermediate until the batch closes. If you'd rather nesting were reference-counted I can do that instead — it's a depth counter and one condition."</div>
+  <p class="note">That last clause is the move: name your choice, give the alternative, price it. It converts an edge case from a thing you might have missed into a thing you decided.</p>
+</main>
+
+<script src="viz.js"></script>
+<script>
+(function () {
+  const { h, s, svgRoot, mount, table, stepper, highlight, fmt, $ } = V
+  const NONE = '∅'
+
+  /* ---------- the drill's reference solution, verbatim in JS ---------- */
+  function invert(c) { return { ...c, before: c.after, after: c.before } }
+
+  class Doc {
+    constructor() { this.layers = new Map(); this.undoStack = []; this.redoStack = []; this.batch = null }
+    createLayer(id) { if (this.layers.has(id)) return; this.commit({ kind: 'layer', layerId: id, before: undefined, after: new Map() }) }
+    deleteLayer(id) { const p = this.layers.get(id); if (!p) return; this.commit({ kind: 'layer', layerId: id, before: new Map(p), after: undefined }) }
+    set(layerId, key, value) {
+      const props = this.layers.get(layerId)
+      if (!props) throw new Error(`no such layer: ${layerId}`)
+      if (props.get(key) === value) return
+      this.commit({ kind: 'prop', layerId, key, before: props.get(key), after: value })
+    }
+    get(layerId, key) { const p = this.layers.get(layerId); return p ? p.get(key) : undefined }
+    hasLayer(id) { return this.layers.has(id) }
+    undo() {
+      if (this.batch) return
+      const commit = this.undoStack.pop()
+      if (!commit) return
+      for (const c of [...commit].reverse()) this.applyChange(invert(c))
+      this.redoStack.push(commit)
+    }
+    redo() {
+      if (this.batch) return
+      const commit = this.redoStack.pop()
+      if (!commit) return
+      for (const c of commit) this.applyChange(c)
+      this.undoStack.push(commit)
+    }
+    beginBatch() { if (this.batch) return; this.batch = [] }
+    commitBatch() {
+      const batch = this.batch
+      if (!batch) return
+      this.batch = null
+      if (batch.length === 0) return
+      this.undoStack.push(batch)
+      this.redoStack.length = 0
+    }
+    abortBatch() {
+      const batch = this.batch
+      if (!batch) return
+      this.batch = null
+      for (const c of [...batch].reverse()) this.applyChange(invert(c))
+    }
+    commit(change) {
+      this.applyChange(change)
+      if (this.batch) { this.batch.push(change); return }
+      this.undoStack.push([change])
+      this.redoStack.length = 0
+    }
+    applyChange(c) {
+      if (c.kind === 'layer') {
+        if (c.after === undefined) this.layers.delete(c.layerId)
+        else this.layers.set(c.layerId, new Map(c.after))
+        return
+      }
+      const props = this.layers.get(c.layerId)
+      if (!props) throw new Error(`no such layer: ${c.layerId}`)
+      if (c.after === undefined) props.delete(c.key)
+      else props.set(c.key, c.after)
+    }
+    snapshot() { return [...this.layers].map(([id, p]) => id + ':' + [...p].map(([k, v]) => k + '=' + v).sort().join(',')).sort().join('|') }
+  }
+
+  /* ---------- 1: reverses twice ---------- */
+  function reverseSvg() {
+    const g = svgRoot(700, 250, 'canvas plain')
+    const items = ['set x = 10', 'set y = 20', 'delete layer "b"']
+    const cell = (x, y, w, t, stroke, dim) => {
+      g.appendChild(s('rect', { x, y, width: w, height: 30, rx: 6, fill: 'var(--panel)', stroke, 'stroke-width': 1.4, opacity: dim ? 0.55 : 1 }))
+      g.appendChild(s('text', { x: x + w / 2, y: y + 20, 'text-anchor': 'middle', fill: 'var(--ink)', 'font-size': 12, 'font-family': 'ui-monospace, Menlo, monospace', text: t, opacity: dim ? 0.55 : 1 }))
+    }
+    g.appendChild(s('text', { x: 4, y: 14, fill: 'var(--muted)', 'font-size': 12, text: 'one stack entry — Commit = Change[]' }))
+    items.forEach((t, i) => cell(4 + i * 232, 22, 220, t, 'var(--accent)'))
+    g.appendChild(s('rect', { x: 0, y: 18, width: 692, height: 38, rx: 9, fill: 'none', stroke: 'var(--accent)', 'stroke-dasharray': '4 3', opacity: 0.7 }))
+
+    g.appendChild(s('text', { x: 4, y: 92, fill: 'var(--bad)', 'font-size': 12, text: 'undo() — the list backwards, and each change inverted' }))
+    ;[2, 1, 0].forEach((src, i) => cell(4 + i * 232, 100, 220, 'invert(' + items[src].split(' ')[0] + ' ' + (items[src].split(' ')[1] || '') + ')', 'var(--bad)'))
+    ;[0, 1].forEach((i) => g.appendChild(s('path', {
+      d: 'M ' + (228 + i * 232) + ' 115 L ' + (232 + i * 232) + ' 115',
+      stroke: 'var(--bad)', 'stroke-width': 1.4,
+    })))
+
+    g.appendChild(s('text', { x: 4, y: 172, fill: 'var(--ok)', 'font-size': 12, text: 'redo() — the list forwards, each change exactly as recorded' }))
+    items.forEach((t, i) => cell(4 + i * 232, 180, 220, t, 'var(--ok)'))
+    g.appendChild(s('text', { x: 4, y: 236, fill: 'var(--muted)', 'font-size': 11.5, text: 'A one-change commit reads identically in both rows. That is why the bug survives your first three tests.' }))
+    return g
+  }
+  mount('viz-reverse', reverseSvg())
+
+  /* ---------- 3: the branch picture ---------- */
+  function branchSvg() {
+    const g = svgRoot(420, 210, 'canvas plain')
+    const dot = (x, y, fill, label, lc) => {
+      g.appendChild(s('circle', { cx: x, cy: y, r: 8, fill, stroke: 'var(--panel)', 'stroke-width': 2 }))
+      if (label) g.appendChild(s('text', { x, y: y - 16, 'text-anchor': 'middle', fill: lc || 'var(--muted)', 'font-size': 11.5, text: label }))
+    }
+    const line = (x1, y1, x2, y2, stroke, dash) => g.appendChild(s('path', { d: `M ${x1} ${y1} L ${x2} ${y2}`, stroke, 'stroke-width': 2.2, 'stroke-dasharray': dash || null }))
+    line(30, 60, 200, 60, 'var(--accent)')
+    dot(30, 60, 'var(--accent)', 'empty')
+    dot(115, 60, 'var(--accent)', 'set x=10')
+    dot(200, 60, 'var(--accent)', 'set x=20')
+    line(200, 60, 300, 25, 'var(--ghost)', '5 4')
+    dot(300, 25, 'var(--ghost)', 'set fill=red', 'var(--ghost)')
+    g.appendChild(s('text', { x: 312, y: 29, fill: 'var(--ghost)', 'font-size': 11.5, text: 'discarded' }))
+    line(200, 60, 300, 110, 'var(--ok)')
+    dot(300, 110, 'var(--ok)', null)
+    g.appendChild(s('text', { x: 312, y: 114, fill: 'var(--ok)', 'font-size': 11.5, text: 'the new edit' }))
+    g.appendChild(s('path', { d: 'M 296 66 C 260 80 240 74 208 66', stroke: 'var(--bad)', fill: 'none', 'stroke-width': 1.6 }))
+    g.appendChild(s('text', { x: 150, y: 100, fill: 'var(--bad)', 'font-size': 11.5, text: 'undo() walked back to here' }))
+    g.appendChild(s('text', { x: 8, y: 176, fill: 'var(--muted)', 'font-size': 11.5, text: 'The grey commit’s `before` was captured when x was 20.' }))
+    g.appendChild(s('text', { x: 8, y: 194, fill: 'var(--muted)', 'font-size': 11.5, text: 'Replaying it onto the green branch would write a value from a document that no longer exists.' }))
+    return g
+  }
+  mount('viz-branch', branchSvg())
+
+  /* ---------- 2: the stepper ---------- */
+  const S = {
+    'Undo, then redo': [
+      { c: 'createLayer("a")', op: (d) => d.createLayer('a'), lines: ['commit', 'push', 'clear'], say: 'Ordinary work. One entry on undo; redo is cleared (it was already empty).' },
+      { c: 'set("a", "x", 10)', op: (d) => d.set('a', 'x', 10), lines: ['commit', 'push', 'clear'], say: 'Two entries.' },
+      { c: 'set("a", "x", 20)', op: (d) => d.set('a', 'x', 20), lines: ['commit', 'push', 'clear'], say: 'Three.' },
+      { c: 'undo()', op: (d) => d.undo(), lines: ['undo', 'pop', 'rev'], say: 'The commit is <b>moved</b>, not copied: it leaves undoStack and lands on redoStack unchanged. x is 10.' },
+      { c: 'redo()', op: (d) => d.redo(), lines: ['redo', 'popredo', 'fwd'], say: 'The same object comes back, applied <b>forwards</b>. x is 20 again — bit for bit the state before the undo.' },
+      { c: 'redo()', op: (d) => d.redo(), lines: ['redo', 'popredo', 'popredoempty'], say: 'Redo past the top is a no-op. Nothing throws, nothing changes.' },
+    ],
+    'A new edit discards the redo branch': [
+      { c: 'createLayer("a")', op: (d) => d.createLayer('a'), lines: ['commit', 'push'], say: 'Setup.' },
+      { c: 'set("a", "x", 10)', op: (d) => d.set('a', 'x', 10), lines: ['commit', 'push'], say: 'Setup.' },
+      { c: 'set("a", "x", 20)', op: (d) => d.set('a', 'x', 20), lines: ['commit', 'push'], say: 'Setup.' },
+      { c: 'undo()', op: (d) => d.undo(), lines: ['undo', 'pop', 'rev'], say: 'x back to 10; one entry waiting on redoStack.' },
+      { c: 'undo()', op: (d) => d.undo(), lines: ['undo', 'pop', 'rev'], say: 'x absent; two entries waiting.' },
+      { c: 'set("a", "fill", "red")', op: (d) => d.set('a', 'fill', 'red'), lines: ['commit', 'push', 'clear'], say: 'New work on an older state. <b>The redo stack is emptied</b> — the two waiting commits are gone, and the last line of <code>commit</code> is what did it.' },
+      { c: 'redo()', op: (d) => d.redo(), lines: ['redo', 'popredo', 'popredoempty'], say: 'Nothing to redo. Correct: the branch those commits belonged to no longer exists.' },
+    ],
+    'A batch is one undo step': [
+      { c: 'createLayer("a")', op: (d) => d.createLayer('a'), lines: ['commit', 'push'], say: 'Setup, outside any batch.' },
+      { c: 'beginBatch()', op: (d) => d.beginBatch(), lines: ['begin'], say: 'The buffer opens. From here <code>commit</code> takes its second branch.' },
+      { c: 'set("a", "x", 1)', op: (d) => d.set('a', 'x', 1), lines: ['commit', 'buffer'], say: 'Applied to the document immediately — the user sees it — but routed into the buffer instead of onto the stack. <b>Watch undoStack not grow.</b>' },
+      { c: 'set("a", "y", 2)', op: (d) => d.set('a', 'y', 2), lines: ['commit', 'buffer'], say: 'Two changes buffered.' },
+      { c: 'set("a", "fill", "red")', op: (d) => d.set('a', 'fill', 'red'), lines: ['commit', 'buffer'], say: 'Three.' },
+      { c: 'commitBatch()', op: (d) => d.commitBatch(), lines: ['cb', 'cbpush', 'clear'], say: 'All three land as <b>one</b> stack entry. This is the whole feature.' },
+      { c: 'undo()', op: (d) => d.undo(), lines: ['undo', 'pop', 'rev'], say: 'One undo removes all three, in reverse order. The layer is bare again.' },
+      { c: 'redo()', op: (d) => d.redo(), lines: ['redo', 'popredo', 'fwd'], say: 'And one redo restores all three, in forward order.' },
+    ],
+    'An invalid op rolls the batch back': [
+      { c: 'createLayer("a")', op: (d) => d.createLayer('a'), lines: ['commit', 'push'], say: 'Setup.' },
+      { c: 'beginBatch()', op: (d) => d.beginBatch(), lines: ['begin'], say: 'Buffer open.' },
+      { c: 'set("a", "x", 1)', op: (d) => d.set('a', 'x', 1), lines: ['commit', 'buffer'], say: 'Buffered and applied.' },
+      { c: 'set("a", "y", 2)', op: (d) => d.set('a', 'y', 2), lines: ['commit', 'buffer'], say: 'Buffered and applied.' },
+      { c: 'set("ghost", "x", 1) — throws', op: (d) => { try { d.set('ghost', 'x', 1) } catch (e) { d.abortBatch(); throw e } }, lines: ['abort', 'abortrev'], say: 'The caller catches and calls <code>abortBatch()</code>. Note where the decision lives: the document does not guess. <b>A batch that half-applied is worse than one that failed.</b>' },
+      { c: 'undo()', op: (d) => d.undo(), lines: ['undo', 'pop', 'rev'], say: 'The undo stack was never touched by the aborted batch, so this undoes the <code>createLayer</code> — not some fragment of the batch.' },
+    ],
+    'Nested begin, stray commit, empty batch': [
+      { c: 'createLayer("a")', op: (d) => d.createLayer('a'), lines: ['commit', 'push'], say: 'Setup.' },
+      { c: 'commitBatch()  — no batch open', op: (d) => d.commitBatch(), lines: ['cb', 'stray'], say: 'Ignored. Not an error: the caller is a UI, and a stray commit is a UI bug you do not want to turn into a crash.' },
+      { c: 'beginBatch()', op: (d) => d.beginBatch(), lines: ['begin'], say: 'Open.' },
+      { c: 'beginBatch()  — nested', op: (d) => d.beginBatch(), lines: ['begin'], say: '<b>Ignored, not counted.</b> The stated alternative is a depth counter that only commits at zero. Say which you chose: with the flag, the inner commit closes the outer batch, which surprises a caller that nests.' },
+      { c: 'commitBatch()', op: (d) => d.commitBatch(), lines: ['cb', 'empty'], say: 'The batch is <b>empty</b>, so it is not an undo step at all. Pushing it would give the user an undo that appears to do nothing.' },
+      { c: 'beginBatch()', op: (d) => d.beginBatch(), lines: ['begin'], say: 'Open again.' },
+      { c: 'undo()  — mid-batch', op: (d) => d.undo(), lines: ['undo', 'guard'], say: 'Ignored while a batch is open. The history is <em>intermediate</em> until the batch closes, and undoing into the middle of one leaves the buffer describing changes that are no longer there.' },
+      { c: 'set("a", "x", 9)', op: (d) => d.set('a', 'x', 9), lines: ['commit', 'buffer'], say: 'Buffered.' },
+      { c: 'commitBatch()', op: (d) => d.commitBatch(), lines: ['cb', 'cbpush', 'clear'], say: 'Non-empty this time, so it lands as one entry.' },
+    ],
+  }
+
+  const sel = $('scenario')
+  Object.keys(S).forEach((k) => sel.appendChild(h('option', { value: k, text: k })))
+  let script = S[sel.value]
+
+  function cardText(c) {
+    if (c.kind === 'layer') {
+      const size = (m) => (m === undefined ? NONE : `Props(${m.size})`)
+      return `layer ${c.layerId}  ${size(c.before)} → ${size(c.after)}`
+    }
+    return `${c.layerId}.${c.key}  ${c.before === undefined ? NONE : fmt(c.before)} → ${c.after === undefined ? NONE : fmt(c.after)}`
+  }
+
+  function runTo(i) {
+    const d = new Doc()
+    let error = null
+    for (let k = 0; k < i; k++) { try { script[k].op(d) } catch (e) { error = e.message } }
+    return { d, error }
+  }
+
+  function fillStack(id, commits, cls, ghosts) {
+    const st = $(id)
+    st.textContent = ''
+    if (!commits.length && !(ghosts || []).length) { st.appendChild(h('div', { class: 'empty', text: 'empty' })); return }
+    commits.forEach((commit, i) => {
+      const top = i === commits.length - 1
+      st.appendChild(h('div', { class: `card ${cls}` + (top ? ' top' : '') }, [
+        h('div', { class: 'cid', text: `#${i}${commit.length > 1 ? `  (${commit.length} changes)` : ''}${top ? '  ← top' : ''}` }),
+        ...commit.map((c) => h('div', { text: cardText(c) })),
+      ]))
+    })
+    ;(ghosts || []).forEach((commit) => {
+      st.appendChild(h('div', { class: `card ${cls} ghost` }, [
+        h('div', { class: 'cid', text: 'discarded' }),
+        ...commit.map((c) => h('div', { text: cardText(c) })),
+      ]))
+    })
+  }
+
+  function renderDoc(d) {
+    const wrap = h('div')
+    if (d.layers.size === 0) { wrap.appendChild(h('div', { class: 'none', text: '(no layers)' })); return wrap }
+    for (const [id, props] of d.layers) {
+      const l = h('div', { class: 'layer' }, h('h4', { text: id }))
+      if (props.size === 0) l.appendChild(h('div', { class: 'none', text: '(no properties)' }))
+      for (const [k, v] of props) l.appendChild(h('div', { class: 'prop' }, [h('span', { class: 'k', text: k }), h('span', { text: fmt(v) })]))
+      wrap.appendChild(l)
+    }
+    return wrap
+  }
+
+  function render(i) {
+    const { d, error } = runTo(i)
+    const prev = i > 0 ? runTo(i - 1).d : null
+    const discarded = prev && !/redo\(\)/.test(script[i - 1].c) && prev.redoStack.length > d.redoStack.length
+      ? prev.redoStack.slice(d.redoStack.length)
+      : []
+
+    mount('calls', table(null, script.map((st, k) => ({
+      cells: [{ t: k < i ? '✓' : k === i ? '→' : '' }, { t: st.c, cls: 'mono' }],
+    }))))
+    mount('doc', renderDoc(d))
+    fillStack('undo-stack', d.undoStack, '')
+    fillStack('redo-stack', d.redoStack, 'redo', discarded)
+    fillStack('batch-buf', d.batch ? [d.batch] : [], 'batch')
+    if (!d.batch) $('batch-buf').firstChild.textContent = 'closed (this.batch === null)'
+
+    const log = $('log')
+    log.className = 'log' + (error ? ' bad' : '')
+    if (i === 0) { log.innerHTML = 'Fresh document. Press <b>Step</b>.'; highlight('code', []) }
+    else { log.innerHTML = (error ? `<b>threw:</b> ${error} — ` : '') + script[i - 1].say; highlight('code', script[i - 1].lines) }
+  }
+
+  const step = stepper(
+    { reset: 'btn-reset', step: 'btn-step', back: 'btn-back', play: 'btn-play', counter: 'step-counter' },
+    () => script.length, render, { interval: 1200 },
+  )
+  sel.addEventListener('change', () => { script = S[sel.value]; step.reset() })
+  step.draw()
+
+  /* ---------- 3b: what clears redo ---------- */
+  mount('clears', table(['call', 'clears redo?'], [
+    [{ t: 'set / createLayer / deleteLayer (real change)', cls: 'mono' }, { html: '<span class="pill bad">yes</span>' }],
+    [{ t: 'set to the value already held', cls: 'mono' }, { html: '<span class="pill ok">no</span> — it is not a change at all' }],
+    [{ t: 'commitBatch with a non-empty batch', cls: 'mono' }, { html: '<span class="pill bad">yes</span>' }],
+    [{ t: 'commitBatch with an empty batch', cls: 'mono' }, { html: '<span class="pill ok">no</span>' }],
+    [{ t: 'abortBatch', cls: 'mono' }, { html: '<span class="pill ok">no</span> — nothing was committed' }],
+    [{ t: 'undo / redo', cls: 'mono' }, { html: '<span class="pill ok">no</span> — that is what the stacks are for' }],
+  ]))
+
+  /* ---------- 4: semantics ---------- */
+  mount('semantics', table(['situation', 'this implementation', 'the alternative, and its price'], [
+    ['beginBatch while already batching', { html: '<b>ignore</b> the nested begin' }, 'A depth counter that only commits at zero. Truer for nested UI code; costs you a field and a condition, and an unbalanced commit now silently swallows the outer batch.'],
+    ['commitBatch with no batch open', { html: '<b>ignore</b>' }, 'Throw. Defensible for a library boundary, hostile for a UI: a stray ⌘-key path becomes a crash instead of a no-op.'],
+    ['an invalid op inside a batch', { html: '<b>roll the whole batch back</b> (abortBatch)' }, 'Keep what applied. Almost never right — the user asked for one action and got a fragment of one, with no single undo to remove it.'],
+    ['an empty batch committed', { html: '<b>not an undo step</b>' }, 'Push it anyway. Then undo appears to do nothing once, which reads as a broken button.'],
+    ['undo or redo while batching', { html: '<b>ignored</b>' }, 'Auto-commit the batch first. Reasonable, and worth naming — but it means ⌘Z can silently end a drag the user has not finished.'],
+    ['what a batch means to the document', { html: 'changes apply <b>as they arrive</b>; only the history is deferred' }, 'Defer the application too, and commit atomically. Correct-looking, but the canvas then freezes for the duration of a drag.'],
+  ]))
+
+  /* ---------- 5: invariants ---------- */
+  ;(function invariants() {
+    const results = []
+    const check = (name, fn) => { let ok = false, note = ''; try { ok = fn() } catch (e) { note = e.message } results.push([name, ok, note]) }
+
+    check('1. undo pops undo and pushes redo; redo does the reverse, with the same object', () => {
+      const d = new Doc(); d.createLayer('a'); d.set('a', 'x', 1)
+      const top = d.undoStack[d.undoStack.length - 1]
+      d.undo()
+      return d.redoStack[d.redoStack.length - 1] === top && d.undoStack.length === 1
+    })
+    check('2. new committed work clears the redo stack', () => {
+      const d = new Doc(); d.createLayer('a'); d.set('a', 'x', 1); d.undo()
+      if (d.redoStack.length !== 1) return false
+      d.set('a', 'y', 2)
+      return d.redoStack.length === 0
+    })
+    check('3. a no-op edit neither enters history nor clears redo', () => {
+      const d = new Doc(); d.createLayer('a'); d.set('a', 'x', 1); d.undo()
+      const before = d.undoStack.length + ':' + d.redoStack.length
+      d.set('a', 'x', undefined === d.get('a', 'x') ? undefined : d.get('a', 'x'))
+      const d2 = new Doc(); d2.createLayer('a'); d2.set('a', 'x', 1)
+      const n = d2.undoStack.length
+      d2.set('a', 'x', 1)
+      return d2.undoStack.length === n && before === d.undoStack.length + ':' + d.redoStack.length
+    })
+    check('4. undoing a batch reverses the list AND each change in it', () => {
+      // Ordered so that a wrong reversal direction cannot pass: undoing the
+      // delete first is the only way the two set-inversions find a layer to
+      // write to. Reverse the changes but not the list and this throws.
+      const d = new Doc(); d.createLayer('a')
+      d.beginBatch(); d.set('a', 'x', 1); d.set('a', 'y', 2); d.deleteLayer('a'); d.commitBatch()
+      d.undo()
+      const backToBeforeTheBatch =
+        d.hasLayer('a') && d.get('a', 'x') === undefined && d.get('a', 'y') === undefined
+      d.redo()
+      return backToBeforeTheBatch && !d.hasLayer('a') && d.undoStack.length === 2
+    })
+    check('5. undo then redo returns an identical document — over 4000 random scripts', () => {
+      const ops = ['createLayer', 'deleteLayer', 'setx', 'sety', 'begin', 'commit', 'abort', 'undo', 'redo']
+      for (let t = 0; t < 4000; t++) {
+        const d = new Doc()
+        for (let k = 0; k < 12; k++) {
+          const o = ops[(Math.random() * ops.length) | 0]
+          try {
+            if (o === 'createLayer') d.createLayer(Math.random() < 0.5 ? 'a' : 'b')
+            else if (o === 'deleteLayer') d.deleteLayer(Math.random() < 0.5 ? 'a' : 'b')
+            else if (o === 'setx') d.set('a', 'x', (Math.random() * 3) | 0)
+            else if (o === 'sety') d.set('b', 'y', (Math.random() * 3) | 0)
+            else if (o === 'begin') d.beginBatch()
+            else if (o === 'commit') d.commitBatch()
+            else if (o === 'abort') d.abortBatch()
+            else if (o === 'undo') d.undo()
+            else d.redo()
+          } catch (e) { /* set on a missing layer throws by design */ }
+        }
+        d.commitBatch()
+        const before = d.snapshot()
+        if (d.undoStack.length === 0) continue
+        d.undo(); d.redo()
+        if (d.snapshot() !== before) return false
+      }
+      return true
+    })
+
+    mount('invariants', table(['invariant', 'result'], results.map(([n, ok, note]) => [
+      { t: n },
+      { html: ok ? '<span class="pill ok">holds</span>' : `<span class="pill bad">FAILS</span> ${note}` },
+    ])))
+  })()
+})()
+</script>
+</body>
+</html>

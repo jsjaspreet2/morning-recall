@@ -6,104 +6,13 @@
 <meta name="color-scheme" content="light dark">
 <link rel="icon" href="../favicon.svg">
 <title>Reading Order Sweep</title>
-<style>
-  :root {
-    --bg: #faf9fc;
-    --panel: #ffffff;
-    --ink: #1c1a24;
-    --muted: #6b6878;
-    --line: #e4e1ec;
-    --accent: #7c3aed;
-    --accent-soft: #ede7fb;
-    --ok: #15803d;
-    --ok-soft: #dcfce7;
-    --bad: #b91c1c;
-    --bad-soft: #fee2e2;
-    --warn: #b45309;
-    --warn-soft: #fef3c7;
-    --code-bg: #f3f1f8;
-    --row0: rgba(124, 58, 237, 0.10);
-    --row1: rgba(14, 165, 233, 0.12);
-    --row2: rgba(234, 88, 12, 0.12);
-    --row3: rgba(22, 163, 74, 0.12);
-    --box: #ffffff;
-    --box-stroke: #9a95aa;
-    --hl: #7c3aed;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --bg: #141219; --panel: #1d1a25; --ink: #ece9f3; --muted: #a49fb3; --line: #322d3f;
-      --accent: #a78bfa; --accent-soft: #2a2140; --ok: #4ade80; --ok-soft: #14301e;
-      --bad: #f87171; --bad-soft: #3a1a1a; --warn: #fbbf24; --warn-soft: #3a2c10;
-      --code-bg: #17141f; --row0: rgba(167,139,250,0.16); --row1: rgba(56,189,248,0.16);
-      --row2: rgba(251,146,60,0.16); --row3: rgba(74,222,128,0.16);
-      --box: #262130; --box-stroke: #6f6884; --hl: #a78bfa;
-    }
-  }
-  :root[data-theme="dark"] {
-    --bg: #141219; --panel: #1d1a25; --ink: #ece9f3; --muted: #a49fb3; --line: #322d3f;
-    --accent: #a78bfa; --accent-soft: #2a2140; --ok: #4ade80; --ok-soft: #14301e;
-    --bad: #f87171; --bad-soft: #3a1a1a; --warn: #fbbf24; --warn-soft: #3a2c10;
-    --code-bg: #17141f; --row0: rgba(167,139,250,0.16); --row1: rgba(56,189,248,0.16);
-    --row2: rgba(251,146,60,0.16); --row3: rgba(74,222,128,0.16);
-    --box: #262130; --box-stroke: #6f6884; --hl: #a78bfa;
-  }
-
-  body { background: var(--bg); color: var(--ink); font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; }
-  main { max-width: 980px; margin: 0 auto; padding: 32px 20px 80px; }
-  h1 { font-size: 28px; margin: 0 0 6px; letter-spacing: -0.01em; }
-  h2 { font-size: 20px; margin: 44px 0 10px; padding-top: 18px; border-top: 1px solid var(--line); }
-  h2 .k { display: inline-block; font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin-right: 10px; vertical-align: middle; }
-  p { margin: 8px 0; max-width: 72ch; }
-  .lede { color: var(--muted); font-size: 16px; margin-bottom: 4px; }
-  .note { font-size: 13.5px; color: var(--muted); }
-  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; }
-  code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
-  pre { background: var(--code-bg); padding: 12px 14px; border-radius: 8px; overflow-x: auto; margin: 10px 0; line-height: 1.5; }
-  pre .ln { display: block; padding: 0 6px; margin: 0 -6px; border-radius: 3px; white-space: pre; }
-  pre .ln.on { background: var(--accent-soft); outline: 1px solid var(--accent); }
-  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin: 14px 0; }
-  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  @media (max-width: 720px) { .grid2 { grid-template-columns: 1fr; } }
-  .caption { font-size: 13.5px; color: var(--muted); margin-top: 6px; }
-  .caption b { color: var(--ink); }
-  svg { display: block; width: 100%; height: auto; }
-  .canvas { background: repeating-linear-gradient(0deg, transparent 0 9px, var(--line) 9px 10px), repeating-linear-gradient(90deg, transparent 0 9px, var(--line) 9px 10px); border-radius: 8px; border: 1px solid var(--line); }
-  .canvas.plain { background: none; }
-  .out { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 15px; letter-spacing: .18em; padding: 4px 10px; border-radius: 6px; display: inline-block; }
-  .out.good { background: var(--ok-soft); color: var(--ok); }
-  .out.badv { background: var(--bad-soft); color: var(--bad); }
-  .out.warnv { background: var(--warn-soft); color: var(--warn); }
-  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0; }
-  button, select { font: inherit; font-size: 14px; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; }
-  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
-  button:disabled { opacity: .45; cursor: default; }
-  .log { min-height: 3.2em; font-size: 14px; padding: 8px 12px; border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 0 8px 8px 0; margin-top: 10px; }
-  .log b { font-family: ui-monospace, Menlo, monospace; }
-  table { border-collapse: collapse; font-size: 14px; width: 100%; }
-  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
-  th { color: var(--muted); font-weight: 600; font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; }
-  td.mono, th.mono { font-family: ui-monospace, Menlo, monospace; letter-spacing: .12em; }
-  .table-wrap { overflow-x: auto; }
-  .pill { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-weight: 600; }
-  .legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; color: var(--muted); margin-top: 8px; }
-  .legend span::before { content: ""; display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -2px; }
-  .legend .l-rb::before { background: var(--bad); }
-  .legend .l-cur::before { background: var(--hl); }
-  .legend .l-row::before { background: var(--row0); border: 1px solid var(--accent); }
-  .say { border-left: 3px solid var(--accent); padding: 4px 14px; color: var(--ink); font-style: italic; margin: 10px 0; }
-  .backlink { font-size: 13.5px; color: var(--muted); }
-  a { color: var(--accent); }
-  .tabs { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
-  .tabs button { border: 0; border-radius: 0; }
-  .tabs button.on { background: var(--accent); color: #fff; }
-</style>
+<link rel="stylesheet" href="viz.css">
 </head>
 <body>
 <main>
   <h1>Reading Order Sweep</h1>
   <p class="lede">Drill <code>figma-03-reading-order</code>: what Part 1 does, why it stops working, the comparator trap, and what Part 2's sweep actually computes. Every output below is computed live in your browser with the drill's exact code.</p>
-  <p class="backlink">Companion to guide §05 B and the drill's trap card. The test cases here are the drill's own, plus one extra (the staircase) that is worth knowing about.</p>
+  <p class="backlink"><a href="./">All drill visualizations</a> · companion to guide §05 B and the drill's trap card. The test cases here are the drill's own, plus one extra (the staircase) that is worth knowing about.</p>
 
   <!-- ============================================================ 0 -->
   <h2><span class="k">0</span>The problem</h2>

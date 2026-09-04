@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="../favicon.svg">
+<link rel="stylesheet" href="viz.css">
+<title>The Stack Is The Level</title>
+</head>
+<body>
+<main>
+  <h1>The Stack Is The Level</h1>
+  <p class="lede">Drill <code>figma-09-rich-text-levels</code>: nine lines of body and the highest ratio of trap to code in the folder. The nine lines are not the rep. Saying <em>why</em> the stack is a stack of containers and not a map of levels is the rep.</p>
+  <p class="backlink"><a href="./">All drill visualizations</a> · companion to guide §05 and the drill header</p>
+
+  <!-- =============================================== -->
+  <h2><span class="k">0</span>The problem</h2>
+  <p>Tokens are <code>(level, text)</code> pairs in document order, level a positive integer. Return a nested list where the outer array is the container for level 1, and each deeper level is a list nested inside the one before it.</p>
+  <div class="grid2">
+    <div class="panel"><div class="stack-title">two worked examples, computed live</div><div class="table-wrap"><table id="examples"></table></div></div>
+    <div class="panel"><div class="stack-title">the same, drawn</div><div class="nest" id="viz-examples"></div></div>
+  </div>
+  <p class="note">The invariant that makes the code write itself: <b><code>stack.length</code> is the level of the container on top.</b> Start with <code>stack = [root]</code> — length 1, holding the container for level 1 — and it stays true by construction. Once it does, "go shallower" and "go deeper" are two while-loops over the same comparison and there is no arithmetic left to get wrong.</p>
+
+  <!-- =============================================== -->
+  <h2><span class="k">1</span>Step through it</h2>
+  <div class="panel">
+    <div class="controls">
+      <label for="scenario">Tokens</label>
+      <select id="scenario"></select>
+      <button id="btn-reset">Reset</button>
+      <button id="btn-back">← Back</button>
+      <button id="btn-step" class="primary">Step →</button>
+      <button id="btn-play">Play</button>
+      <span class="note" id="step-counter"></span>
+    </div>
+    <div class="grid2">
+      <div>
+        <div class="stack-title">tokens</div>
+        <div class="table-wrap"><table id="tokens"></table></div>
+        <div class="stack-title" style="margin-top:12px">the stack &nbsp;<span class="note">top = the open container</span></div>
+        <div class="slevel" id="stack"></div>
+      </div>
+      <div>
+        <div class="stack-title">the result so far</div>
+        <div class="nest" id="out"></div>
+        <div class="log" id="log"></div>
+<pre id="code" style="margin-top:10px"><span class="ln" data-l="init">const root: RichNode[] = []</span><span class="ln" data-l="init">const stack: RichNode[][] = [root]      <span style="color:var(--muted)">// stack.length === current level</span></span><span class="ln" data-l="loop">for (const [level, text] of tokens) {</span><span class="ln" data-l="guard">  if (!Number.isInteger(level) || level &lt; 1) throw new Error(...)</span><span class="ln" data-l="pop">  while (stack.length &gt; level) stack.pop()          <span style="color:var(--muted)">// shallower</span></span><span class="ln" data-l="push">  while (stack.length &lt; level) {                    <span style="color:var(--muted)">// deeper</span></span><span class="ln" data-l="push">    const child: RichNode[] = []</span><span class="ln" data-l="push">    stack[stack.length - 1].push(child)</span><span class="ln" data-l="push">    stack.push(child)</span><span class="ln" data-l="push">  }</span><span class="ln" data-l="append">  stack[stack.length - 1].push(text)</span><span class="ln" data-l="loop">}</span></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- =============================================== -->
+  <h2><span class="k">2</span>The trap is the return, not the jump</h2>
+  <p>Everyone handles the deep jump. The bug is keeping a <b>map of "the container for level N"</b> and reusing it on the way back down. Nothing about that looks wrong; it even reads as an optimisation, since it avoids re-walking. Watch it fail on four tokens.</p>
+  <div class="panel">
+    <div class="controls"><span class="pill">Live</span><span>tokens: <code id="trap-tokens"></code></span>
+      <span class="tabs" id="trap-tabs"></span>
+    </div>
+    <div class="grid2">
+      <div>
+        <div class="stack-title">a stack of containers</div>
+        <div class="nest" id="trap-good"></div>
+        <div class="caption" id="trap-good-txt"></div>
+      </div>
+      <div>
+        <div class="stack-title">a map of level → container</div>
+        <div class="nest" id="trap-bad"></div>
+        <div class="caption" id="trap-bad-txt"></div>
+      </div>
+    </div>
+    <div class="log" id="trap-log"></div>
+  </div>
+  <p><b>Why the stack cannot have this bug.</b> Going shallower <code>pop</code>s the level-2 container off, and nothing holds a reference to it any more. The next descent has no choice but to build a new one. <b>Popping destroys the stale container for free; a cache keeps it alive.</b> Say that sentence when you choose the stack — it is the entire question, and it is the difference between "I used a stack" and "I know what a stack is for here".</p>
+
+  <!-- =============================================== -->
+  <h2><span class="k">3</span>The second trap: how many lists to create</h2>
+  <p>The count is <code>level − stack.length</code>, not <code>level − previousLevel</code>. Those agree on the way down from a token that was at the current depth, and disagree the moment a return has already happened. Letting the stack's <em>length</em> be the level makes both loops conditions you cannot get wrong — there is no subtraction to write at all.</p>
+  <div class="table-wrap"><table id="offbyone"></table></div>
+  <p class="note">And the text goes only in the <b>innermost</b> new list. Push it into each one as you descend and <code>[(1,"food"), (4,"banana")]</code> comes back as <code>["food", ["banana", ["banana", ["banana"]]]]</code>, which is the kind of output that looks plausible enough to survive a glance.</p>
+
+  <!-- =============================================== -->
+  <h2><span class="k">Part 2</span>The inverse, and where the round trip stops</h2>
+  <p>Level is <code>1 +</code> how many containers deep you are, so a recursive walk carries it down and there is no state to keep at all.</p>
+<pre><span class="ln">const walk = (list, level) =&gt; {</span><span class="ln">  for (const node of list) {</span><span class="ln">    if (typeof node === 'string') out.push([level, node])</span><span class="ln">    else walk(node, level + 1)</span><span class="ln">  }</span><span class="ln">}</span><span class="ln">walk(nodes, 1)</span></pre>
+  <div class="grid2">
+    <div class="panel">
+      <div class="stack-title">flatten(read(tokens)) === tokens</div>
+      <div class="table-wrap"><table id="roundtrip"></table></div>
+      <p class="note">Checked live on every scenario on this page.</p>
+    </div>
+    <div class="panel">
+      <div class="stack-title">but read(flatten(x)) is not an identity</div>
+      <div class="table-wrap"><table id="notidentity"></table></div>
+      <p class="note"><b>An empty container emits no tokens</b>, so it cannot come back. Volunteer this rather than claiming a round trip you have not got: <em>"it's an identity in one direction, and in the other only on nestings <code>readRichText</code> could have produced — an empty list has no token representation."</em></p>
+    </div>
+  </div>
+
+  <!-- =============================================== -->
+  <h2><span class="k">4</span>The answers to the questions they will ask</h2>
+  <div class="table-wrap"><table id="qa"></table></div>
+
+  <!-- =============================================== -->
+  <h2><span class="k">5</span>Say it out loud</h2>
+  <div class="say">"I'll keep a stack of open containers, and I'm going to maintain that <code>stack.length</code> equals the current level. Then going shallower is popping until the length matches, and going deeper is pushing a new child list per missing level."</div>
+  <div class="say">"The reason it's a stack and not a map from level to container: when I come back up, popping throws the old level-2 container away. If I cached it, the next descent would append into the list I already closed, and I'd get one shared list where the document has two siblings."</div>
+  <div class="say">"Levels can skip on the way up. A skip <em>down</em> needs no special case — it's just a shorter walk back — which is why both directions are while-loops rather than an if."</div>
+  <div class="say">"The contract says levels start at 1 and are positive. I'm throwing on anything else rather than clamping, because clamping hides a producer bug inside output that still looks like a document."</div>
+  <p class="note">Complexity, in their terms — <b>n</b> tokens, <b>c</b> containers created: time <b>O(n + c)</b>, because every container is pushed once and popped at most once, so the inner loops are amortised rather than nested. Auxiliary space <b>O(d)</b> for the deepest level reached; the output itself is <code>O(n + c)</code>, which is required, not auxiliary.</p>
+</main>
+
+<script src="viz.js"></script>
+<script>
+(function () {
+  const { h, mount, table, stepper, highlight, $ } = V
+
+  /* ---------- the drill's reference solution, verbatim in JS ---------- */
+  function readRichText(tokens) {
+    const root = []
+    const stack = [root]
+    for (const [level, text] of tokens) {
+      if (!Number.isInteger(level) || level < 1) throw new Error(`level must be a positive integer, got ${level}`)
+      while (stack.length > level) stack.pop()
+      while (stack.length < level) {
+        const child = []
+        stack[stack.length - 1].push(child)
+        stack.push(child)
+      }
+      stack[stack.length - 1].push(text)
+    }
+    return root
+  }
+  function flattenRichText(nodes) {
+    const out = []
+    const walk = (list, level) => {
+      for (const node of list) {
+        if (typeof node === 'string') out.push([level, node])
+        else walk(node, level + 1)
+      }
+    }
+    walk(nodes, 1)
+    return out
+  }
+
+  /** The plausible wrong one: cache the container for each level and reuse it. */
+  function readWithLevelMap(tokens) {
+    const root = []
+    const byLevel = { 1: root }
+    for (const [level, text] of tokens) {
+      for (let L = 2; L <= level; L++) {
+        if (!byLevel[L]) { const child = []; byLevel[L - 1].push(child); byLevel[L] = child }
+      }
+      byLevel[level].push(text)
+    }
+    return root
+  }
+
+  /* ---------- rendering ---------- */
+  const show = (nodes) => JSON.stringify(nodes)
+  function nest(nodes, opts) {
+    const o = opts || {}
+    const draw = (list, depth, isOpen) => {
+      const box = h('div', { class: 'list d' + (depth % 4) + (isOpen ? ' open' : '') })
+      if (list.length === 0) box.appendChild(h('span', { class: 'empty', text: '(empty)' }))
+      for (const node of list) {
+        if (typeof node === 'string') box.appendChild(h('span', { class: 'txt' + (node === o.justAdded ? ' new' : ''), text: JSON.stringify(node) }))
+        else box.appendChild(draw(node, depth + 1, (o.openList || []).includes(node)))
+      }
+      return box
+    }
+    return draw(nodes, 0, (o.openList || []).includes(nodes))
+  }
+
+  /* ---------- 0: the examples ---------- */
+  const EX = [
+    [[1, 'food'], [4, 'banana']],
+    [[1, 'a'], [2, 'b'], [2, 'c'], [1, 'd']],
+    [],
+  ]
+  mount('examples', table(['tokens', 'readRichText(tokens)'], EX.map((t) => [
+    { t: JSON.stringify(t).replace(/"/g, '"'), cls: 'mono' },
+    { t: show(readRichText(t)), cls: 'mono' },
+  ])))
+  ;(function drawExamples() {
+    const wrap = h('div')
+    for (const t of EX.slice(0, 2)) {
+      wrap.appendChild(h('div', { class: 'note', text: JSON.stringify(t) }))
+      wrap.appendChild(nest(readRichText(t), {}))
+    }
+    mount('viz-examples', wrap)
+  })()
+
+  /* ---------- 1: the stepper ---------- */
+  const SCEN = {
+    'deep jump — [(1,"food"), (4,"banana")]': [[1, 'food'], [4, 'banana']],
+    'down and back — [(1,"a"), (2,"b"), (2,"c"), (1,"d")]': [[1, 'a'], [2, 'b'], [2, 'c'], [1, 'd']],
+    'the trap — [(1,"a"), (2,"b"), (1,"c"), (2,"d")]': [[1, 'a'], [2, 'b'], [1, 'c'], [2, 'd']],
+    'partial return — [(1,"a"), (3,"b"), (2,"c")]': [[1, 'a'], [3, 'b'], [2, 'c']],
+    'empty — []': [],
+  }
+  const sel = $('scenario')
+  Object.keys(SCEN).forEach((k) => sel.appendChild(h('option', { value: k, text: k })))
+  let tokens = SCEN[sel.value]
+
+  /** The same algorithm, instrumented, so each token is one visible frame. */
+  function trace(toks) {
+    const root = []
+    const stack = [root]
+    const frames = [{ stack: [...stack], popped: [], created: 0, text: null, root, say: 'Start with one container: the root, which <em>is</em> the container for level 1. <code>stack.length === 1</code>.' }]
+    for (const [level, text] of toks) {
+      const popped = []
+      while (stack.length > level) popped.push(stack.pop())
+      const created = []
+      while (stack.length < level) {
+        const child = []
+        stack[stack.length - 1].push(child)
+        stack.push(child)
+        created.push(child)
+      }
+      stack[stack.length - 1].push(text)
+      const parts = []
+      if (popped.length) parts.push(`popped <b>${popped.length}</b> container${popped.length === 1 ? '' : 's'} to get back to level ${level}${popped.length ? ' — and those are now unreachable, which is the point' : ''}`)
+      if (created.length) parts.push(`created <b>${created.length}</b> new list${created.length === 1 ? '' : 's'}, each nested in the one before`)
+      if (!parts.length) parts.push('already at the right level, so neither loop ran')
+      frames.push({
+        stack: [...stack], popped, created: created.length, text,
+        root, say: `Token <code>(${level}, ${JSON.stringify(text)})</code>: ` + parts.join('; ') + `; then appended the text to the innermost container. <code>stack.length</code> is now ${stack.length}.`,
+      })
+    }
+    return frames
+  }
+
+  function render(i) {
+    // Recompute from scratch so the drawn tree matches the frame exactly.
+    const frames = trace(tokens.slice(0, i))
+    const f = frames[frames.length - 1]
+    mount('tokens', table(['', 'level', 'text'], tokens.map((t, k) => ({
+      cells: [{ t: k < i ? '✓' : k === i ? '→' : '' }, { t: String(t[0]), cls: 'mono' }, { t: JSON.stringify(t[1]), cls: 'mono' }],
+    }))))
+    const st = $('stack')
+    st.textContent = ''
+    f.stack.forEach((list, idx) => {
+      st.appendChild(h('div', { class: 'lv' + (idx === f.stack.length - 1 ? ' top' : '') }, [
+        h('span', { class: 'n', text: `stack[${idx}] — the open container for level ${idx + 1}   ` }),
+        h('span', { text: show(list) }),
+      ]))
+    })
+    f.popped.forEach((list) => {
+      st.appendChild(h('div', { class: 'lv popped' }, [h('span', { class: 'n', text: 'just popped — unreachable   ' }), h('span', { text: show(list) })]))
+    })
+    mount('out', nest(f.root, { justAdded: f.text, openList: f.stack }))
+    $('log').innerHTML = f.say + (i === tokens.length && tokens.length ? `<br><b>Result:</b> <code>${show(f.root)}</code>` : '')
+    highlight('code', i === 0 ? ['init'] : ['loop', f.popped.length ? 'pop' : null, f.created ? 'push' : null, 'append'].filter(Boolean))
+  }
+
+  const step = stepper(
+    { reset: 'btn-reset', step: 'btn-step', back: 'btn-back', play: 'btn-play', counter: 'step-counter' },
+    () => tokens.length, render, { interval: 1300 },
+  )
+  sel.addEventListener('change', () => { tokens = SCEN[sel.value]; step.reset() })
+  step.draw()
+
+  /* ---------- 2: the trap ---------- */
+  const TRAPS = {
+    'a, b, c, d': [[1, 'a'], [2, 'b'], [1, 'c'], [2, 'd']],
+    'three siblings': [[1, 'a'], [2, 'b'], [1, 'c'], [2, 'd'], [1, 'e'], [2, 'f']],
+    'the deep jump': [[1, 'food'], [4, 'banana']],
+    'no return at all': [[1, 'a'], [2, 'b'], [2, 'c']],
+  }
+  let trapKey = 'a, b, c, d'
+  const tabs = $('trap-tabs')
+  Object.keys(TRAPS).forEach((k) => tabs.appendChild(h('button', {
+    class: k === trapKey ? 'on' : '', text: k,
+    onclick: () => { trapKey = k; renderTrap() },
+  })))
+  function renderTrap() {
+    const toks = TRAPS[trapKey]
+    for (const b of tabs.children) b.classList.toggle('on', b.textContent === trapKey)
+    $('trap-tokens').textContent = JSON.stringify(toks)
+    const good = readRichText(toks), bad = readWithLevelMap(toks)
+    mount('trap-good', nest(good, {}))
+    mount('trap-bad', nest(bad, {}))
+    $('trap-good-txt').textContent = show(good)
+    $('trap-bad-txt').textContent = show(bad)
+    const same = show(good) === show(bad)
+    $('trap-log').className = 'log' + (same ? '' : ' bad')
+    $('trap-log').innerHTML = same
+      ? 'These agree. <b>That is what makes the bug dangerous</b> — the cache is only wrong once a level is revisited <em>after</em> being left, so every test that only descends passes.'
+      : `They disagree. The cached level-2 container is still the one holding <code>"${toks[1][1]}"</code>, so the later level-2 token lands next to it. The document says two sibling lists; the cache produces one shared list.`
+  }
+  renderTrap()
+
+  /* ---------- 3: the off-by-one ---------- */
+  mount('offbyone', table(
+    ['after this prefix', 'stack.length', 'next token', 'lists to create'],
+    [
+      [{ t: '[(1,"a")]', cls: 'mono' }, { t: '1', cls: 'mono' }, { t: '(4, "x")', cls: 'mono' }, { html: '<code>4 − 1 = 3</code> — and here previousLevel agrees' }],
+      [{ t: '[(1,"a"), (3,"b")]', cls: 'mono' }, { t: '3', cls: 'mono' }, { t: '(2, "c")', cls: 'mono' }, { html: 'none — <b>pop</b> one instead' }],
+      [{ t: '[(1,"a"), (3,"b"), (2,"c")]', cls: 'mono' }, { t: '2', cls: 'mono' }, { t: '(4, "d")', cls: 'mono' }, { html: '<code>4 − 2 = 2</code>, but <code>4 − previousLevel(2) = 2</code> too' }],
+      [{ t: '[(1,"a"), (3,"b"), (1,"c")]', cls: 'mono' }, { t: '1', cls: 'mono' }, { t: '(3, "d")', cls: 'mono' }, { html: '<code>3 − 1 = 2</code>, but <code>3 − previousLevel(1) = 2</code>… <span class="pill ok">still agrees</span>' }],
+    ],
+  ))
+
+  /* ---------- Part 2 ---------- */
+  ;(function part2() {
+    const all = [...Object.values(SCEN), ...Object.values(TRAPS), [[1, 'x'], [3, 'y'], [2, 'z'], [5, 'w'], [1, 'v']]]
+    const rows = all.map((toks) => {
+      const back = flattenRichText(readRichText(toks))
+      const ok = JSON.stringify(back) === JSON.stringify(toks)
+      return [
+        { t: JSON.stringify(toks), cls: 'mono' },
+        ok ? { html: '<span class="pill ok">identical</span>' } : { html: `<span class="pill bad">${JSON.stringify(back)}</span>` },
+      ]
+    })
+    mount('roundtrip', table(['tokens', 'flatten(read(tokens))'], rows))
+
+    const nested = [['a', [], 'b']]
+    mount('notidentity', table(['nesting x', 'flatten(x)', 'read(flatten(x))'], [
+      [{ t: show(nested[0]), cls: 'mono' }, { t: JSON.stringify(flattenRichText(nested[0])), cls: 'mono' },
+       { html: `<span class="pill warn">${show(readRichText(flattenRichText(nested[0])))}</span> the empty list is gone` }],
+    ]))
+  })()
+
+  /* ---------- 4: Q&A ---------- */
+  ;(function qa() {
+    let thrown = '(did not throw)'
+    try { readRichText([[0, 'x']]) } catch (e) { thrown = e.message }
+    let thrown2 = '(did not throw)'
+    try { readRichText([[1.5, 'x']]) } catch (e) { thrown2 = e.message }
+    const input = [[1, 'a'], [2, 'b']]
+    const copy = JSON.stringify(input)
+    readRichText(input)
+    mount('qa', table(['question', 'the answer, and the reason'], [
+      [{ html: 'Does it start at level 1?' }, { html: 'Stated: it starts at 1 or is empty. Ask anyway — if it can start at 3, the outer array is the container for level 3 and every "level" in your head shifts.' }],
+      [{ html: 'Can levels skip on the way <em>down</em>?' }, { html: 'Yes, and it needs <b>no special case</b> — a bigger skip is just a longer <code>pop</code> loop. Live: <code>' + show(readRichText([[1, 'a'], [4, 'b'], [2, 'c']])) + '</code>' }],
+      [{ html: 'What about level 0 or negative?' }, { html: 'Not per the contract, so say what you do anyway. Here: <code>' + thrown + '</code>' }],
+      [{ html: '…and a non-integer?' }, { html: '<code>' + thrown2 + '</code> — the same guard, which is also what makes the pop loop provably unable to empty the stack.' }],
+      [{ html: 'Are the texts parsed?' }, { html: 'No. Opaque strings in, the same strings out, in document order. Nothing here looks inside them.' }],
+      [{ html: 'Is the input mutated?' }, { html: JSON.stringify(input) === copy ? '<span class="pill ok">no — checked live</span>' : '<span class="pill bad">yes</span>' }],
+    ]))
+  })()
+})()
+</script>
+</body>
+</html>

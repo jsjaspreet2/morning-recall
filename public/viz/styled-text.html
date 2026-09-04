@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="../favicon.svg">
+<link rel="stylesheet" href="viz.css">
+<title>Runs Over Text</title>
+</head>
+<body>
+<main>
+  <h1>Runs Over Text</h1>
+  <p class="lede">Drill <code>figma-04-styled-text-ranges</code>: what a "style range" is, what slicing does to one, and why applying a style is a three-way split followed by a merge. Drag the range below and watch the runs rebuild.</p>
+  <p class="backlink"><a href="./">All drill visualizations</a> · companion to guide §05 C</p>
+
+  <!-- =============================================== -->
+  <h2><span class="k">0</span>Styles are not on the characters</h2>
+  <p>The naive model gives every character its own style object. It is correct and it is what you must not build: a paragraph of ten thousand characters becomes ten thousand objects, and "is this whole selection bold" becomes a scan. The model every real editor uses is <b>runs</b> — half-open intervals over the string, each carrying one style.</p>
+<pre><span class="ln">type Style = Readonly&lt;Record&lt;string, string | boolean&gt;&gt;</span><span class="ln">type Run   = { start: number; end: number; style: Style }   <span style="color:var(--muted)">// [start, end)</span></span></pre>
+  <div class="panel">
+    <div id="viz-model"></div>
+    <p class="caption">Ask about half-open versus inclusive in the first minute, and if they do not care, <b>say you are taking half-open and why</b>: <code>end - start</code> is the length, an empty run is <code>start === end</code>, and adjacency is <code>a.end === b.start</code> with no <code>+ 1</code> anywhere. That single choice removes about half the off-by-ones this problem has available.</p>
+  </div>
+
+  <!-- =============================================== -->
+  <h2><span class="k">1</span>The invariant is the answer</h2>
+  <p>Four clauses. Say them before you write a line, put them in <b>one</b> function, and call that function at the end of everything. Every bug in this problem is one of these four being violated somewhere that no single function owns.</p>
+  <div class="table-wrap"><table id="inv"></table></div>
+  <p class="note">The trap is inlining the merge into <code>applyStyle</code> "since it's only three lines". Then <code>sliceStyled</code> grows its own slightly different notion of adjacent, and the two disagree on exactly one case — usually the empty run — six minutes before the hour ends.</p>
+
+  <!-- =============================================== -->
+  <h2><span class="k">2</span>The live model</h2>
+  <div class="panel">
+    <div class="controls">
+      <label for="from">from</label><input type="range" id="from" min="0" max="11" value="3">
+      <label for="to">to</label><input type="range" id="to" min="0" max="11" value="8">
+      <span class="pill" id="range-label"></span>
+      <span style="margin-left:12px"></span>
+      <label>patch</label>
+      <button id="p-bold">bold</button>
+      <button id="p-italic">italic</button>
+      <button id="p-under">underline</button>
+      <button id="p-reset">reset text</button>
+    </div>
+    <div class="runwrap"><div id="viz-input"></div></div>
+    <p class="caption">The bar under the characters is the range <code>[from, to)</code>. Everything below recomputes from it as you drag.</p>
+  </div>
+
+  <!-- =============================================== -->
+  <h2><span class="k">Part 1</span>Slice: clip, then rebase</h2>
+  <p>Slicing is two ideas that must happen in that order. <b>Clip</b> each run to the window — <code>max(r.start, from)</code> and <code>min(r.end, to)</code> — and drop it if nothing survives. Then <b>rebase</b>: the returned runs index into the <em>new</em> string, so subtract <code>from</code> from both ends.</p>
+<pre id="slice-code"><span class="ln" data-l="loop">for (const r of runs) {</span><span class="ln" data-l="clip">  const start = Math.max(r.start, from)</span><span class="ln" data-l="clip">  const end   = Math.min(r.end, to)</span><span class="ln" data-l="rebase">  if (start &lt; end) out.push({ start: start - from, end: end - from, style: r.style })</span><span class="ln" data-l="loop">}</span><span class="ln" data-l="norm">return { text: text.slice(from, to), runs: normalize(out) }</span></pre>
+  <div class="panel">
+    <div class="stage-title">input, with the window marked</div>
+    <div class="runwrap"><div id="viz-slice-in"></div></div>
+    <div class="stage-title">output — a new string, and runs whose indices start again at 0</div>
+    <div class="runwrap"><div id="viz-slice-out"></div></div>
+    <p class="caption" id="slice-note"></p>
+  </div>
+  <p class="note"><b>Forgetting the rebase is the classic failure</b>, and it hides: the first test people write slices from 0, where <code>start - from</code> and <code>start</code> are the same number. Write the "slice from the middle of one run" test first instead — it fails on both the rebase and the clip.</p>
+
+  <!-- =============================================== -->
+  <h2><span class="k">Part 2</span>Apply: split three ways, then merge</h2>
+  <p>An overlapped run becomes up to three pieces: the part before the range keeps its style, the overlapping part gets the patch, the part after keeps its style. A single run needs <b>all three at once</b> when the range sits strictly inside it — test that case first, it is the one that fails.</p>
+  <div class="panel"><div id="viz-split"></div>
+    <p class="caption">Runs that do not overlap the range at all are pushed through untouched, in one branch, before any of this. Two <code>if</code>s and a push, in that order.</p>
+  </div>
+<pre id="apply-code"><span class="ln" data-l="guard">if (from &gt;= to) return runs                              <span style="color:var(--muted)">// empty range: a no-op, not an error</span></span><span class="ln" data-l="loop">for (const r of runs) {</span><span class="ln" data-l="ov">  const lo = Math.max(r.start, from), hi = Math.min(r.end, to)</span><span class="ln" data-l="skip">  if (lo &gt;= hi) { out.push(r); continue }                <span style="color:var(--muted)">// no overlap</span></span><span class="ln" data-l="left">  if (r.start &lt; lo) out.push({ start: r.start, end: lo, style: r.style })</span><span class="ln" data-l="mid">  out.push({ start: lo, end: hi, style: { ...r.style, ...patch } })</span><span class="ln" data-l="right">  if (hi &lt; r.end) out.push({ start: hi, end: r.end, style: r.style })</span><span class="ln" data-l="loop">}</span><span class="ln" data-l="norm">return normalize(out)                                     <span style="color:var(--muted)">// the only place merging happens</span></span></pre>
+  <div class="panel">
+    <div class="controls"><span class="pill">Live</span><span id="patch-label"></span></div>
+    <div class="stage-title">before</div>
+    <div class="runwrap"><div id="viz-apply-before"></div></div>
+    <div class="stage-title">after the split, before <code>normalize</code> — note the adjacent duplicates</div>
+    <div class="runwrap"><div id="viz-apply-split"></div></div>
+    <div class="stage-title">after <code>normalize</code> — the result</div>
+    <div class="runwrap"><div id="viz-apply-out"></div></div>
+    <p class="caption" id="apply-note"></p>
+  </div>
+
+  <!-- =============================================== -->
+  <h2><span class="k">3</span>Patch, not replace</h2>
+  <p><code>{ ...r.style, ...patch }</code> and <code>patch</code> are one keystroke apart and are different features. Applying <b>italic</b> to text that is already bold should give bold italic; replacing would silently strip the bold. Ask which they want — it is one of the three opening questions — and then make the code say the answer.</p>
+  <div class="table-wrap"><table id="patchvreplace"></table></div>
+
+  <!-- =============================================== -->
+  <h2><span class="k">4</span>The cases that break implementations</h2>
+  <div class="table-wrap"><table id="cases"></table></div>
+  <p class="note">Every row runs the reference implementation live. If your own <code>applyStyle</code> disagrees with any of them, the disagreement is almost always <code>normalize</code> being skipped on one path.</p>
+
+  <!-- =============================================== -->
+  <h2><span class="k">5</span>Say it out loud</h2>
+  <div class="say">"Text is a string plus runs — half-open intervals, sorted, contiguous, non-empty, and no two neighbours carrying the same style. That invariant lives in one <code>normalize</code> function and everything calls it on the way out."</div>
+  <div class="say">"Slice clips each run to the window and then rebases it, because the returned runs index into the new string, not the old one."</div>
+  <div class="say">"Applying a style is a three-way split — keep left, patch middle, keep right — and then a merge pass. A range strictly inside one run is the case that needs all three, so that's the test I'll write first."</div>
+  <div class="say">"I'm treating the style as a patch rather than a replacement, so applying italic to bold text gives both. If you want replace semantics it's one spread to delete."</div>
+  <p class="note">And the follow-up they reach for when you finish early: <em>"what does this cost?"</em> Both functions are <b>O(n)</b> in the number of runs, not the number of characters — which is the entire reason for the model. If the runs were not guaranteed sorted you would sort first, at <code>O(n log n)</code>, and you should say which you are assuming.</p>
+</main>
+
+<script src="viz.js"></script>
+<script>
+(function () {
+  const { h, s, mount, table, highlight, $ } = V
+
+  /* ---------- the drill's reference solution, verbatim in JS ---------- */
+  function sameStyle(a, b) {
+    const ka = Object.keys(a), kb = Object.keys(b)
+    return ka.length === kb.length && ka.every((k) => a[k] === b[k])
+  }
+  function normalize(runs) {
+    const out = []
+    for (const r of runs) {
+      if (r.end <= r.start) continue
+      const last = out[out.length - 1]
+      if (last && last.end === r.start && sameStyle(last.style, r.style)) last.end = r.end
+      else out.push({ ...r })
+    }
+    return out
+  }
+  function sliceStyled(text, runs, from, to) {
+    const out = []
+    for (const r of runs) {
+      const start = Math.max(r.start, from)
+      const end = Math.min(r.end, to)
+      if (start < end) out.push({ start: start - from, end: end - from, style: r.style })
+    }
+    return { text: text.slice(from, to), runs: normalize(out) }
+  }
+  function applyStyle(runs, from, to, patch) {
+    if (from >= to) return runs
+    const out = []
+    for (const r of runs) {
+      const lo = Math.max(r.start, from), hi = Math.min(r.end, to)
+      if (lo >= hi) { out.push(r); continue }
+      if (r.start < lo) out.push({ start: r.start, end: lo, style: r.style })
+      out.push({ start: lo, end: hi, style: { ...r.style, ...patch } })
+      if (hi < r.end) out.push({ start: hi, end: r.end, style: r.style })
+    }
+    return normalize(out)
+  }
+  /** The same body without the final normalize, so the split stage is visible. */
+  function applySplitOnly(runs, from, to, patch) {
+    if (from >= to) return runs.map((r) => ({ ...r }))
+    const out = []
+    for (const r of runs) {
+      const lo = Math.max(r.start, from), hi = Math.min(r.end, to)
+      if (lo >= hi) { out.push({ ...r }); continue }
+      if (r.start < lo) out.push({ start: r.start, end: lo, style: r.style })
+      out.push({ start: lo, end: hi, style: { ...r.style, ...patch } })
+      if (hi < r.end) out.push({ start: hi, end: r.end, style: r.style })
+    }
+    return out
+  }
+
+  /* ---------- rendering ---------- */
+  const CH = 22
+  const label = (style) => {
+    const ks = Object.keys(style)
+    return ks.length ? '{ ' + ks.map((k) => (style[k] === true ? k : `${k}: ${JSON.stringify(style[k])}`)).join(', ') + ' }' : '{ }'
+  }
+  const cls = (style) => [style.bold && 'b', style.italic && 'i', style.underline && 'u'].filter(Boolean).join(' ')
+
+  /** Draw a string, a ruler, its runs, and optionally a [from,to) window. */
+  function strip(text, runs, opts) {
+    const o = opts || {}
+    const wrap = h('div', { class: 'runstrip' })
+    const ruler = h('div', { class: 'runs' })
+    for (let i = 0; i < text.length; i++) ruler.appendChild(h('div', { class: 'ruler', text: String(i) }))
+    wrap.appendChild(ruler)
+    const chars = h('div', { class: 'runs' })
+    for (let i = 0; i < text.length; i++) {
+      const r = runs.find((x) => i >= x.start && i < x.end)
+      chars.appendChild(h('div', {
+        class: 'ch' + (o.from !== undefined && i >= o.from && i < o.to ? ' sel' : '') + ' ' + (r ? cls(r.style) : ''),
+        text: text[i] === ' ' ? '␣' : text[i],
+      }))
+    }
+    wrap.appendChild(chars)
+    if (o.from !== undefined && o.to > o.from) {
+      const w = h('div', { class: 'runs' })
+      w.appendChild(h('div', { style: `width:${o.from * CH}px` }))
+      w.appendChild(h('div', { class: 'window', style: `width:${(o.to - o.from) * CH - 2}px` }))
+      wrap.appendChild(w)
+    }
+    const bars = h('div', { class: 'runbars' })
+    runs.forEach((r, i) => {
+      const dup = i > 0 && runs[i - 1].end === r.start && sameStyle(runs[i - 1].style, r.style)
+      bars.appendChild(h('div', {
+        class: `rb c${i % 4}` + (dup ? ' merged' : '') + ((o.patched || []).some((p) => p.start === r.start && p.end === r.end) ? ' patched' : ''),
+        style: `width:${(r.end - r.start) * CH - 2}px`,
+        title: `[${r.start}, ${r.end}) ${label(r.style)}`,
+        text: `[${r.start},${r.end}) ${label(r.style)}`,
+      }))
+    })
+    wrap.appendChild(bars)
+    if (o.caption) wrap.appendChild(h('div', { class: 'caption', html: o.caption }))
+    return wrap
+  }
+
+  /* ---------- state ---------- */
+  const TEXT = 'hello world'
+  const BASE = [{ start: 0, end: 5, style: { bold: true } }, { start: 5, end: 11, style: {} }]
+  let runs = BASE.map((r) => ({ ...r, style: { ...r.style } }))
+  let patch = { bold: true }
+
+  const fromEl = $('from'), toEl = $('to')
+  fromEl.max = String(TEXT.length); toEl.max = String(TEXT.length)
+
+  function togglePatch(k) {
+    if (patch[k]) { const p = { ...patch }; delete p[k]; patch = p }
+    else patch = { ...patch, [k]: true }
+    render()
+  }
+  $('p-bold').addEventListener('click', () => togglePatch('bold'))
+  $('p-italic').addEventListener('click', () => togglePatch('italic'))
+  $('p-under').addEventListener('click', () => togglePatch('underline'))
+  $('p-reset').addEventListener('click', () => { runs = BASE.map((r) => ({ ...r, style: { ...r.style } })); render() })
+  for (const el of [fromEl, toEl]) { el.addEventListener('input', render); el.addEventListener('change', render) }
+
+  /* ---------- 0: the model picture ---------- */
+  mount('viz-model', strip(TEXT, BASE, {
+    caption: 'Two runs tile all eleven characters: <code>[0, 5)</code> bold and <code>[5, 11)</code> plain. <b>No gaps, no overlaps, no empties</b> — and note that index 5 belongs to the second run, not the first.',
+  }))
+
+  /* ---------- 1: the invariant ---------- */
+  mount('inv', table(['clause', 'what it forbids', 'a value that violates it'], [
+    ['SORTED', 'runs out of positional order', { t: '[5,11) then [0,5)', cls: 'mono' }],
+    ['CONTIGUOUS', 'a gap — characters with no style at all', { t: '[0,3) then [5,11)  ← 3 and 4 unstyled', cls: 'mono' }],
+    ['NON-EMPTY', 'zero-width runs that survive a clip', { t: '[4,4)', cls: 'mono' }],
+    ['NORMALISED', 'two adjacent runs carrying an equal style', { t: '[0,2) bold then [2,5) bold', cls: 'mono' }],
+  ]))
+
+  /* ---------- 3: patch vs replace ---------- */
+  const pr = (mode) => {
+    const start = [{ start: 0, end: 4, style: { bold: true } }]
+    if (mode === 'patch') return label(applyStyle(start, 0, 4, { italic: true })[0].style)
+    const out = start.map((r) => ({ ...r, style: { italic: true } }))
+    return label(out[0].style)
+  }
+  mount('patchvreplace', table(['start', 'apply { italic: true } to [0,4)', 'result'], [
+    [{ t: '[0,4) { bold }', cls: 'mono' }, { html: '<code>{ ...r.style, ...patch }</code> — patch' }, { t: pr('patch'), cls: 'mono' }],
+    [{ t: '[0,4) { bold }', cls: 'mono' }, { html: '<code>patch</code> — replace' }, { html: `<span class="pill bad">${pr('replace')}</span> the bold is gone` }],
+  ]))
+
+  /* ---------- 4: the cases ---------- */
+  ;(function cases() {
+    const R = (a, b, st) => ({ start: a, end: b, style: st })
+    const show = (rs) => rs.map((r) => `[${r.start},${r.end})${label(r.style)}`).join(' ') || '(none)'
+    const rows = [
+      ['range strictly inside one run → three runs', show(applyStyle([R(0, 10, {})], 3, 6, { bold: true }))],
+      ['merges with an equal neighbour instead of leaving two', show(applyStyle([R(0, 3, { bold: true }), R(3, 10, {})], 3, 6, { bold: true }))],
+      ['patches rather than replaces', show(applyStyle([R(0, 4, { bold: true })], 0, 4, { italic: true }))],
+      ['an empty range is a no-op', show(applyStyle([R(0, 4, { bold: true })], 2, 2, { italic: true }))],
+      ['covering everything still tiles the string', show(applyStyle([R(0, 4, {}), R(4, 8, { bold: true })], 0, 8, { italic: true }))],
+      ['slice inside one run, rebased to 0', show(sliceStyled('hello world', [R(0, 11, { bold: true })], 2, 5).runs)],
+      ['slice across runs clips both ends', show(sliceStyled('hello world', [R(0, 5, { bold: true }), R(5, 11, {})], 3, 8).runs)],
+    ]
+    const inputRuns = [R(0, 10, {})]
+    const copy = JSON.stringify(inputRuns)
+    applyStyle(inputRuns, 3, 6, { bold: true })
+    rows.push(['the input runs are not mutated', JSON.stringify(inputRuns) === copy ? 'unchanged ✓' : 'MUTATED ✗'])
+    mount('cases', table(['case', 'result'], rows.map(([a, b]) => [a, { t: b, cls: 'mono' }])))
+  })()
+
+  /* ---------- 2/Part1/Part2: the live panels ---------- */
+  function splitSvg() {
+    const g = V.svgRoot(660, 150, 'canvas plain')
+    const bar = (x, w, y, fill, stroke, t, tc) => {
+      g.appendChild(V.s('rect', { x, y, width: w, height: 34, rx: 6, fill, stroke, 'stroke-width': 1.5 }))
+      g.appendChild(V.s('text', { x: x + w / 2, y: y + 22, 'text-anchor': 'middle', 'font-size': 12, 'font-family': 'ui-monospace, Menlo, monospace', fill: tc || 'var(--ink)', text: t }))
+    }
+    g.appendChild(V.s('text', { x: 4, y: 14, fill: 'var(--muted)', 'font-size': 12, text: 'one run [0, 10) { }   ·   apply { bold } to [3, 6)' }))
+    bar(4, 640, 22, 'var(--row0)', 'var(--box-stroke)', '[0, 10)  { }')
+    g.appendChild(V.s('rect', { x: 196, y: 18, width: 192, height: 42, rx: 8, fill: 'none', stroke: 'var(--accent)', 'stroke-dasharray': '4 3' }))
+    g.appendChild(V.s('text', { x: 292, y: 76, 'text-anchor': 'middle', fill: 'var(--accent)', 'font-size': 11.5, text: 'lo = max(r.start, from) = 3    hi = min(r.end, to) = 6' }))
+    bar(4, 188, 96, 'var(--row1)', 'var(--box-stroke)', '[0, 3)  keep left')
+    bar(196, 192, 96, 'var(--accent-soft)', 'var(--accent)', '[3, 6)  patch')
+    bar(392, 252, 96, 'var(--row1)', 'var(--box-stroke)', '[6, 10)  keep right')
+    g.appendChild(V.s('text', { x: 4, y: 146, fill: 'var(--muted)', 'font-size': 11.5, text: 'The two keeps are conditional: r.start < lo and hi < r.end. A range that touches an edge produces two pieces, not three.' }))
+    return g
+  }
+  mount('viz-split', splitSvg())
+
+  function render() {
+    let from = Number(fromEl.value), to = Number(toEl.value)
+    if (from > to) { const t = from; from = to; to = t }
+    $('range-label').textContent = `[${from}, ${to})  — ${to - from} character${to - from === 1 ? '' : 's'}`
+    for (const [id, k] of [['p-bold', 'bold'], ['p-italic', 'italic'], ['p-under', 'underline']]) {
+      $(id).classList.toggle('primary', !!patch[k])
+    }
+    $('patch-label').innerHTML = `applying <code>${label(patch)}</code> to <code>[${from}, ${to})</code>`
+
+    mount('viz-input', strip(TEXT, runs, { from, to }))
+
+    // Part 1 — slice
+    mount('viz-slice-in', strip(TEXT, runs, { from, to }))
+    const sliced = sliceStyled(TEXT, runs, from, to)
+    mount('viz-slice-out', strip(sliced.text, sliced.runs, {}))
+    const kept = runs.filter((r) => Math.max(r.start, from) < Math.min(r.end, to))
+    $('slice-note').innerHTML = to === from
+      ? 'An empty window gives an empty string and no runs. Nothing throws — and the caller gets a valid, empty document rather than an exception to handle.'
+      : `<b>${kept.length}</b> of ${runs.length} run${runs.length === 1 ? '' : 's'} survive the clip. The first survivor covers original characters ` +
+        `<code>[${Math.max(kept[0].start, from)}, ${Math.min(kept[0].end, to)})</code>, and comes back as ` +
+        `<code>[${sliced.runs[0].start}, ${sliced.runs[0].end})</code> — shifted down by <code>from = ${from}</code>. ` +
+        `That subtraction is the rebase; drop it and every index in the returned runs is ${from} too large, which is invisible whenever you test a slice starting at 0.`
+    highlight('slice-code', to > from ? ['loop', 'clip', 'rebase', 'norm'] : ['norm'])
+
+    // Part 2 — apply
+    mount('viz-apply-before', strip(TEXT, runs, { from, to }))
+    const split = applySplitOnly(runs, from, to, patch)
+    const out = applyStyle(runs, from, to, patch)
+    mount('viz-apply-split', strip(TEXT, split, {}))
+    mount('viz-apply-out', strip(TEXT, out, {}))
+    const merged = split.length - out.length
+    $('apply-note').innerHTML = from >= to
+      ? '<b>Empty range.</b> The guard returns the original array untouched — no allocation, no error, and no accidental normalisation of runs the caller handed in.'
+      : `The split produced <b>${split.length}</b> runs; <code>normalize</code> returned <b>${out.length}</b>` +
+        (merged > 0 ? `, merging ${merged} adjacent pair${merged === 1 ? '' : 's'} that ended up carrying the same style. Dashed borders in the middle row mark them.` : '. Nothing merged this time — no two neighbours ended up equal.') +
+        ' Every run in the result still tiles the string with no gaps.'
+    highlight('apply-code', from >= to ? ['guard'] : ['loop', 'ov', 'left', 'mid', 'right', 'norm'])
+  }
+
+  // Clicking a character in the input strip applies the current patch, so the
+  // document actually evolves rather than resetting every frame.
+  $('viz-input').addEventListener('click', () => { runs = applyStyle(runs, Number(fromEl.value), Number(toEl.value), patch); render() })
+
+  render()
+})()
+</script>
+</body>
+</html>

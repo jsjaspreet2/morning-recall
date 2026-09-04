@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="../favicon.svg">
+<link rel="stylesheet" href="viz.css">
+<title>One Undo Per Gesture</title>
+</head>
+<body>
+<main>
+  <h1>One Undo Per Gesture</h1>
+  <p class="lede">Drill <code>figma-07-coalescing-history</code>: "if I type ten characters, should undo remove all ten or one?" and "the history can't grow forever". Both are product judgments wearing data-structure clothes, and saying that out loud is most of the score.</p>
+  <p class="backlink"><a href="./">All drill visualizations</a> · companion to guide §06 D · these are the two follow-ups most likely to arrive if you finish <a href="undo-redo-batch.html">the undo question</a> early</p>
+
+  <!-- =============================================== -->
+  <h2><span class="k">0</span>Why the timestamp is a parameter</h2>
+<pre><span class="ln">set(key: string, value: string, <span style="color:var(--accent)">at: number</span>): void   <span style="color:var(--muted)">// `at` is GIVEN, not read</span></span></pre>
+  <p>A function that reads the clock itself cannot be tested deterministically: your "types two characters 40ms apart" test becomes "types two characters as fast as this machine happened to run today". Injecting the timestamp is both the better design and the thing that lets you write the test <em>in the room</em>, which is the part the interviewer can see.</p>
+  <div class="say">"I'm going to take the timestamp as an argument rather than calling <code>Date.now()</code> inside. It makes the coalescing testable, and the caller has the real event time anyway — it's on the DOM event."</div>
+  <p class="note">That is a cheap, real API-design point, and it takes eight seconds. Take it.</p>
+
+  <!-- =============================================== -->
+  <h2><span class="k">1</span>The rules, and the timeline they produce</h2>
+  <p>Merge into the previous step only if <b>all four</b> hold: that step is a single op, on the <b>same key</b>, within <code>coalesceMs</code> of it, and no <code>checkpoint()</code> has sealed the run. Drag the window and watch the brackets regroup.</p>
+  <div class="panel">
+    <div class="controls">
+      <label for="ms">coalesceMs</label><input type="range" id="ms" min="0" max="800" step="20" value="400">
+      <span class="pill" id="ms-label"></span>
+      <label for="limit" style="margin-left:14px">limit</label><input type="range" id="limit" min="1" max="12" value="12">
+      <span class="pill" id="limit-label"></span>
+      <button id="btn-ckpt">checkpoint after "hello w"</button>
+    </div>
+    <div id="viz-timeline"></div>
+    <div class="legend"><span class="l-row">one undo step</span><span class="l-cur">checkpoint boundary</span><span class="l-rb">dropped by the limit</span></div>
+    <div class="log" id="tl-log"></div>
+    <div class="grid2" style="margin-top:12px">
+      <div>
+        <div class="stack-title">the undo stack, oldest first</div>
+        <div class="table-wrap"><table id="steps"></table></div>
+      </div>
+      <div>
+        <div class="stack-title">pressing undo, repeatedly</div>
+        <div class="table-wrap"><table id="undos"></table></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =============================================== -->
+  <h2><span class="k">2</span>A merge keeps the older <code>before</code> and the newer <code>after</code></h2>
+  <p>That is the whole implementation of coalescing — one line, and the reason it works. The merged step still describes a single reversible transition, from where the burst started to where it ended, so undo reverses the burst and redo replays it as one.</p>
+  <div class="panel"><div id="viz-merge"></div>
+    <p class="caption">Keep the newer <code>before</code> instead and undo lands the user in the middle of their own typing. Keep the older <code>after</code> and redo undoes half the burst. Both bugs pass a test that only checks <code>depth</code>.</p>
+  </div>
+<pre id="merge-code"><span class="ln">const top = this.undoStack[this.undoStack.length - 1]</span><span class="ln">if (this.canCoalesce(top, op)) {</span><span class="ln">  top[0] = { ...top[0], after: op.after, at: op.at }   <span style="color:var(--muted)">// older before, newer after</span></span><span class="ln">} else {</span><span class="ln">  this.undoStack.push([op])</span><span class="ln">  this.trim()</span><span class="ln">}</span><span class="ln">this.sealed = false</span><span class="ln">this.redoStack.length = 0</span></pre>
+  <p class="note"><b>Two traps inside those nine lines.</b> A merge must not push a second stack entry and must not clear the redo stack twice — both are harmless-looking and both make <code>depth</code> lie. And <code>canCoalesce</code> refuses a <code>top</code> of length ≠ 1, because merging a keystroke into a <em>batch</em> from the other drill would make one undo step that is half gesture and half transaction.</p>
+
+  <!-- =============================================== -->
+  <h2><span class="k">3</span>What forces a boundary</h2>
+  <div class="table-wrap"><table id="boundaries"></table></div>
+  <p class="note"><code>checkpoint()</code> is the one you must volunteer. Without a forced boundary, a user types, clicks somewhere else, types again inside the window, and one undo reverts both — including the part they thought they had finished. Selection change, blur, pointer-up: the caller knows the gesture ended, and the editor cannot.</p>
+
+  <!-- =============================================== -->
+  <h2><span class="k">4</span>The bound, and what it costs the user</h2>
+  <p>Drop from the <b>oldest</b> end. That is the only defensible direction — the newest steps are the ones a user is about to undo — and it means the history has a floor it cannot get back below.</p>
+  <div class="panel">
+    <div class="table-wrap"><table id="limit-demo"></table></div>
+    <p class="caption">With a limit, "undo everything" no longer reaches the empty document, and that is <b>not</b> a bug: it is the price of the bound, and the sentence to say is that you are choosing it. What <em>would</em> be a bug is undo past the floor throwing, or the document ending up in a state no sequence of edits could have produced.</p>
+  </div>
+  <p class="note">The follow-up if there is time: <b>bound by memory, not by count.</b> Ten thousand single-property edits are cheap; ten "paste a 400-layer group" edits are not. If steps carry patches you can weigh them; if they carry snapshots you cannot afford many. This is also the moment to mention O(1)-undo-by-patch versus cloning the document — the drill's other half.</p>
+
+  <!-- =============================================== -->
+  <h2><span class="k">5</span>Say it out loud</h2>
+  <div class="say">"I'll take the timestamp as an argument, so coalescing is deterministic and testable."</div>
+  <div class="say">"Merge into the previous step only if it's a single op on the same key inside the window, and keep the older <code>before</code> with the newer <code>after</code> so the merged step still reverses the whole burst."</div>
+  <div class="say">"I want a forced boundary too — <code>checkpoint()</code> — because time alone isn't enough. If the user clicks away and comes back within the window, one undo would revert something they'd finished. Real editors end the run on a gesture boundary and treat time as the fallback."</div>
+  <div class="say">"Time-based merging also makes undo depend on how fast someone types, which isn't reproducible. I'd say that's the argument for making the gesture the primary boundary rather than the milliseconds."</div>
+  <div class="say">"The bound drops from the oldest end. That means undo can't always reach the empty document — that's the trade, not a bug, and I'd surface it in the UI by greying the button rather than pretending."</div>
+</main>
+
+<script src="viz.js"></script>
+<script>
+(function () {
+  const { h, s, svgRoot, mount, table, fmt, $ } = V
+
+  /* ---------- the drill's reference solution, verbatim in JS ---------- */
+  class Editor {
+    constructor(options = {}) {
+      this.state = new Map()
+      this.undoStack = []
+      this.redoStack = []
+      this.sealed = true
+      this.coalesceMs = options.coalesceMs ?? 0
+      this.limit = options.limit ?? Infinity
+      this.dropped = 0 // bookkeeping for the picture only
+    }
+    set(key, value, at) {
+      const before = this.state.get(key)
+      if (before === value) return
+      const op = { key, before, after: value, at }
+      this.state.set(key, value)
+      const top = this.undoStack[this.undoStack.length - 1]
+      if (this.canCoalesce(top, op)) {
+        top[0] = { ...top[0], after: op.after, at: op.at }
+        top.merged = (top.merged || 1) + 1
+      } else {
+        this.undoStack.push(Object.assign([op], { merged: 1, opened: at }))
+        this.trim()
+      }
+      this.sealed = false
+      this.redoStack.length = 0
+    }
+    get(key) { return this.state.get(key) }
+    undo() {
+      const step = this.undoStack.pop()
+      if (!step) return false
+      for (const op of [...step].reverse()) this.write(op.key, op.before)
+      this.redoStack.push(step)
+      this.sealed = true
+      return true
+    }
+    redo() {
+      const step = this.redoStack.pop()
+      if (!step) return false
+      for (const op of step) this.write(op.key, op.after)
+      this.undoStack.push(step)
+      this.sealed = true
+      return true
+    }
+    checkpoint() { this.sealed = true }
+    get depth() { return this.undoStack.length }
+    canCoalesce(top, next) {
+      if (this.sealed || this.coalesceMs <= 0) return false
+      if (!top || top.length !== 1) return false
+      return top[0].key === next.key && next.at - top[0].at <= this.coalesceMs
+    }
+    trim() {
+      if (!Number.isFinite(this.limit)) return
+      while (this.undoStack.length > this.limit) { this.undoStack.shift(); this.dropped++ }
+    }
+    write(key, value) { if (value === undefined) this.state.delete(key); else this.state.set(key, value) }
+  }
+
+  /* ---------- the script: someone typing ---------- */
+  const KEYCOLOR = { title: 'var(--accent)', subtitle: 'var(--ok)' }
+  const SCRIPT = [
+    { kind: 'set', key: 'title', value: 'h', at: 0 },
+    { kind: 'set', key: 'title', value: 'he', at: 90 },
+    { kind: 'set', key: 'title', value: 'hel', at: 180 },
+    { kind: 'set', key: 'title', value: 'hell', at: 260 },
+    { kind: 'set', key: 'title', value: 'hello', at: 340 },
+    { kind: 'set', key: 'title', value: 'hello ', at: 900 },
+    { kind: 'set', key: 'title', value: 'hello w', at: 980 },
+    { kind: 'checkpoint', at: 1010 },
+    { kind: 'set', key: 'title', value: 'hello wo', at: 1040 },
+    { kind: 'set', key: 'title', value: 'hello wor', at: 1100 },
+    { kind: 'set', key: 'subtitle', value: 'b', at: 1160 },
+    { kind: 'set', key: 'subtitle', value: 'by', at: 1220 },
+  ]
+  let useCheckpoint = true
+
+  function build(coalesceMs, limit) {
+    const ed = new Editor({ coalesceMs, limit })
+    const marks = []
+    for (const ev of SCRIPT) {
+      if (ev.kind === 'checkpoint') { if (useCheckpoint) ed.checkpoint(); continue }
+      const depthBefore = ed.depth
+      ed.set(ev.key, ev.value, ev.at)
+      marks.push({ ...ev, opened: ed.depth > depthBefore })
+    }
+    return { ed, marks }
+  }
+
+  /* ---------- the timeline ---------- */
+  function timelineSvg(coalesceMs, limit) {
+    const { ed, marks } = build(coalesceMs, limit)
+    const W = 940, H = 150, L = 16, R = 24
+    const tMax = 1300
+    const px = (t) => L + (t / tMax) * (W - L - R)
+    const g = svgRoot(W, H, 'canvas plain')
+    g.appendChild(s('path', { d: `M ${L} 96 L ${W - 8} 96`, stroke: 'var(--line)', 'stroke-width': 1.5 }))
+
+    // Group the marks into the steps they landed in, in order.
+    const groups = []
+    for (const m of marks) {
+      if (m.opened || groups.length === 0) groups.push({ key: m.key, items: [m] })
+      else groups[groups.length - 1].items.push(m)
+    }
+    const kept = ed.dropped
+    groups.forEach((grp, gi) => {
+      const x1 = px(grp.items[0].at), x2 = px(grp.items[grp.items.length - 1].at)
+      const dropped = gi < kept
+      const col = dropped ? 'var(--bad)' : KEYCOLOR[grp.key] || 'var(--accent)'
+      g.appendChild(s('rect', {
+        x: x1 - 9, y: 60, width: Math.max(x2 - x1 + 18, 18), height: 30, rx: 8,
+        fill: dropped ? 'var(--bad-soft)' : 'var(--row0)', stroke: col, 'stroke-width': 1.6,
+        'stroke-dasharray': dropped ? '4 3' : null,
+      }))
+      g.appendChild(s('text', {
+        x: (x1 + x2) / 2, y: 52, 'text-anchor': 'middle', 'font-size': 11, fill: col,
+        text: (dropped ? 'dropped · ' : '') + grp.items.length + (grp.items.length === 1 ? ' op' : ' ops'),
+      }))
+    })
+    marks.forEach((m) => {
+      const x = px(m.at)
+      g.appendChild(s('circle', { cx: x, cy: 96, r: 4, fill: KEYCOLOR[m.key] || 'var(--accent)' }))
+      g.appendChild(s('text', { x, y: 116, 'text-anchor': 'middle', 'font-size': 9.5, fill: 'var(--muted)', text: String(m.at) }))
+      g.appendChild(s('text', { x, y: 132, 'text-anchor': 'middle', 'font-size': 10, 'font-family': 'ui-monospace, Menlo, monospace', fill: 'var(--ink)', text: JSON.stringify(m.value).slice(-3, -1) }))
+    })
+    const ck = SCRIPT.find((e) => e.kind === 'checkpoint')
+    if (useCheckpoint) {
+      g.appendChild(s('path', { d: `M ${px(ck.at)} 34 L ${px(ck.at)} 108`, stroke: 'var(--hl)', 'stroke-width': 2.5 }))
+      g.appendChild(s('text', { x: px(ck.at) + 6, y: 30, 'font-size': 11, fill: 'var(--hl)', text: 'checkpoint()' }))
+    }
+    if (coalesceMs > 0) {
+      g.appendChild(s('rect', { x: L, y: 6, width: px(coalesceMs) - L, height: 12, rx: 6, fill: 'var(--accent-soft)', stroke: 'var(--accent)' }))
+      g.appendChild(s('text', { x: px(coalesceMs) + 8, y: 16, 'font-size': 11, fill: 'var(--accent)', text: `coalesceMs = ${coalesceMs}` }))
+    } else {
+      g.appendChild(s('text', { x: L, y: 16, 'font-size': 11, fill: 'var(--muted)', text: 'coalesceMs = 0 — every set is its own step' }))
+    }
+    return { svg: g, ed, groups }
+  }
+
+  const msEl = $('ms'), limEl = $('limit')
+  $('btn-ckpt').addEventListener('click', () => { useCheckpoint = !useCheckpoint; render() })
+
+  function render() {
+    const coalesceMs = Number(msEl.value)
+    const limit = Number(limEl.value)
+    const { svg, ed, groups } = timelineSvg(coalesceMs, limit)
+    $('ms-label').textContent = coalesceMs + ' ms'
+    $('limit-label').textContent = limit >= 12 ? 'unbounded' : limit + ' steps'
+    $('btn-ckpt').classList.toggle('primary', useCheckpoint)
+    $('btn-ckpt').textContent = useCheckpoint ? 'checkpoint: on' : 'checkpoint: off'
+    mount('viz-timeline', svg)
+
+    const merged = groups.filter((g2) => g2.items.length > 1).length
+    $('tl-log').innerHTML =
+      `${SCRIPT.filter((e) => e.kind === 'set').length} calls to <code>set</code> became <b>${groups.length}</b> steps` +
+      (merged ? `, ${merged} of them merged bursts` : ', none merged') +
+      (ed.dropped ? `; the limit then dropped the oldest <b>${ed.dropped}</b>, leaving depth <b>${ed.depth}</b>.` : `. Depth is <b>${ed.depth}</b>.`) +
+      (useCheckpoint ? '' : ' <b>Checkpoint off</b> — the run either side of it can now merge across the boundary.')
+
+    mount('steps', table(['#', 'key', 'before → after', 'ops merged'], ed.undoStack.map((st, i) => [
+      { t: '#' + i, cls: 'mono' },
+      { t: st[0].key, cls: 'mono' },
+      { t: `${fmt(st[0].before)} → ${fmt(st[0].after)}`, cls: 'mono' },
+      { t: String(st.merged || 1), cls: 'mono' },
+    ])))
+
+    // Press undo until it returns false.
+    const probe = build(coalesceMs, limit).ed
+    const rows = [[{ t: '(now)' }, { t: fmt(probe.get('title')), cls: 'mono' }, { t: fmt(probe.get('subtitle')), cls: 'mono' }]]
+    let n = 0
+    while (probe.undo()) {
+      n++
+      rows.push([{ t: `undo × ${n}` }, { t: fmt(probe.get('title')), cls: 'mono' }, { t: fmt(probe.get('subtitle')), cls: 'mono' }])
+      if (n > 30) break
+    }
+    rows.push([{ html: `undo × ${n + 1}` }, { html: '<span class="pill">returns false</span>' }, { t: '' }])
+    mount('undos', table(['press', 'title', 'subtitle'], rows))
+  }
+  for (const el of [msEl, limEl]) { el.addEventListener('input', render); el.addEventListener('change', render) }
+
+  /* ---------- 2: the merge picture ---------- */
+  function mergeSvg() {
+    const g = svgRoot(680, 190, 'canvas plain')
+    const card = (x, y, w, title, before, after, stroke) => {
+      g.appendChild(s('rect', { x, y, width: w, height: 74, rx: 8, fill: 'var(--panel)', stroke, 'stroke-width': 1.6 }))
+      g.appendChild(s('text', { x: x + 10, y: y + 18, 'font-size': 10.5, fill: 'var(--muted)', text: title }))
+      g.appendChild(s('text', { x: x + 10, y: y + 40, 'font-size': 12, 'font-family': 'ui-monospace, Menlo, monospace', fill: 'var(--ink)', text: 'before: ' + before }))
+      g.appendChild(s('text', { x: x + 10, y: y + 60, 'font-size': 12, 'font-family': 'ui-monospace, Menlo, monospace', fill: 'var(--ink)', text: 'after:  ' + after }))
+    }
+    g.appendChild(s('text', { x: 4, y: 14, fill: 'var(--muted)', 'font-size': 12, text: 'the step on top of the stack, and the op arriving 90ms later' }))
+    card(4, 22, 210, 'top of stack', '∅', '"h"', 'var(--accent)')
+    card(238, 22, 210, 'the new op', '"h"', '"he"', 'var(--box-stroke)')
+    card(470, 22, 206, 'after the merge', '∅', '"he"', 'var(--ok)')
+    g.appendChild(s('path', { d: 'M 96 100 C 96 128 560 128 560 104', stroke: 'var(--ok)', fill: 'none', 'stroke-width': 1.6 }))
+    g.appendChild(s('text', { x: 150, y: 146, 'font-size': 11.5, fill: 'var(--ok)', text: 'the OLDER before survives…' }))
+    g.appendChild(s('path', { d: 'M 400 100 C 400 170 572 170 572 112', stroke: 'var(--accent)', fill: 'none', 'stroke-width': 1.6 }))
+    g.appendChild(s('text', { x: 400, y: 184, 'font-size': 11.5, fill: 'var(--accent)', text: '…and the NEWER after replaces it' }))
+    return g
+  }
+  mount('viz-merge', mergeSvg())
+
+  /* ---------- 3: boundaries ---------- */
+  ;(function boundaries() {
+    const probe = (label, opts, fn) => {
+      const ed = new Editor(opts)
+      fn(ed)
+      const top = ed.undoStack[ed.undoStack.length - 1]
+      const didMerge = !!top && (top.merged || 1) > 1
+      return [
+        label,
+        { t: String(ed.depth), cls: 'mono' },
+        didMerge
+          ? { html: '<span class="pill ok">merged into one step</span>' }
+          : { html: '<span class="pill warn">a new step</span>' },
+      ]
+    }
+    const W = { coalesceMs: 500 }
+    mount('boundaries', table(['two sets 60 ms apart, coalesceMs = 500 unless noted', 'depth', 'what the second set did'], [
+      probe('nothing between them', W, (ed) => { ed.set('a', '1', 0); ed.set('a', '12', 60) }),
+      probe('a different key', W, (ed) => { ed.set('a', '1', 0); ed.set('b', '12', 60) }),
+      probe('a gap longer than the window (0 → 900)', W, (ed) => { ed.set('a', '1', 0); ed.set('a', '12', 900) }),
+      probe('checkpoint() between them', W, (ed) => { ed.set('a', '1', 0); ed.checkpoint(); ed.set('a', '12', 60) }),
+      probe('an undo between them (depth returns to 1, but it is a fresh step)', W, (ed) => { ed.set('a', '1', 0); ed.undo(); ed.set('a', '12', 60) }),
+      probe('a redo between them', W, (ed) => { ed.set('a', '1', 0); ed.undo(); ed.redo(); ed.set('a', '12', 60) }),
+      probe('setting the value it already holds, then setting a new one', W, (ed) => { ed.set('a', '1', 0); ed.set('a', '1', 20); ed.set('a', '12', 60) }),
+      probe('coalesceMs = 0', { coalesceMs: 0 }, (ed) => { ed.set('a', '1', 0); ed.set('a', '12', 60) }),
+    ]))
+  })()
+
+  /* ---------- 4: the limit ---------- */
+  ;(function limitDemo() {
+    const rows = [1, 2, 3, 12].map((limit) => {
+      const ed = new Editor({ coalesceMs: 0, limit })
+      for (const v of ['a', 'ab', 'abc', 'abcd', 'abcde']) ed.set('t', v, 0)
+      let n = 0
+      while (ed.undo()) n++
+      return [
+        { t: `limit = ${limit === 12 ? '∞' : limit}`, cls: 'mono' },
+        { t: String(Math.min(limit, 5)), cls: 'mono' },
+        { t: String(n), cls: 'mono' },
+        { t: fmt(ed.get('t')), cls: 'mono' },
+        limit >= 5 ? { html: '<span class="pill ok">reaches the empty document</span>' } : { html: '<span class="pill warn">floor: the oldest steps are gone</span>' },
+      ]
+    })
+    mount('limit-demo', table(
+      ['five separate sets on one key', 'depth after', 'undos that succeed', 'value once undo returns false', ''],
+      rows,
+    ))
+  })()
+
+  render()
+})()
+</script>
+</body>
+</html>

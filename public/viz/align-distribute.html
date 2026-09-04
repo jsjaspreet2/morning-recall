@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="../favicon.svg">
+<link rel="stylesheet" href="viz.css">
+<title>Align and Distribute</title>
+</head>
+<body>
+<main>
+  <h1>Align and Distribute</h1>
+
+  <div class="spoiler" id="gate">
+    <h2>This one is sealed</h2>
+    <p><b><code>figma-08-sealed</code> is the only drill in the folder you have not read about.</b> That is its entire purpose: it is the rep that measures the method rather than your recall. Opening this page first turns it into another recall exercise, and you cannot un-know it.</p>
+    <p>Do the cold rep first — 50 minutes, narrating out loud, no AI, no scrolling anywhere else — and come back afterwards to check your reasoning against the pictures.</p>
+    <p style="margin-top:16px"><button id="btn-open" class="primary">I have done the cold rep — open it</button></p>
+  </div>
+
+  <div id="body" hidden>
+  <p class="lede">Drill <code>figma-08-sealed</code>: bounding box, align, distribute. Geometry is the one place where a wrong answer is <em>visible</em>, which is why this page is mostly canvases.</p>
+  <p class="backlink"><a href="./">All drill visualizations</a> · after the rep, grade with guide §03 G, then read this</p>
+
+  <!-- =============================================== -->
+  <h2><span class="k">0</span>Bounding box</h2>
+  <p>Minimum left and top, maximum right and bottom. The only real decisions are what an <b>empty selection</b> returns and whether the result is a <code>Rect</code> (no id) rather than a <code>Box</code> — say both, they cost nothing.</p>
+  <div class="grid2">
+    <div class="panel"><div id="viz-bb"></div>
+      <p class="caption">Note it spans to <code>x + w</code>, not <code>x</code>. A bounding box computed from origins alone is right whenever every object is the same size, which is exactly what your first hand-written test will look like.</p>
+    </div>
+    <div class="panel">
+      <div class="table-wrap"><table id="bb-table"></table></div>
+      <p class="note"><b><code>null</code> for an empty selection, not a zero rect.</b> A zero rect at the origin is a real rectangle a caller will happily draw; <code>null</code> forces the caller to decide, and the type says so.</p>
+    </div>
+  </div>
+
+  <!-- =============================================== -->
+  <h2><span class="k">1</span>Align translates; it never resizes</h2>
+  <p>Align to <b>what</b>? The selection's own bounding box — that is what every design tool does, and the reason is worth one sentence: aligning to the canvas would move a selection the user did not ask to move.</p>
+  <div class="panel">
+    <div class="controls">
+      <span>edge</span>
+      <button data-edge="left">left</button>
+      <button data-edge="centerX">centerX</button>
+      <button data-edge="right">right</button>
+      <button data-edge="top">top</button>
+      <button data-edge="centerY">centerY</button>
+      <button data-edge="bottom">bottom</button>
+      <button id="btn-align-reset">reset</button>
+    </div>
+    <div class="grid2">
+      <div><div class="stack-title">before → after (ghosts are the original positions)</div><div id="viz-align"></div></div>
+      <div>
+        <div class="log" id="align-log"></div>
+        <div class="table-wrap" style="margin-top:10px"><table id="align-table"></table></div>
+        <div id="align-note"></div>
+      </div>
+    </div>
+  </div>
+  <p class="note"><b>The right-edge case is where implementations differ.</b> <code>left</code> is <code>x = bb.x</code>, which is easy; <code>right</code> is <code>x = bb.x + bb.w − b.w</code>, and writing <code>x = bb.x + bb.w</code> puts every object just outside the box. Same shape for <code>bottom</code>. If you only test with equal-sized boxes both look identical — so <b>make the boxes different sizes in your very first fixture</b>.</p>
+
+  <!-- =============================================== -->
+  <h2><span class="k">2</span>Distribute equalises gaps, not centres</h2>
+  <p>These two are the same thing whenever the objects are the same size, and visibly different the moment they are not. Equal centres is a real feature that some tools also offer, but it is <em>not</em> what "distribute" means, and it looks wrong: with mixed widths the space between things visibly varies.</p>
+  <div class="panel">
+    <div class="controls"><span class="pill">Live</span><span>the same five boxes, three different widths</span>
+      <button id="btn-axis">switch to vertical</button>
+    </div>
+    <div class="grid2">
+      <div><div class="stack-title">equal gaps — what <code>distribute</code> means</div><div id="viz-dist-gaps"></div><div class="caption" id="gaps-txt"></div></div>
+      <div><div class="stack-title">equal centres — a different feature</div><div id="viz-dist-centres"></div><div class="caption" id="centres-txt"></div></div>
+    </div>
+    <div class="log" id="dist-log"></div>
+  </div>
+  <p class="note"><b>What is held fixed is the other half of the question.</b> The two outermost objects do not move; everything between them is spread into the space they leave. Any other choice — centring the whole run, or anchoring to the canvas — moves objects the user positioned deliberately, and the first thing they will do is undo it.</p>
+
+  <!-- =============================================== -->
+  <h2><span class="k">3</span>The decisions, and the ones you should raise first</h2>
+  <div class="table-wrap"><table id="decisions"></table></div>
+
+  <!-- =============================================== -->
+  <h2><span class="k">4</span>The checklist, run live</h2>
+  <div class="table-wrap"><table id="checks"></table></div>
+
+  <!-- =============================================== -->
+  <h2><span class="k">5</span>Say it out loud</h2>
+  <div class="say">"Align to the selection's own bounding box, not the canvas — otherwise I'd be moving the whole selection somewhere the user didn't ask for."</div>
+  <div class="say">"Align translates. Widths and heights are never touched, and the right and bottom edges are <code>bb edge minus the object's own size</code>, which is the bit that's easy to get wrong with equal-sized test boxes."</div>
+  <div class="say">"Distribute holds the two outermost objects still and equalises the <em>gaps</em>. Equalising centres is a different feature and it looks wrong when the objects differ in size — I'll make my fixture have three different widths so the difference is visible."</div>
+  <div class="say">"Fewer than three objects: nothing to distribute, so I return them unchanged rather than erroring. And none of the three mutate — they return new boxes, because a selection tool shouldn't be able to corrupt the document by being asked a question."</div>
+  <p class="note">The follow-up that arrives if you finish: <b>what if the objects overlap?</b> The gap arithmetic goes negative and the layout still works — objects overlap evenly, which is the correct generalisation. Say it rather than special-casing it; a clamp to zero would silently widen the selection's bounding box, which is the one thing distribute must not do.</p>
+  </div>
+</main>
+
+<script src="viz.js"></script>
+<script>
+(function () {
+  const { h, s, svgRoot, mount, table, $ } = V
+
+  $('btn-open').addEventListener('click', () => {
+    $('gate').hidden = true
+    $('body').hidden = false
+    start()
+  })
+
+  /* ---------- the drill's reference solution, verbatim in JS ---------- */
+  function boundingBox(boxes) {
+    if (boxes.length === 0) return null
+    let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity
+    for (const b of boxes) {
+      left = Math.min(left, b.x); top = Math.min(top, b.y)
+      right = Math.max(right, b.x + b.w); bottom = Math.max(bottom, b.y + b.h)
+    }
+    return { x: left, y: top, w: right - left, h: bottom - top }
+  }
+  function align(boxes, edge) {
+    const bb = boundingBox(boxes)
+    if (!bb) return []
+    return boxes.map((b) => {
+      switch (edge) {
+        case 'left': return { ...b, x: bb.x }
+        case 'right': return { ...b, x: bb.x + bb.w - b.w }
+        case 'centerX': return { ...b, x: bb.x + (bb.w - b.w) / 2 }
+        case 'top': return { ...b, y: bb.y }
+        case 'bottom': return { ...b, y: bb.y + bb.h - b.h }
+        case 'centerY': return { ...b, y: bb.y + (bb.h - b.h) / 2 }
+      }
+    })
+  }
+  function distribute(boxes, axis) {
+    if (boxes.length < 3) return boxes.map((b) => ({ ...b }))
+    const pos = (b) => (axis === 'horizontal' ? b.x : b.y)
+    const size = (b) => (axis === 'horizontal' ? b.w : b.h)
+    const ordered = [...boxes].sort((a, b) => pos(a) - pos(b))
+    const start = pos(ordered[0])
+    const last = ordered[ordered.length - 1]
+    const end = pos(last) + size(last)
+    const totalSize = ordered.reduce((sum, b) => sum + size(b), 0)
+    const gap = (end - start - totalSize) / (ordered.length - 1)
+    const moved = new Map()
+    let cursor = start
+    for (const b of ordered) { moved.set(b.id, cursor); cursor += size(b) + gap }
+    return boxes.map((b) => (axis === 'horizontal' ? { ...b, x: moved.get(b.id) } : { ...b, y: moved.get(b.id) }))
+  }
+  /** The plausible wrong one, for the comparison only. */
+  function distributeCentres(boxes, axis) {
+    if (boxes.length < 3) return boxes.map((b) => ({ ...b }))
+    const pos = (b) => (axis === 'horizontal' ? b.x : b.y)
+    const size = (b) => (axis === 'horizontal' ? b.w : b.h)
+    const ordered = [...boxes].sort((a, b) => pos(a) - pos(b))
+    const first = ordered[0], last = ordered[ordered.length - 1]
+    const c0 = pos(first) + size(first) / 2
+    const c1 = pos(last) + size(last) / 2
+    const stepSize = (c1 - c0) / (ordered.length - 1)
+    const moved = new Map()
+    ordered.forEach((b, i) => moved.set(b.id, c0 + i * stepSize - size(b) / 2))
+    return boxes.map((b) => (axis === 'horizontal' ? { ...b, x: moved.get(b.id) } : { ...b, y: moved.get(b.id) }))
+  }
+
+  /* ---------- drawing ---------- */
+  const FILL = ['#f9a8d4', '#86efac', '#fdba74', '#a5b4fc', '#67e8f9', '#fca5a5']
+  function scene(boxes, opts) {
+    const o = opts || {}
+    const W = o.w || 420, H = o.h || 200
+    const g = svgRoot(W, H, 'canvas')
+    if (o.bb) {
+      const bb = boundingBox(boxes)
+      if (bb) {
+        g.appendChild(s('rect', { x: bb.x, y: bb.y, width: bb.w, height: bb.h, fill: 'none', stroke: 'var(--accent)', 'stroke-width': 1.5, 'stroke-dasharray': '5 4' }))
+        g.appendChild(s('text', { x: bb.x, y: bb.y - 5, 'font-size': 10.5, fill: 'var(--accent)', text: `bbox ${bb.x},${bb.y} ${bb.w}×${bb.h}` }))
+      }
+    }
+    ;(o.ghosts || []).forEach((b, i) => {
+      g.appendChild(s('rect', { x: b.x, y: b.y, width: b.w, height: b.h, rx: 4, fill: 'none', stroke: FILL[i % FILL.length], 'stroke-width': 1.2, 'stroke-dasharray': '3 3', opacity: 0.9 }))
+    })
+    boxes.forEach((b, i) => {
+      g.appendChild(s('rect', { x: b.x, y: b.y, width: b.w, height: b.h, rx: 4, fill: FILL[i % FILL.length], stroke: 'rgba(0,0,0,.35)' }))
+      g.appendChild(s('text', { x: b.x + b.w / 2, y: b.y + b.h / 2 + 4, 'text-anchor': 'middle', 'font-size': 11, 'font-family': 'ui-monospace, Menlo, monospace', fill: '#1c1a24', text: b.id }))
+    })
+    ;(o.gaps || []).forEach((gp) => {
+      if (gp.size <= 0.5) return
+      if (gp.axis === 'horizontal') {
+        g.appendChild(s('rect', { x: gp.at, y: gp.mid - 5, width: gp.size, height: 10, fill: 'var(--accent)', opacity: 0.35 }))
+        g.appendChild(s('text', { x: gp.at + gp.size / 2, y: gp.mid - 9, 'text-anchor': 'middle', 'font-size': 9.5, fill: 'var(--accent)', text: gp.size.toFixed(1) }))
+      } else {
+        g.appendChild(s('rect', { x: gp.mid - 5, y: gp.at, width: 10, height: gp.size, fill: 'var(--accent)', opacity: 0.35 }))
+        g.appendChild(s('text', { x: gp.mid + 10, y: gp.at + gp.size / 2, 'font-size': 9.5, fill: 'var(--accent)', text: gp.size.toFixed(1) }))
+      }
+    })
+    return g
+  }
+
+  function gapsOf(boxes, axis) {
+    const pos = (b) => (axis === 'horizontal' ? b.x : b.y)
+    const size = (b) => (axis === 'horizontal' ? b.w : b.h)
+    const ordered = [...boxes].sort((a, b) => pos(a) - pos(b))
+    const out = []
+    for (let i = 0; i < ordered.length - 1; i++) {
+      const a = ordered[i], b = ordered[i + 1]
+      out.push({
+        axis, at: pos(a) + size(a), size: pos(b) - (pos(a) + size(a)),
+        mid: axis === 'horizontal' ? Math.max(a.y, b.y) + 6 : Math.max(a.x, b.x) + 6,
+      })
+    }
+    return out
+  }
+
+  /* ---------- state ---------- */
+  const ALIGN_BOXES = [
+    { id: 'a', x: 20, y: 20, w: 110, h: 40 },
+    { id: 'b', x: 60, y: 80, w: 60, h: 56 },
+    { id: 'c', x: 150, y: 45, w: 150, h: 30 },
+    { id: 'd', x: 230, y: 110, w: 80, h: 60 },
+  ]
+  const DIST_BOXES = [
+    { id: 'a', x: 14, y: 26, w: 30, h: 40 },
+    { id: 'b', x: 70, y: 26, w: 80, h: 40 },
+    { id: 'c', x: 175, y: 26, w: 24, h: 40 },
+    { id: 'd', x: 250, y: 26, w: 60, h: 40 },
+    { id: 'e', x: 340, y: 26, w: 44, h: 40 },
+  ]
+  const rotate = (boxes) => boxes.map((b) => ({ id: b.id, x: b.y, y: b.x, w: b.h, h: b.w }))
+
+  let aligned = ALIGN_BOXES
+  let axis = 'horizontal'
+
+  function start() {
+    /* ---------- 0: bounding box ---------- */
+    mount('viz-bb', scene(ALIGN_BOXES, { bb: true }))
+    const bb = boundingBox(ALIGN_BOXES)
+    mount('bb-table', table(['input', 'boundingBox'], [
+      [{ t: '4 boxes above', cls: 'mono' }, { t: JSON.stringify(bb), cls: 'mono' }],
+      [{ t: '[] (empty selection)', cls: 'mono' }, { t: String(boundingBox([])), cls: 'mono' }],
+      [{ t: 'one box { x:5, y:5, w:10, h:4 }', cls: 'mono' }, { t: JSON.stringify(boundingBox([{ id: 'z', x: 5, y: 5, w: 10, h: 4 }])), cls: 'mono' }],
+      [{ t: 'two identical boxes', cls: 'mono' }, { t: JSON.stringify(boundingBox([{ id: 'p', x: 0, y: 0, w: 8, h: 8 }, { id: 'q', x: 0, y: 0, w: 8, h: 8 }])), cls: 'mono' }],
+    ]))
+
+    /* ---------- 1: align ---------- */
+    function renderAlign(edge) {
+      mount('viz-align', scene(aligned, { bb: true, ghosts: ALIGN_BOXES }))
+      const sizesKept = aligned.every((b, i) => b.w === ALIGN_BOXES[i].w && b.h === ALIGN_BOXES[i].h)
+      const bbNow = boundingBox(aligned), bb0 = boundingBox(ALIGN_BOXES)
+      $('align-log').innerHTML = edge
+        ? `<code>align(boxes, '${edge}')</code> — every object translated, none resized. ` +
+          `The bounding box ${bbNow.x === bb0.x && bbNow.y === bb0.y && bbNow.w === bb0.w && bbNow.h === bb0.h ? 'is unchanged' : `shrank to ${bbNow.w}×${bbNow.h}`}, which is expected: collapsing everything onto one edge collapses the box on that axis.`
+        : 'Pick an edge. Ghost outlines stay at the original positions so you can see what moved.'
+      mount('align-table', table(['id', 'x', 'y', 'w', 'h', 'moved by'], aligned.map((b, i) => {
+        const o = ALIGN_BOXES[i]
+        return [
+          { t: b.id, cls: 'mono' }, { t: String(b.x), cls: 'mono' }, { t: String(b.y), cls: 'mono' },
+          { t: String(b.w), cls: 'mono' }, { t: String(b.h), cls: 'mono' },
+          { t: `${b.x - o.x >= 0 ? '+' : ''}${b.x - o.x}, ${b.y - o.y >= 0 ? '+' : ''}${b.y - o.y}`, cls: 'mono' },
+        ]
+      })))
+      mount('align-note', h('div', { class: 'caption' }, [
+        h('span', { class: 'pill ' + (sizesKept ? 'ok' : 'bad'), text: sizesKept ? 'no width or height changed' : 'A SIZE CHANGED' }),
+      ]))
+    }
+    for (const btn of document.querySelectorAll('[data-edge]')) {
+      btn.addEventListener('click', () => {
+        aligned = align(ALIGN_BOXES, btn.dataset.edge)
+        for (const b2 of document.querySelectorAll('[data-edge]')) b2.classList.toggle('primary', b2 === btn)
+        renderAlign(btn.dataset.edge)
+      })
+    }
+    $('btn-align-reset').addEventListener('click', () => {
+      aligned = ALIGN_BOXES
+      for (const b2 of document.querySelectorAll('[data-edge]')) b2.classList.remove('primary')
+      renderAlign(null)
+    })
+    renderAlign(null)
+
+    /* ---------- 2: distribute ---------- */
+    function renderDist() {
+      const src = axis === 'horizontal' ? DIST_BOXES : rotate(DIST_BOXES)
+      const gaps = distribute(src, axis)
+      const centres = distributeCentres(src, axis)
+      const dims = axis === 'horizontal' ? { w: 420, h: 100 } : { w: 160, h: 420 }
+      mount('viz-dist-gaps', scene(gaps, { ...dims, gaps: gapsOf(gaps, axis) }))
+      mount('viz-dist-centres', scene(centres, { ...dims, gaps: gapsOf(centres, axis) }))
+      const fmtGaps = (bs) => gapsOf(bs, axis).map((g2) => g2.size.toFixed(1)).join(', ')
+      $('gaps-txt').textContent = 'gaps: ' + fmtGaps(gaps)
+      $('centres-txt').textContent = 'gaps: ' + fmtGaps(centres)
+      const pos = (b) => (axis === 'horizontal' ? b.x : b.y)
+      const size = (b) => (axis === 'horizontal' ? b.w : b.h)
+      const ord = [...src].sort((a, b) => pos(a) - pos(b))
+      const ordG = [...gaps].sort((a, b) => pos(a) - pos(b))
+      const endsFixed = pos(ordG[0]) === pos(ord[0]) && pos(ordG[ordG.length - 1]) === pos(ord[ord.length - 1])
+      $('dist-log').innerHTML =
+        `Five boxes, sizes ${ord.map(size).join(', ')} along the ${axis === 'horizontal' ? 'x' : 'y'} axis. ` +
+        `Equal gaps gives <b>identical spacing</b> between neighbours; equal centres gives spacing that varies with the sizes — look at the shaded bars. ` +
+        `<b>${endsFixed ? 'The two outermost boxes did not move' : 'An outermost box moved — that would be a bug'}</b>, so the selection's bounding box is exactly what it was.`
+      $('btn-axis').textContent = axis === 'horizontal' ? 'switch to vertical' : 'switch to horizontal'
+    }
+    $('btn-axis').addEventListener('click', () => { axis = axis === 'horizontal' ? 'vertical' : 'horizontal'; renderDist() })
+    renderDist()
+
+    /* ---------- 3: decisions ---------- */
+    mount('decisions', table(['question to ask in the first three minutes', 'the answer, and why'], [
+      ['Align to what?', 'The selection’s own bounding box. Aligning to the canvas moves a selection the user did not ask to move — and with one object selected it would teleport it.'],
+      ['Does align resize?', 'No. It translates. Sizes are untouched, which is also the assertion to write first.'],
+      ['Distribute: what stays fixed?', 'The two outermost objects. Everything between them is spread so the gaps are equal.'],
+      ['Gaps or centres?', 'Gaps. Centres is a different feature; with mixed sizes it visibly leaves uneven space, which is what the user actually perceives.'],
+      ['Fewer than three objects?', 'Nothing to distribute. Return them unchanged rather than erroring — a selection of two is a normal thing for a user to have.'],
+      ['Do these mutate?', 'No. New boxes out. A question about a selection must not be able to change the document.'],
+      ['Overlapping objects?', 'The gap goes negative and everything still works — they overlap evenly. Clamping to zero would widen the bounding box, which distribute must never do.'],
+    ]))
+
+    /* ---------- 4: the checklist ---------- */
+    const results = []
+    const check = (name, fn) => { let ok = false, note = ''; try { ok = fn() } catch (e) { note = e.message } results.push([name, ok, note]) }
+    const B = ALIGN_BOXES
+    const near = (a, b) => Math.abs(a - b) < 1e-9
+
+    check('boundingBox of an empty selection is null', () => boundingBox([]) === null)
+    check('boundingBox spans min left/top to max right/bottom', () => {
+      const r = boundingBox(B)
+      return r.x === 20 && r.y === 20 && r.x + r.w === 310 && r.y + r.h === 170
+    })
+    check("align('left') puts every left edge on the box's left edge", () => {
+      const bb2 = boundingBox(B)
+      return align(B, 'left').every((b) => b.x === bb2.x)
+    })
+    check("align('right') puts every RIGHT edge on the box's right edge", () => {
+      const bb2 = boundingBox(B)
+      return align(B, 'right').every((b) => b.x + b.w === bb2.x + bb2.w)
+    })
+    check("align('centerX') centres every object on the box's centre", () => {
+      const bb2 = boundingBox(B)
+      return align(B, 'centerX').every((b) => near(b.x + b.w / 2, bb2.x + bb2.w / 2))
+    })
+    check('align never changes any width or height', () => {
+      return ['left', 'right', 'top', 'bottom', 'centerX', 'centerY'].every((e) =>
+        align(B, e).every((b, i) => b.w === B[i].w && b.h === B[i].h))
+    })
+    check('align of one object is a no-op', () => {
+      const one = [{ id: 'z', x: 7, y: 9, w: 3, h: 4 }]
+      return ['left', 'right', 'centerX', 'top', 'bottom', 'centerY'].every((e) =>
+        JSON.stringify(align(one, e)) === JSON.stringify(one))
+    })
+    check('distribute makes the GAPS equal, not the centres', () => {
+      const g2 = gapsOf(distribute(DIST_BOXES, 'horizontal'), 'horizontal').map((x) => x.size)
+      return g2.every((x) => near(x, g2[0]))
+    })
+    check('distribute holds the two outermost objects still', () => {
+      const out = distribute(DIST_BOXES, 'horizontal')
+      const byId = Object.fromEntries(out.map((b) => [b.id, b]))
+      return byId.a.x === 14 && byId.e.x === 340
+    })
+    check('distribute of fewer than three objects returns them unchanged', () => {
+      const two = DIST_BOXES.slice(0, 2)
+      return JSON.stringify(distribute(two, 'horizontal')) === JSON.stringify(two) &&
+        JSON.stringify(distribute([], 'horizontal')) === '[]'
+    })
+    check('distribute works when the input is not sorted by position', () => {
+      const shuffled = [DIST_BOXES[3], DIST_BOXES[0], DIST_BOXES[4], DIST_BOXES[2], DIST_BOXES[1]]
+      const a = distribute(DIST_BOXES, 'horizontal'), b = distribute(shuffled, 'horizontal')
+      return a.every((box) => near(box.x, b.find((y) => y.id === box.id).x))
+    })
+    check('distribute returns the caller’s order, not sorted order', () => {
+      const shuffled = [DIST_BOXES[3], DIST_BOXES[0], DIST_BOXES[4], DIST_BOXES[2], DIST_BOXES[1]]
+      return distribute(shuffled, 'horizontal').map((b) => b.id).join() === shuffled.map((b) => b.id).join()
+    })
+    check('none of the three mutate the input', () => {
+      const snap = JSON.stringify(B) + JSON.stringify(DIST_BOXES)
+      boundingBox(B); align(B, 'right'); distribute(DIST_BOXES, 'vertical')
+      return JSON.stringify(B) + JSON.stringify(DIST_BOXES) === snap
+    })
+    check('distribute preserves the selection’s bounding box', () => {
+      const before2 = boundingBox(DIST_BOXES), after2 = boundingBox(distribute(DIST_BOXES, 'horizontal'))
+      return near(before2.x, after2.x) && near(before2.w, after2.w)
+    })
+
+    mount('checks', table(['behaviour', 'result'], results.map(([n, ok, note]) => [
+      { t: n }, { html: ok ? '<span class="pill ok">holds</span>' : `<span class="pill bad">FAILS</span> ${note}` },
+    ])))
+  }
+})()
+</script>
+</body>
+</html>

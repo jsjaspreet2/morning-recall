@@ -1,0 +1,482 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="../favicon.svg">
+<link rel="stylesheet" href="viz.css">
+<title>Z-Order Under Grouping</title>
+</head>
+<body>
+<main>
+  <h1>Z-Order Under Grouping</h1>
+  <p class="lede">Drill <code>figma-05-layer-tree</code>: why the sibling array <em>is</em> the z-stack, where a new group has to land, and what reparenting into your own subtree does to a traversal. Every canvas below is painted from the live tree.</p>
+  <p class="backlink"><a href="./">All drill visualizations</a> · companion to guide §05 D</p>
+
+  <!-- =============================================== -->
+  <h2><span class="k">0</span>One array does two jobs</h2>
+  <p>A layer tree is nodes with a parent and an ordered list of children. The order is not incidental — <b>it is the z-stack</b>. Rendering is a depth-first walk that paints leaves in that order, so "later in the array" and "in front on the canvas" are the same statement.</p>
+<pre><span class="ln">type TreeNode = { id: Id; parent: Id | null; children: Id[] | null }   <span style="color:var(--muted)">// null children = leaf</span></span></pre>
+  <div class="grid2">
+    <div class="panel">
+      <div class="stack-title">the tree</div>
+      <div class="tree" id="viz-model-tree"></div>
+      <div class="paint" id="viz-model-paint"></div>
+    </div>
+    <div class="panel">
+      <div class="stack-title">what a renderer draws</div>
+      <div id="viz-model-canvas"></div>
+      <p class="caption">Painted bottom of the stack first, so the last leaf in the walk is the one on top.</p>
+    </div>
+  </div>
+  <p class="note"><b>Ask which end is the top, and then say your answer out loud even if they shrug.</b> This page uses <code>children[0]</code> = <b>bottom</b> of the stack, matching the paint order of a DFS. Get the convention backwards silently and everything still runs, every test you write yourself still passes, and the canvas is inverted.</p>
+
+  <!-- =============================================== -->
+  <h2><span class="k">1</span>Where a new group lands</h2>
+  <p>This is the question interviewers wait for, and it has a conventional answer: <b>the group takes the slot of its topmost member</b>. The reasoning is what earns the point — a group must not fall behind anything it was previously in front of, because in a design tool that is a canvas change the user did not ask for.</p>
+  <div class="panel">
+    <div class="controls">
+      <span class="pill">Live</span>
+      <span>Group <span id="members-label"></span> under three slot policies.</span>
+      <button id="btn-nonadj"></button>
+    </div>
+    <div class="grid3" id="viz-policies"></div>
+    <p class="caption" id="policy-note"></p>
+  </div>
+  <p class="note"><b>Two things the live panel shows that the one-line rule hides.</b> First, when the members are <em>adjacent</em>, "topmost" and "bottommost" are the same slot — a contiguous block has one hole, and the group goes in it. Any test built only on adjacent members grades both as correct, so it does not test the rule at all. Second, when the members are <em>not</em> adjacent, <b>no policy can leave the canvas alone</b>: pulling <code>r1</code> and <code>r3</code> into one group has to move <code>r2</code> either behind both or in front of both. Topmost moves the in-between layers back; bottommost moves them forward. Saying "this case can't be order-preserving, here is the trade I'm making" is a stronger answer than a rule recited without its edge.</p>
+
+  <!-- =============================================== -->
+  <h2><span class="k">2</span>Step through the operations</h2>
+  <div class="panel">
+    <div class="controls">
+      <label for="scenario">Scenario</label>
+      <select id="scenario"></select>
+      <button id="btn-reset">Reset</button>
+      <button id="btn-back">← Back</button>
+      <button id="btn-step" class="primary">Step →</button>
+      <button id="btn-play">Play</button>
+      <span class="note" id="step-counter"></span>
+    </div>
+    <div class="grid2">
+      <div>
+        <div class="stack-title">Calls</div>
+        <div class="table-wrap"><table id="calls"></table></div>
+        <div class="stack-title" style="margin-top:12px">Tree</div>
+        <div class="tree" id="tree"></div>
+        <div class="stack-title" style="margin-top:12px">paintOrder(root)</div>
+        <div class="paint" id="paint"></div>
+      </div>
+      <div>
+        <div class="stack-title">Canvas</div>
+        <div id="canvas"></div>
+        <div class="log" id="log"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =============================================== -->
+  <h2><span class="k">3</span>Reparenting into your own subtree</h2>
+  <p>Two lines guard it and they are the check the interviewer is hoping you write <em>before</em> being asked. Move a node under one of its own descendants and the structure stops being a tree: the cycle is unreachable from the root, so nothing looks broken until a traversal enters it and never leaves.</p>
+  <div class="grid2">
+    <div class="panel"><div id="viz-cycle"></div>
+      <p class="caption">Walking up from <code>newParent</code> through <code>parent</code> pointers is <b>O(depth)</b> and three lines, and it is the same check Figma's own servers run before accepting a parent update. Reject; do not repair.</p>
+    </div>
+    <div class="panel">
+      <div class="stack-title">And: remove before you insert</div>
+<pre><span class="ln"><span style="color:var(--bad)">const at = to.indexOf(ref)          // computed BEFORE the removal</span></span><span class="ln"><span style="color:var(--bad)">from.splice(from.indexOf(id), 1)</span></span><span class="ln"><span style="color:var(--bad)">to.splice(at, 0, id)               // stale by one when from === to</span></span></pre>
+      <p class="note">When the source and destination parents are the same array, an index computed before the removal is one too large for everything after the hole. It is right in every cross-parent test and wrong in every reorder-within-a-parent test, which is a debugging session you can skip by never holding an index across a mutation.</p>
+      <div class="table-wrap"><table id="clamp"></table></div>
+    </div>
+  </div>
+
+  <!-- =============================================== -->
+  <h2><span class="k">4</span>The checks, run live</h2>
+  <div class="table-wrap"><table id="checks"></table></div>
+
+  <!-- =============================================== -->
+  <h2><span class="k">5</span>Say it out loud</h2>
+  <div class="say">"Nodes have a parent and an ordered child list, and that order is the z-stack — <code>children[0]</code> is the bottom. Leaves have <code>children: null</code> so a leaf and an empty group are different things."</div>
+  <div class="say">"A new group takes the slot of its topmost member, so the canvas doesn't change. Members keep their relative order read off the parent, not off the <code>ids</code> array the caller passed, which is probably in selection order."</div>
+  <div class="say">"Before I reparent I'm walking up the parent pointers to check the new parent isn't a descendant. It's O(depth) and it stops the tree becoming a graph — otherwise the corruption is silent until some later traversal hangs."</div>
+  <div class="say">"Ungroup is one splice: remove the group and insert its children at that same index, so the stack is unchanged. And I update the children's parent pointers in the same step, because a node whose parent pointer lies is worse than one that's missing."</div>
+  <p class="note">If they ask for complexity: <code>group</code> and <code>ungroup</code> are <b>O(siblings)</b>, <code>reparent</code> is <b>O(siblings + depth)</b>, <code>paintOrder</code> is <b>O(nodes)</b>. Nothing here should be quadratic, and if yours is, it is an <code>indexOf</code> inside a loop.</p>
+</main>
+
+<script src="viz.js"></script>
+<script>
+(function () {
+  const { h, s, svgRoot, mount, table, stepper, $ } = V
+
+  /* ---------- the drill's reference solution, verbatim, plus a slot policy ---------- */
+  class Tree {
+    constructor(rootId, policy) {
+      this.nodes = new Map([[rootId, { id: rootId, parent: null, children: [] }]])
+      this.rootId = rootId
+      this.policy = policy || 'topmost'
+    }
+    add(id, parentId, isContainer) {
+      const siblings = this.childrenOf(parentId)
+      this.nodes.set(id, { id, parent: parentId, children: isContainer ? [] : null })
+      siblings.push(id)
+    }
+    group(ids, groupId) {
+      if (ids.length === 0) throw new Error('nothing to group')
+      const parents = new Set(ids.map((id) => this.node(id).parent))
+      if (parents.size !== 1) throw new Error('can only group siblings')
+      const parentId = [...parents][0]
+      if (parentId === null) throw new Error('cannot group the root')
+      const siblings = this.childrenOf(parentId)
+      const members = new Set(ids)
+      const idxs = ids.map((id) => siblings.indexOf(id))
+      const slot = this.policy === 'topmost' ? Math.max(...idxs)
+        : this.policy === 'bottommost' ? Math.min(...idxs)
+        : Infinity // 'append'
+      const next = []
+      siblings.forEach((cid, i) => {
+        if (members.has(cid)) { if (i === slot) next.push(groupId); return }
+        next.push(cid)
+      })
+      if (slot === Infinity) next.push(groupId)
+      const ordered = siblings.filter((cid) => members.has(cid))
+      this.nodes.set(groupId, { id: groupId, parent: parentId, children: ordered })
+      for (const cid of ordered) this.node(cid).parent = groupId
+      siblings.length = 0
+      siblings.push(...next)
+    }
+    ungroup(groupId) {
+      const group = this.nodes.get(groupId)
+      if (!group || !group.children) throw new Error(`not a group: ${groupId}`)
+      if (group.parent === null) throw new Error('cannot ungroup the root')
+      const siblings = this.childrenOf(group.parent)
+      const at = siblings.indexOf(groupId)
+      for (const cid of group.children) this.node(cid).parent = group.parent
+      siblings.splice(at, 1, ...group.children)
+      this.nodes.delete(groupId)
+    }
+    reparent(id, newParentId, index) {
+      if (id === newParentId) throw new Error('cannot parent a node to itself')
+      if (this.isAncestor(id, newParentId)) throw new Error('cannot parent a node into its own subtree')
+      const node = this.node(id)
+      if (node.parent === null) throw new Error(`cannot move ${id}`)
+      const from = this.childrenOf(node.parent)
+      from.splice(from.indexOf(id), 1)
+      const to = this.childrenOf(newParentId)
+      to.splice(Math.max(0, Math.min(index, to.length)), 0, id)
+      node.parent = newParentId
+    }
+    paintOrder(rootId) {
+      const out = []
+      const walk = (id) => {
+        const n = this.node(id)
+        if (!n.children) { out.push(id); return }
+        for (const c of n.children) walk(c)
+      }
+      walk(rootId)
+      return out
+    }
+    childIds(id) { return [...(this.node(id).children || [])] }
+    parentOf(id) { return this.node(id).parent }
+    isAncestor(maybeAncestor, of) {
+      let cur = this.nodes.get(of) ? this.nodes.get(of).parent : null
+      while (cur !== null) { if (cur === maybeAncestor) return true; cur = this.node(cur).parent }
+      return false
+    }
+    node(id) { const n = this.nodes.get(id); if (!n) throw new Error(`no such node: ${id}`); return n }
+    childrenOf(id) { const n = this.node(id); if (!n.children) throw new Error(`${id} is a leaf, not a container`); return n.children }
+  }
+
+  /* ---------- geometry, so z-order is visible ---------- */
+  const GEO = {
+    bg:  { x: 10, y: 10, w: 300, h: 150, fill: '#c7d2fe', label: 'bg' },
+    r1:  { x: 30, y: 40, w: 130, h: 80,  fill: '#f9a8d4', label: 'r1' },
+    r2:  { x: 95, y: 62, w: 130, h: 80,  fill: '#86efac', label: 'r2' },
+    r3:  { x: 160, y: 30, w: 130, h: 80, fill: '#fdba74', label: 'r3' },
+    r4:  { x: 210, y: 95, w: 90,  h: 55, fill: '#a5b4fc', label: 'r4' },
+  }
+  function baseTree(policy) {
+    const t = new Tree('root', policy)
+    for (const id of ['bg', 'r1', 'r2', 'r3', 'r4']) t.add(id, 'root')
+    return t
+  }
+
+  function canvasSvg(t) {
+    const g = svgRoot(320, 172, 'canvas')
+    for (const id of t.paintOrder('root')) {
+      const geo = GEO[id]
+      if (!geo) continue
+      g.appendChild(s('rect', { x: geo.x, y: geo.y, width: geo.w, height: geo.h, rx: 6, fill: geo.fill, stroke: 'rgba(0,0,0,.35)', 'stroke-width': 1 }))
+      g.appendChild(s('text', { x: geo.x + 8, y: geo.y + 18, 'font-size': 12, 'font-family': 'ui-monospace, Menlo, monospace', fill: '#1c1a24', text: geo.label }))
+    }
+    return g
+  }
+
+  function treeView(t, hot) {
+    const wrap = h('div')
+    const hotIds = hot || []
+    const walk = (id, idx, into) => {
+      const n = t.node(id)
+      const isLeaf = !n.children
+      const row = h('div', { class: 'n ' + (isLeaf ? 'leaf' : 'container') + (hotIds.includes(id) ? ' hot' : '') }, [
+        h('span', { class: 'idx', text: idx === null ? '' : '[' + idx + ']' }),
+        isLeaf && GEO[id]
+          ? h('span', { class: 'swatch', style: `background:${GEO[id].fill}` })
+          : h('span', { class: 'swatch none' }),
+        h('span', { text: id + (isLeaf ? '' : '  \u25be') }),
+      ])
+      into.appendChild(row)
+      if (!isLeaf) {
+        const kids = h('div', { class: 'kids' })
+        n.children.forEach((c, i) => walk(c, i, kids))
+        into.appendChild(kids)
+      }
+    }
+    walk('root', null, wrap)
+    return wrap
+  }
+
+  function paintView(t, compareTo) {
+    const order = t.paintOrder('root')
+    const wrap = h('div')
+    wrap.appendChild(h('span', { class: 'arrow', text: 'bottom →' }))
+    order.forEach((id, i) => {
+      const changed = compareTo && compareTo[i] !== id
+      wrap.appendChild(h('span', {
+        class: 'chip', style: GEO[id] ? `background:${GEO[id].fill}22;border-color:${GEO[id].fill}` : '',
+        html: changed ? `<b>${id}</b>` : id,
+      }))
+    })
+    wrap.appendChild(h('span', { class: 'arrow', text: '→ top' }))
+    return wrap
+  }
+
+  /* ---------- 0: the model ---------- */
+  ;(function model() {
+    const t = baseTree()
+    mount('viz-model-tree', treeView(t))
+    mount('viz-model-paint', paintView(t))
+    mount('viz-model-canvas', canvasSvg(t))
+  })()
+
+  /* ---------- 1: the slot policies ---------- */
+  let members = ['r1', 'r2']
+  const POL = [
+    ['topmost', 'slot of the topmost member', (adj) => (adj ? 'what design tools do' : 'keeps the group in front of what it was in front of')],
+    ['bottommost', 'slot of the bottommost member', (adj) => (adj ? 'identical to topmost here' : 'pulls r2 forward instead')],
+    ['append', 'appended to the end — the top of the stack', () => 'the shortest code, and wrong'],
+  ]
+  function renderPolicies() {
+    const before = baseTree().paintOrder('root')
+    const wrap = $('viz-policies')
+    wrap.textContent = ''
+    const adjacent = (() => {
+      const idxs = members.map((m) => before.indexOf(m)).sort((a, b) => a - b)
+      return idxs[idxs.length - 1] - idxs[0] === idxs.length - 1
+    })()
+    const outcomes = {}
+    for (const [policy, desc, aside] of POL) {
+      const t = baseTree(policy)
+      t.group(members, 'g1')
+      const after = t.paintOrder('root')
+      outcomes[policy] = after.join()
+      const same = after.join() === before.join()
+      const moved = before.filter((id, i) => after[i] !== id)
+      const panel = h('div', { class: 'panel' }, [
+        h('div', { class: 'stack-title', text: policy }),
+        h('div', { class: 'note', html: desc + ' &middot; <i>' + aside(adjacent) + '</i>' }),
+      ])
+      panel.appendChild(canvasSvg(t))
+      panel.appendChild(paintView(t, before))
+      panel.appendChild(h('div', { class: 'caption', style: 'margin-top:6px' }, [
+        h('span', { class: 'pill ' + (same ? 'ok' : 'bad'), text: same ? 'canvas unchanged' : 'canvas changed' }),
+        h('span', { text: same ? '' : '  ' + moved.join(', ') + ' moved' }),
+      ]))
+      wrap.appendChild(panel)
+    }
+    $('members-label').innerHTML = members.map((m) => '<code>' + m + '</code>').join(' and ') +
+      (adjacent ? ' — adjacent siblings' : ' — <b>not</b> adjacent, with r2 between them')
+    $('btn-nonadj').textContent = adjacent ? 'try non-adjacent members' : 'back to adjacent members'
+    $('policy-note').innerHTML = adjacent
+      ? 'With adjacent members, <b>topmost and bottommost produce the identical tree</b> — there is one hole in the sibling list and the group fills it. Only <code>append</code> reorders anything, and it does so by shoving the group in front of everything that used to be above it.'
+      : 'With a layer between the members, <b>all three policies change the canvas</b>; they differ in which way <code>r2</code> goes. Topmost keeps the group in front of what it was in front of and pushes <code>r2</code> behind; bottommost keeps it behind what it was behind and pulls <code>r2</code> forward. The first is the convention, because a selection that was on top staying on top is what the user just looked at.'
+  }
+  $('btn-nonadj').addEventListener('click', () => {
+    members = members.join() === 'r1,r2' ? ['r1', 'r3'] : ['r1', 'r2']
+    renderPolicies()
+  })
+  renderPolicies()
+
+  /* ---------- 2: the stepper ---------- */
+  const S = {
+    'Group, then ungroup': [
+      { c: "group(['r2', 'r1'], 'g1')", op: (t) => t.group(['r2', 'r1'], 'g1'), hot: ['g1'],
+        say: 'The caller passed <code>r2</code> first — selection order. The members still come out as <b>r1 then r2</b>, because the relative order is read off the parent’s child list, not off <code>ids</code>. The group sits at index 2, the slot <code>r2</code> held.' },
+      { c: "reparent('r4', 'g1', 0)", op: (t) => t.reparent('r4', 'g1', 0), hot: ['r4'],
+        say: 'Into the group, at the bottom of its stack. <code>r4</code> is now painted under <code>r1</code> — look at the canvas.' },
+      { c: "ungroup('g1')", op: (t) => t.ungroup('g1'), hot: ['r4', 'r1', 'r2'],
+        say: 'One splice: remove <code>g1</code> at its index and insert its three children there. The stack is exactly what it was a moment ago, and all three parent pointers are back to <code>root</code>.' },
+    ],
+    'Reparent: remove before insert': [
+      { c: "reparent('bg', 'root', 4)", op: (t) => t.reparent('bg', 'root', 4), hot: ['bg'],
+        say: 'Same parent, moving to the end. After the removal there are four slots left, so index 4 is the very top. <b>The index is computed after the splice, not before.</b> Compute it first and you land one short.' },
+      { c: "reparent('bg', 'root', 99)", op: (t) => t.reparent('bg', 'root', 99), hot: ['bg'],
+        say: 'Out of range, <b>clamped</b> rather than rejected. A UI drags to a position; the position can legitimately be past the end.' },
+      { c: "reparent('bg', 'root', -3)", op: (t) => t.reparent('bg', 'root', -3), hot: ['bg'],
+        say: 'Clamped the other way, to 0 — the bottom of the stack.' },
+    ],
+    'The errors are the interesting part': [
+      { c: "group(['r1', 'r2'], 'g1')", op: (t) => t.group(['r1', 'r2'], 'g1'), hot: ['g1'], say: 'A normal group, so there is a nested container to aim at.' },
+      { c: "group(['r1', 'r3'], 'g2')  — not siblings", op: (t) => t.group(['r1', 'r3'], 'g2'), hot: [],
+        say: '<b>Throws.</b> <code>r1</code> lives in <code>g1</code> now and <code>r3</code> is under <code>root</code>. There is no single parent whose child list could hold the group. A real tool reparents them into a common ancestor first; say that, then say you are rejecting it here because the alternative is a policy decision, not a bug fix.' },
+      { c: "reparent('g1', 'g1', 0)  — into itself", op: (t) => t.reparent('g1', 'g1', 0), hot: [],
+        say: '<b>Throws.</b> The cheap half of the guard, and the one people remember.' },
+      { c: "reparent('g1', 'r1', 0)  — into a leaf", op: (t) => t.reparent('g1', 'r1', 0), hot: [],
+        say: '<b>Throws.</b> <code>r1</code> has <code>children: null</code>. Modelling a leaf as "an empty child array" makes this case silently succeed and gives you a picture with a rectangle nested inside another rectangle.' },
+    ],
+    'Reparenting into your own subtree': [
+      { c: "group(['r1', 'r2'], 'g1')", op: (t) => t.group(['r1', 'r2'], 'g1'), hot: ['g1'], say: 'Setup: <code>g1</code> is a container holding <code>r1</code> and <code>r2</code>.' },
+      { c: "reparent('r3', 'g1', 0)", op: (t) => t.reparent('r3', 'g1', 0), hot: ['r3'], say: 'Setup: a third member, at the bottom of the group.' },
+      { c: "reparent('g1', 'r3', 0)  — g1 into its own child", op: (t) => t.reparent('g1', 'r3', 0), hot: [],
+        say: '<b>Throws</b> — <code>r3</code> is a leaf, so this fails on the container check first. Now imagine <code>r3</code> were a group: <code>isAncestor(g1, r3)</code> walks <code>r3 → g1 → root</code>, finds <code>g1</code>, and rejects. Without that walk you would get a ring with no path from the root, and <code>paintOrder</code> would recurse until the stack ran out.' },
+    ],
+  }
+
+  const sel = $('scenario')
+  Object.keys(S).forEach((k) => sel.appendChild(h('option', { value: k, text: k })))
+  let script = S[sel.value]
+
+  function runTo(i) {
+    const t = baseTree()
+    let error = null
+    for (let k = 0; k < i; k++) { try { script[k].op(t) } catch (e) { error = e.message } }
+    return { t, error }
+  }
+
+  function render(i) {
+    const { t, error } = runTo(i)
+    const before = i > 0 ? runTo(i - 1).t.paintOrder('root') : null
+    mount('calls', table(null, script.map((st, k) => ({
+      cells: [{ t: k < i ? '✓' : k === i ? '→' : '' }, { t: st.c, cls: 'mono' }],
+    }))))
+    mount('tree', treeView(t, i > 0 ? script[i - 1].hot : []))
+    mount('paint', paintView(t, before))
+    mount('canvas', canvasSvg(t))
+    const log = $('log')
+    log.className = 'log' + (error ? ' bad' : '')
+    log.innerHTML = i === 0
+      ? 'Five leaves under the root. Press <b>Step</b>.'
+      : (error ? `<b>threw:</b> ${error}<br>` : '') + script[i - 1].say
+  }
+
+  const step = stepper(
+    { reset: 'btn-reset', step: 'btn-step', back: 'btn-back', play: 'btn-play', counter: 'step-counter' },
+    () => script.length, render, { interval: 1400 },
+  )
+  sel.addEventListener('change', () => { script = S[sel.value]; step.reset() })
+  step.draw()
+
+  /* ---------- 3: the cycle picture ---------- */
+  function cycleSvg() {
+    const g = svgRoot(420, 210, 'canvas plain')
+    const node = (x, y, t, fill, stroke) => {
+      g.appendChild(s('rect', { x: x - 30, y: y - 15, width: 60, height: 30, rx: 7, fill, stroke, 'stroke-width': 1.6 }))
+      g.appendChild(s('text', { x, y: y + 5, 'text-anchor': 'middle', 'font-size': 12, 'font-family': 'ui-monospace, Menlo, monospace', fill: 'var(--ink)', text: t }))
+    }
+    const edge = (x1, y1, x2, y2, stroke, dash) => g.appendChild(s('path', { d: `M ${x1} ${y1} L ${x2} ${y2}`, stroke, 'stroke-width': 1.8, 'stroke-dasharray': dash || null, fill: 'none' }))
+    g.appendChild(s('text', { x: 4, y: 14, fill: 'var(--muted)', 'font-size': 12, text: 'reparent("A", "C", 0) where C is inside B inside A' }))
+    node(70, 45, 'root', 'var(--panel)', 'var(--box-stroke)')
+    node(70, 105, 'A', 'var(--accent-soft)', 'var(--accent)')
+    node(70, 165, 'B', 'var(--panel)', 'var(--box-stroke)')
+    node(190, 165, 'C', 'var(--panel)', 'var(--box-stroke)')
+    edge(70, 60, 70, 90, 'var(--box-stroke)')
+    edge(70, 120, 70, 150, 'var(--box-stroke)')
+    edge(100, 165, 160, 165, 'var(--box-stroke)')
+    g.appendChild(s('path', { d: 'M 220 152 C 280 120 280 80 110 100', stroke: 'var(--bad)', 'stroke-width': 2, fill: 'none', 'stroke-dasharray': '5 4' }))
+    g.appendChild(s('text', { x: 250, y: 66, fill: 'var(--bad)', 'font-size': 11.5, text: 'A becomes a child of C' }))
+    g.appendChild(s('text', { x: 250, y: 84, fill: 'var(--bad)', 'font-size': 11.5, text: 'and root loses its only path in' }))
+    g.appendChild(s('text', { x: 4, y: 200, fill: 'var(--muted)', 'font-size': 11.5, text: 'A → B → C → A. Every node in the ring still has a valid parent, which is why nothing throws at write time.' }))
+    return g
+  }
+  mount('viz-cycle', cycleSvg())
+
+  /* ---------- 3b: clamping ---------- */
+  ;(function clampTable() {
+    const rows = [-3, 0, 2, 4, 99].map((idx) => {
+      const t = baseTree()
+      t.reparent('bg', 'root', idx)
+      return [{ t: `reparent('bg', 'root', ${idx})`, cls: 'mono' }, { t: t.childIds('root').join(', '), cls: 'mono' }]
+    })
+    mount('clamp', table(['call', "root's children after (bottom → top)"], rows))
+  })()
+
+  /* ---------- 4: the checks ---------- */
+  ;(function checks() {
+    const results = []
+    const check = (name, fn) => { let ok = false, note = ''; try { ok = fn() } catch (e) { note = e.message } results.push([name, ok, note]) }
+    const throws = (fn) => { try { fn(); return false } catch (e) { return true } }
+
+    check('group lands in the slot of its topmost member', () => {
+      const t = baseTree(); t.group(['r1', 'r2'], 'g1')
+      return t.childIds('root').join() === 'bg,g1,r3,r4'
+    })
+    check('members keep their relative order, not the caller’s', () => {
+      const t = baseTree(); t.group(['r3', 'r1'], 'g1')
+      return t.childIds('g1').join() === 'r1,r3'
+    })
+    check('members’ parent pointers are updated', () => {
+      const t = baseTree(); t.group(['r1', 'r2'], 'g1')
+      return t.parentOf('r1') === 'g1' && t.parentOf('r2') === 'g1'
+    })
+    check('grouping non-siblings throws', () => {
+      const t = baseTree(); t.group(['r1', 'r2'], 'g1')
+      return throws(() => t.group(['r1', 'r3'], 'g2'))
+    })
+    check('ungroup splices the children back at the group’s position', () => {
+      const t = baseTree(); t.group(['r1', 'r2'], 'g1'); t.ungroup('g1')
+      return t.childIds('root').join() === 'bg,r1,r2,r3,r4'
+    })
+    check('ungroup restores the children’s parent pointers', () => {
+      const t = baseTree(); t.group(['r1', 'r2'], 'g1'); t.ungroup('g1')
+      return t.parentOf('r1') === 'root' && t.parentOf('r2') === 'root'
+    })
+    check('reparent clamps an out-of-range index', () => {
+      const t = baseTree(); t.reparent('bg', 'root', 99)
+      return t.childIds('root').join() === 'r1,r2,r3,r4,bg'
+    })
+    check('reparenting a node into itself throws', () => {
+      const t = baseTree(); t.group(['r1', 'r2'], 'g1')
+      return throws(() => t.reparent('g1', 'g1', 0))
+    })
+    check('reparenting a node into its own subtree throws', () => {
+      const t = baseTree(); t.group(['r1', 'r2'], 'g1'); t.add('g2', 'g1', true)
+      return throws(() => t.reparent('g1', 'g2', 0))
+    })
+    check('paintOrder returns leaves, bottom of the stack first', () => {
+      const t = baseTree(); t.group(['r1', 'r2'], 'g1')
+      return t.paintOrder('root').join() === 'bg,r1,r2,r3,r4'
+    })
+    check('grouping adjacent members leaves the paint order alone', () => {
+      const before = baseTree().paintOrder('root').join()
+      const t = baseTree(); t.group(['r1', 'r2'], 'g1')
+      return t.paintOrder('root').join() === before
+    })
+    check('topmost and bottommost agree on adjacent members — so a test using only those grades both correct', () => {
+      const a = baseTree('topmost'); a.group(['r1', 'r2'], 'g1')
+      const b = baseTree('bottommost'); b.group(['r1', 'r2'], 'g1')
+      return a.paintOrder('root').join() === b.paintOrder('root').join()
+    })
+    check('…and disagree on non-adjacent members, which is where the rule earns its keep', () => {
+      const a = baseTree('topmost'); a.group(['r1', 'r3'], 'g1')
+      const b = baseTree('bottommost'); b.group(['r1', 'r3'], 'g1')
+      return a.paintOrder('root').join() !== b.paintOrder('root').join()
+    })
+
+    mount('checks', table(['behaviour', 'result'], results.map(([n, ok, note]) => [
+      { t: n },
+      { html: ok ? '<span class="pill ok">holds</span>' : `<span class="pill bad">FAILS</span> ${note}` },
+    ])))
+  })()
+})()
+</script>
+</body>
+</html>

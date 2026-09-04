@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="../favicon.svg">
+<link rel="stylesheet" href="viz.css">
+<title>Undo as Data</title>
+</head>
+<body>
+<main>
+  <h1>Undo as Data</h1>
+  <p class="lede">Drill <code>figma-01-document-undo</code>: what the document actually is, why a change is a <em>record</em> and not a function, and what <code>undo</code> does to it. Every panel below runs the drill's reference code live in your browser.</p>
+  <p class="backlink"><a href="./">All drill visualizations</a> · companion to guide §05 A · next: <a href="undo-redo-batch.html">Redo and batching</a></p>
+
+  <!-- =============================================== -->
+  <h2><span class="k">0</span>The document is two nested maps</h2>
+  <p>"A document made of layers, each layer holds properties as key/value pairs" is one sentence, and it is already the data structure. There is no tree in part 1, no geometry, no ordering. There is a map from layer id to a map from key to value.</p>
+<pre><span class="ln">type PropValue = string | number | boolean</span><span class="ln">type Props     = Map&lt;string, PropValue&gt;</span><span class="ln">layers: Map&lt;string, Props&gt;</span></pre>
+  <div class="panel"><div id="viz-model"></div>
+    <p class="caption">Say the shape out loud in the first two minutes. The interviewer is listening for whether you commit to a model before you start typing methods, because everything after this is determined by it.</p>
+  </div>
+
+  <!-- =============================================== -->
+  <h2><span class="k">1</span>A change is (target, before, after)</h2>
+  <p>The instinct is to store undo as a stack of functions — "to undo this, call <code>set(a, 'x', 10)</code>". Don't. Store <b>data</b>: what was touched, what it held, what it holds now. Then undoing is not a second code path. It is the same <code>applyChange</code> with two fields swapped.</p>
+  <div class="grid2">
+    <div class="panel">
+      <div id="viz-invert"></div>
+      <p class="caption"><b><code>invert</code> is a swap, not a computation.</b> There is no per-operation inverse to write, no <code>unsetProperty</code>, no <code>uncreateLayer</code>. That collapse is what makes redo and batch rollback nearly free in drill 2 — and it is the single design point this drill is measuring.</p>
+    </div>
+    <div class="panel">
+      <div id="viz-absent"></div>
+      <p class="caption"><b><code>undefined</code> on either side means the key is absent.</b> That one convention is why <code>undo</code> after the <em>first</em> set must <b>delete</b> the key rather than set it to <code>undefined</code>. <code>get</code> returns <code>undefined</code> either way, so a test on <code>get</code> alone will not catch it — the drill checks <code>has</code>.</p>
+    </div>
+  </div>
+
+  <!-- =============================================== -->
+  <h2><span class="k">2</span>Step through it</h2>
+  <p>Pick a scenario and walk it one call at a time. The left panel is the live document; the right is the undo stack, newest on top. Code lines light up as they run.</p>
+  <div class="panel">
+    <div class="controls">
+      <label for="scenario">Scenario</label>
+      <select id="scenario"></select>
+      <button id="btn-reset">Reset</button>
+      <button id="btn-back">← Back</button>
+      <button id="btn-step" class="primary">Step →</button>
+      <button id="btn-play">Play</button>
+      <span class="note" id="step-counter"></span>
+    </div>
+    <div class="grid2">
+      <div>
+        <div class="stack-title">Calls</div>
+        <div class="table-wrap"><table id="calls"></table></div>
+        <div class="stack-title" style="margin-top:14px">Document</div>
+        <div class="kv" id="doc"></div>
+      </div>
+      <div>
+        <div class="stack-title">undoStack &nbsp;<span class="note">(top = next to be undone)</span></div>
+        <div class="stack" id="undo-stack"></div>
+        <div class="log" id="log"></div>
+<pre id="code" style="margin-top:12px"><span class="ln" data-l="set">set(layerId, key, value) {</span><span class="ln" data-l="set">  const props = this.layers.get(layerId)</span><span class="ln" data-l="throw">  if (!props) throw new Error(`no such layer: ${layerId}`)</span><span class="ln" data-l="noop">  if (props.get(key) === value) return       // not an undo step</span><span class="ln" data-l="capture">  this.commit({ kind: 'prop', layerId, key,</span><span class="ln" data-l="capture">                before: props.get(key), after: value })</span><span class="ln" data-l="set">}</span><span class="ln" data-l="commit">private commit(change) {</span><span class="ln" data-l="commit">  this.applyChange(change)</span><span class="ln" data-l="push">  this.undoStack.push([change])</span><span class="ln" data-l="commit">}</span><span class="ln" data-l="undo">undo() {</span><span class="ln" data-l="pop">  const commit = this.undoStack.pop()</span><span class="ln" data-l="empty">  if (!commit) return                        // no-op, not a throw</span><span class="ln" data-l="invert">  for (const c of [...commit].reverse())</span><span class="ln" data-l="invert">    this.applyChange(invert(c))</span><span class="ln" data-l="undo">}</span></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- =============================================== -->
+  <h2><span class="k">3</span>The copy that looks unnecessary</h2>
+  <p>Two lines in the reference solution copy a props map instead of storing the one they were handed: <code>deleteLayer</code> records <code>new Map(props)</code>, and <code>applyChange</code> restores with <code>new Map(c.after)</code>. Both look like waste, and both are the line reviewers ask about.</p>
+<pre><span class="ln">before: new Map(props)   <span style="color:var(--ok)">// history is a photograph</span></span><span class="ln">before: props            <span style="color:var(--bad)">// history is a mirror</span></span></pre>
+  <p><b>Here is the honest finding, and it is worth knowing before you defend the line in a room.</b> With <em>only</em> the six methods this drill asks for, dropping both copies does not actually produce a wrong answer. I searched: every sequence up to thirteen calls drawn from <code>createLayer</code>, <code>deleteLayer</code>, <code>set</code>, <code>undo</code> and <code>redo</code>, and the aliased version agrees with the copying one every time.</p>
+  <p>The reason is structural, not luck. For an aliased map to do damage, a record must still be on a stack, hold a map by reference, have that map mutated, and then be applied. But the mutations sit <em>above</em> that record on the undo stack, so anything that reaches down to re-apply it has already reverted them — and new work after an undo clears the redo branch instead. The discipline that makes the history correct is the same discipline that hides the aliasing.</p>
+  <div class="panel">
+    <div class="controls"><span class="pill">Live</span><span>Now add one method the interviewer is likely to ask for: <code>duplicateLayer(src, newId)</code>.</span></div>
+    <div class="table-wrap"><table id="alias"></table></div>
+    <p class="caption">The duplicate is not on any stack and is not reached through undo, so nothing reverts it. Two layers now share one <code>Props</code> object, and setting <code>fill</code> on the copy repaints the original. <b>One new method, immediately fatal.</b></p>
+  </div>
+  <p class="note">So the sentence to say is not "this would be a bug" — it would not be, yet. It is: <em>"I'm copying on the way into history and on the way out, so a record is a snapshot and not a view. It costs a map copy per structural edit, and it means the next method someone adds can't quietly alias the document."</em> That is a claim you can defend when they push, which the confident overstatement is not.</p>
+
+  <!-- =============================================== -->
+  <h2><span class="k">4</span>What part 1 costs you in part 2</h2>
+  <p>The drill's real question is not whether these tests pass. It is what your part 1 charges you when the interviewer says "now support redo", and then "now let me group operations into one undoable batch". Two decisions decide that, and both are cheap now and expensive later.</p>
+  <div class="table-wrap"><table id="cost"></table></div>
+  <p class="note">Neither costs you anything in part 1. A stack of <code>Change[]</code> where every entry happens to have length 1 reads the same, tests the same, and is one line different. That is the whole point of the drill — see <a href="undo-redo-batch.html">the drill 2 page</a> for what lands on top of it.</p>
+
+  <!-- =============================================== -->
+  <h2><span class="k">5</span>Say it out loud</h2>
+  <div class="say">"The document is a map of layers, each layer a map of properties. I'm going to represent every edit as a record — target, before, after — because then undo is the same apply with the two fields swapped, and I get redo almost for free later."</div>
+  <div class="say">"One convention: <code>undefined</code> on either side means the key is absent. So undoing the first set of a key deletes it rather than setting it to undefined — otherwise <code>has</code> starts lying."</div>
+  <div class="say">"Every mutation goes through one private <code>commit</code>. If a second path to mutation exists, some future feature forgets to record history on it, and that bug is invisible until someone hits undo."</div>
+  <div class="say">"Setting a property to the value it already holds isn't an undo step. Otherwise the user presses undo and nothing appears to happen, which reads as a broken button."</div>
+  <p class="note">Then invite the follow-up rather than waiting for it: <em>"The obvious next things are redo and batching — do you want me to take one of those, or harden this first?"</em></p>
+</main>
+
+<script src="viz.js"></script>
+<script>
+(function () {
+  const { h, s, svgRoot, mount, table, stepper, highlight, fmt, $ } = V
+  const NONE = '∅' // the key is absent
+
+  /* ---------- the drill's reference code, verbatim in JS ---------- */
+  function invert(c) { return { ...c, before: c.after, after: c.before } }
+
+  class Doc {
+    constructor(opts) { this.layers = new Map(); this.undoStack = []; this.alias = !!(opts && opts.alias) }
+    createLayer(id) {
+      if (this.layers.has(id)) return
+      this.commit({ kind: 'layer', layerId: id, before: undefined, after: new Map() })
+    }
+    deleteLayer(id) {
+      const props = this.layers.get(id)
+      if (!props) return
+      this.commit({ kind: 'layer', layerId: id, before: this.alias ? props : new Map(props), after: undefined })
+    }
+    set(layerId, key, value) {
+      const props = this.layers.get(layerId)
+      if (!props) throw new Error(`no such layer: ${layerId}`)
+      if (props.get(key) === value) return
+      this.commit({ kind: 'prop', layerId, key, before: props.get(key), after: value })
+    }
+    get(layerId, key) { const p = this.layers.get(layerId); return p ? p.get(key) : undefined }
+    has(layerId, key) { const p = this.layers.get(layerId); return !!p && p.has(key) }
+    hasLayer(id) { return this.layers.has(id) }
+    undo() {
+      const commit = this.undoStack.pop()
+      if (!commit) return
+      for (const c of [...commit].reverse()) this.applyChange(invert(c))
+    }
+    commit(change) { this.applyChange(change); this.undoStack.push([change]) }
+    applyChange(c) {
+      if (c.kind === 'layer') {
+        if (c.after === undefined) this.layers.delete(c.layerId)
+        else this.layers.set(c.layerId, this.alias ? c.after : new Map(c.after))
+        return
+      }
+      const props = this.layers.get(c.layerId)
+      if (!props) throw new Error(`no such layer: ${c.layerId}`)
+      if (c.after === undefined) props.delete(c.key)
+      else props.set(c.key, c.after)
+    }
+  }
+
+  /* ---------- 0: the model ---------- */
+  const box = (x, y, w, hh, label, cls) => s('g', null, [
+    s('rect', { x, y, width: w, height: hh, rx: 7, fill: 'var(--panel)', stroke: cls === 'accent' ? 'var(--accent)' : 'var(--box-stroke)', 'stroke-width': 1.4 }),
+    s('text', { x: x + 10, y: y + 19, fill: 'var(--ink)', 'font-size': 12.5, 'font-family': 'ui-monospace, Menlo, monospace', text: label }),
+  ])
+  function modelSvg() {
+    const g = svgRoot(700, 210, 'canvas plain')
+    g.appendChild(s('text', { x: 8, y: 16, fill: 'var(--muted)', 'font-size': 12, text: 'layers: Map<string, Props>' }))
+    const layers = [['"rect1"', [['x', '10'], ['fill', '"red"']]], ['"text1"', [['x', '80'], ['size', '14']]]]
+    layers.forEach(([id, props], i) => {
+      const y = 30 + i * 88
+      g.appendChild(box(8, y, 130, 34, id, 'accent'))
+      g.appendChild(s('path', { d: `M 142 ${y + 17} L 196 ${y + 17}`, stroke: 'var(--accent)', 'stroke-width': 1.4, 'marker-end': 'url(#ar)' }))
+      g.appendChild(s('text', { x: 200, y: y + 4, fill: 'var(--muted)', 'font-size': 11, text: 'Props: Map<string, PropValue>' }))
+      props.forEach(([k, v], j) => {
+        g.appendChild(box(200 + j * 180, y, 170, 34, `${k}  →  ${v}`))
+      })
+    })
+    const defs = s('defs', null, s('marker', { id: 'ar', viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 6, markerHeight: 6, orient: 'auto' },
+      s('path', { d: 'M 0 0 L 10 5 L 0 10 z', fill: 'var(--accent)' })))
+    g.insertBefore(defs, g.firstChild)
+    return g
+  }
+  mount('viz-model', modelSvg())
+
+  /* ---------- 1: invert, and absence ---------- */
+  function invertSvg() {
+    const g = svgRoot(440, 190, 'canvas plain')
+    const card = (x, y, title, before, after, cls) => {
+      g.appendChild(s('rect', { x, y, width: 180, height: 92, rx: 8, fill: 'var(--panel)', stroke: cls, 'stroke-width': 1.6 }))
+      g.appendChild(s('text', { x: x + 12, y: y + 22, fill: 'var(--muted)', 'font-size': 11, text: title }))
+      g.appendChild(s('text', { x: x + 12, y: y + 48, fill: 'var(--ink)', 'font-size': 13, 'font-family': 'ui-monospace, Menlo, monospace', text: `before: ${before}` }))
+      g.appendChild(s('text', { x: x + 12, y: y + 72, fill: 'var(--ink)', 'font-size': 13, 'font-family': 'ui-monospace, Menlo, monospace', text: `after:  ${after}` }))
+    }
+    g.appendChild(s('text', { x: 8, y: 14, fill: 'var(--muted)', 'font-size': 12, text: "set('rect1', 'x', 20) when x was 10" }))
+    card(8, 30, 'the recorded change', '10', '20', 'var(--accent)')
+    card(252, 30, 'invert(change)', '20', '10', 'var(--ok)')
+    g.appendChild(s('path', { d: 'M 194 78 C 220 78 226 102 246 102', stroke: 'var(--accent)', fill: 'none', 'stroke-width': 1.6, 'marker-end': 'url(#ar2)' }))
+    g.appendChild(s('path', { d: 'M 194 102 C 220 102 226 78 246 78', stroke: 'var(--accent)', fill: 'none', 'stroke-width': 1.6, 'marker-end': 'url(#ar2)' }))
+    g.appendChild(s('text', { x: 96, y: 168, fill: 'var(--muted)', 'font-size': 12, 'text-anchor': 'middle', text: 'the only thing that changed' }))
+    g.appendChild(s('text', { x: 342, y: 168, fill: 'var(--ok)', 'font-size': 12, 'text-anchor': 'middle', text: 'is which field is which' }))
+    g.insertBefore(s('defs', null, s('marker', { id: 'ar2', viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 6, markerHeight: 6, orient: 'auto' },
+      s('path', { d: 'M 0 0 L 10 5 L 0 10 z', fill: 'var(--accent)' }))), g.firstChild)
+    return g
+  }
+  mount('viz-invert', invertSvg())
+
+  ;(function absenceDemo() {
+    const d = new Doc()
+    d.createLayer('a')
+    const rows = []
+    const snap = (label) => rows.push([label, { t: fmt(d.get('a', 'x')), cls: 'mono' }, { t: String(d.has('a', 'x')), cls: 'mono' }])
+    snap('createLayer("a")')
+    d.set('a', 'x', 10); snap('set(a, x, 10)')
+    d.set('a', 'x', 20); snap('set(a, x, 20)')
+    d.undo(); snap('undo()')
+    d.undo(); snap('undo()')
+    mount('viz-absent', table(['call', 'get(a,"x")', 'has'], rows))
+  })()
+
+  /* ---------- 2: the stepper ---------- */
+  const SCENARIOS = {
+    'Set twice, undo twice': [
+      { c: 'createLayer("a")', op: (d) => d.createLayer('a'), lines: ['commit', 'push'], say: 'A layer change with <b>before: ∅</b> — it did not exist. One entry on the stack.' },
+      { c: 'set("a", "x", 10)', op: (d) => d.set('a', 'x', 10), lines: ['set', 'capture', 'commit', 'push'], say: '<b>before</b> is captured now, at edit time, not later at undo time. It is ∅ because the key was absent.' },
+      { c: 'set("a", "x", 20)', op: (d) => d.set('a', 'x', 20), lines: ['set', 'capture', 'commit', 'push'], say: 'before: 10, after: 20. Two independent records; neither knows about the other.' },
+      { c: 'undo()', op: (d) => d.undo(), lines: ['undo', 'pop', 'invert'], say: 'Pop the top, swap its two fields, apply. x is 10 again. The commit is simply gone in part 1 — there is no redo stack yet.' },
+      { c: 'undo()', op: (d) => d.undo(), lines: ['undo', 'pop', 'invert'], say: 'This one’s before is ∅, so applying the inverse <b>deletes the key</b>. Not "sets it to undefined" — deletes it.' },
+      { c: 'undo()', op: (d) => d.undo(), lines: ['undo', 'pop', 'empty'], say: 'Still one entry: the createLayer. Undo it and the layer goes.' },
+      { c: 'undo()', op: (d) => d.undo(), lines: ['undo', 'pop', 'empty'], say: 'Empty history. <b>Return, do not throw.</b> A UI calls undo on every ⌘Z whether or not there is anything to undo.' },
+    ],
+    'A no-op edit is not a step': [
+      { c: 'createLayer("a")', op: (d) => d.createLayer('a'), lines: ['commit', 'push'], say: 'Setup.' },
+      { c: 'set("a", "fill", "red")', op: (d) => d.set('a', 'fill', 'red'), lines: ['set', 'capture', 'push'], say: 'A real change: ∅ → "red".' },
+      { c: 'set("a", "fill", "red")', op: (d) => d.set('a', 'fill', 'red'), lines: ['set', 'noop'], say: '<b>Same value.</b> Return before committing. Nothing is applied, nothing is pushed — watch the stack not grow.' },
+      { c: 'undo()', op: (d) => d.undo(), lines: ['undo', 'pop', 'invert'], say: 'One undo removes the fill. Had the no-op been recorded, the user would have pressed undo, seen nothing change, and pressed it again.' },
+    ],
+    'Delete a layer, then undo': [
+      { c: 'createLayer("a")', op: (d) => d.createLayer('a'), lines: ['commit', 'push'], say: 'Setup.' },
+      { c: 'set("a", "x", 1)', op: (d) => d.set('a', 'x', 1), lines: ['set', 'capture', 'push'], say: 'Setup.' },
+      { c: 'set("a", "fill", "red")', op: (d) => d.set('a', 'fill', 'red'), lines: ['set', 'capture', 'push'], say: 'Setup. Two properties on the layer now.' },
+      { c: 'deleteLayer("a")', op: (d) => d.deleteLayer('a'), lines: ['commit', 'push'], say: 'One change, not three. <b>before</b> is a copy of the whole props map; <b>after</b> is ∅. The three property records underneath are untouched and irrelevant.' },
+      { c: 'undo()', op: (d) => d.undo(), lines: ['undo', 'pop', 'invert'], say: 'The layer comes back <b>with its properties</b>, because the props map went into the record. This is the checklist line most people miss.' },
+    ],
+    'Undo on an empty history': [
+      { c: 'undo()', op: (d) => d.undo(), lines: ['undo', 'pop', 'empty'], say: 'Nothing to pop. Return.' },
+      { c: 'undo()', op: (d) => d.undo(), lines: ['undo', 'pop', 'empty'], say: 'Still nothing. The document is untouched and no exception escaped.' },
+      { c: 'createLayer("a")', op: (d) => d.createLayer('a'), lines: ['commit', 'push'], say: 'And normal work still records normally afterwards.' },
+    ],
+    'set on a missing layer': [
+      { c: 'set("ghost", "x", 1)', op: (d) => d.set('ghost', 'x', 1), lines: ['set', 'throw'], say: 'This one <b>throws</b>, and the message names the layer. Say which you chose and why: throwing surfaces a caller bug, silently ignoring hides it. Either is defensible; not having an answer is not.' },
+    ],
+  }
+
+  const sel = $('scenario')
+  Object.keys(SCENARIOS).forEach((k) => sel.appendChild(h('option', { value: k, text: k })))
+  let script = SCENARIOS[sel.value]
+
+  function runTo(i) {
+    const d = new Doc()
+    let error = null
+    for (let k = 0; k < i; k++) {
+      try { script[k].op(d) } catch (e) { error = e.message }
+    }
+    return { d, error }
+  }
+
+  function renderDoc(d, touched) {
+    const wrap = h('div')
+    if (d.layers.size === 0) { wrap.appendChild(h('div', { class: 'none', text: '(no layers)' })); return wrap }
+    for (const [id, props] of d.layers) {
+      const l = h('div', { class: 'layer' }, h('h4', { text: id }))
+      if (props.size === 0) l.appendChild(h('div', { class: 'none', text: '(no properties)' }))
+      for (const [k, v] of props) {
+        l.appendChild(h('div', { class: 'prop' + (touched && touched.layerId === id && touched.key === k ? ' changed' : '') }, [
+          h('span', { class: 'k', text: k }), h('span', { text: fmt(v) }),
+        ]))
+      }
+      wrap.appendChild(l)
+    }
+    return wrap
+  }
+
+  function cardText(c) {
+    if (c.kind === 'layer') {
+      const size = (m) => (m === undefined ? NONE : `Props(${m.size})`)
+      return `layer ${c.layerId}   ${size(c.before)} → ${size(c.after)}`
+    }
+    return `prop  ${c.layerId}.${c.key}   ${c.before === undefined ? NONE : fmt(c.before)} → ${c.after === undefined ? NONE : fmt(c.after)}`
+  }
+
+  function renderStack(d) {
+    const st = $('undo-stack')
+    st.textContent = ''
+    if (d.undoStack.length === 0) { st.appendChild(h('div', { class: 'empty', text: 'empty — undo() is a no-op' })); return }
+    d.undoStack.forEach((commit, i) => {
+      const top = i === d.undoStack.length - 1
+      st.appendChild(h('div', { class: 'card' + (top ? ' top' : '') }, [
+        h('div', { class: 'cid', text: `#${i}${top ? '   ← top' : ''}` }),
+        ...commit.map((c) => h('div', { text: cardText(c) })),
+      ]))
+    })
+  }
+
+  function render(i) {
+    const { d, error } = runTo(i)
+    const rows = script.map((stepDef, k) => ({
+      cls: '', cells: [{ t: (k < i ? '✓' : k === i ? '→' : ''), cls: '' }, { t: stepDef.c, cls: 'mono' }],
+    }))
+    mount('calls', table(null, rows))
+    mount('doc', renderDoc(d, i > 0 ? lastTouched(i) : null))
+    renderStack(d)
+    const log = $('log')
+    log.className = 'log' + (error ? ' bad' : '')
+    if (i === 0) { log.innerHTML = 'Fresh document, empty history. Press <b>Step</b>.'; highlight('code', []) }
+    else {
+      log.innerHTML = (error ? `<b>threw:</b> ${error}<br>` : '') + script[i - 1].say
+      highlight('code', script[i - 1].lines)
+    }
+  }
+
+  function lastTouched(i) {
+    const c = script[i - 1]
+    const m = /set\("(\w+)", "(\w+)"/.exec(c.c)
+    return m ? { layerId: m[1], key: m[2] } : null
+  }
+
+  const step = stepper(
+    { reset: 'btn-reset', step: 'btn-step', back: 'btn-back', play: 'btn-play', counter: 'step-counter' },
+    () => script.length, render, { interval: 1100 },
+  )
+  sel.addEventListener('change', () => { script = SCENARIOS[sel.value]; step.reset() })
+  step.draw()
+
+  /* ---------- 3: the copy ---------- */
+  ;(function aliasDemo() {
+    // One plausible extra method, in both variants.
+    Doc.prototype.duplicateLayer = function (src, id) {
+      const p = this.layers.get(src)
+      if (!p || this.layers.has(id)) return
+      this.commit({ kind: 'layer', layerId: id, before: undefined, after: this.alias ? p : new Map(p) })
+    }
+    const run = (alias) => {
+      const d = new Doc({ alias })
+      const out = []
+      d.createLayer('a'); d.set('a', 'fill', 'red')
+      out.push(`a=${fmt(d.get('a', 'fill'))}`)
+      d.duplicateLayer('a', 'b')
+      out.push(`a=${fmt(d.get('a', 'fill'))}  b=${fmt(d.get('b', 'fill'))}`)
+      d.set('b', 'fill', 'blue')
+      out.push(`a=${fmt(d.get('a', 'fill'))}  b=${fmt(d.get('b', 'fill'))}`)
+      d.set('a', 'opacity', 0.5)
+      out.push(`a.opacity=${fmt(d.get('a', 'opacity'))}  b.opacity=${fmt(d.get('b', 'opacity'))}`)
+      return out
+    }
+    const ok = run(false), bad = run(true)
+    const labels = [
+      'createLayer("a"); set(a, fill, "red")',
+      'duplicateLayer("a", "b")',
+      'set("b", "fill", "blue")',
+      'set("a", "opacity", 0.5)  — b is a different layer',
+    ]
+    mount('alias', table(
+      ['call', 'new Map(props)', 'props (aliased)'],
+      labels.map((l, i) => ({
+        cells: [
+          { t: l, cls: 'mono' },
+          { t: ok[i], cls: 'mono' },
+          ok[i] === bad[i] ? { t: bad[i], cls: 'mono' } : { cls: 'mono', html: `<span class="pill bad">${bad[i]}</span>` },
+        ],
+      })),
+    ))
+  })()
+
+  /* ---------- 4: the cost table ---------- */
+  mount('cost', table(
+    ['decision in part 1', 'the cheap version', 'what part 2 charges'],
+    [
+      [
+        { t: 'undoStack element type', cls: '' },
+        { html: '<code>Change[]</code> — a stack of single changes' },
+        { html: 'Batching needs <b>one stack entry to hold many changes</b>. Storing <code>Commit = Change[]</code> from the start costs one pair of brackets; retrofitting it touches undo, redo and every push.' },
+      ],
+      [
+        { t: 'where mutation happens', cls: '' },
+        { html: 'each method mutates <code>layers</code> itself' },
+        { html: 'Redo must clear on new work and batching must divert new work into a buffer. With a single <code>commit()</code> choke point both are <b>two lines inside one function</b>. Without it they are an edit to every mutating method, and the one you forget is the bug.' },
+      ],
+      [
+        { t: 'undo’s inner loop', cls: '' },
+        { html: 'apply the inverse of the one change' },
+        { html: 'A batch must reverse <b>twice</b>: the order of the list, and each change within it. Writing <code>for (const c of [...commit].reverse())</code> now means part 2 does not touch <code>undo</code> at all.' },
+      ],
+    ],
+  ))
+})()
+</script>
+</body>
+</html>

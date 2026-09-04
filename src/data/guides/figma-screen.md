@@ -652,6 +652,11 @@ Five sit in or beside the reported question family; **E is deliberately not Figm
 the point is to rehearse the *method*, not to have five answers memorized. If you get handed
 "implement a spreadsheet's fill-down," E is why you'll be fine.
 
+**Every one of these has a visualization.** [Drill Visualizations](/morning-recall/viz/) is an
+index of nine interactive pages, one per drill, each running that drill's own reference code live
+in the browser — so what you watch is what the tests grade. They are linked from each subsection
+below. **Read one before the first timed rep, or after a rep that went badly — never during.**
+
 **Use these as reps, not as reading.** Set a timer, do the problem, then open the collapsible.
 
 ### A. DOCUMENT, LAYERS, PROPERTIES — UNDO, REDO, BATCHING
@@ -662,6 +667,13 @@ and it is reported both as a from-scratch build and as a pre-seeded skeleton wit
 > **The prompt, roughly.** Build a document made of layers. Each layer holds properties as
 > key/value pairs. Support setting a property on a layer. Then: support undo. Then: support redo.
 > Then: support grouping several operations into a single undoable batch.
+
+**See it move first.** Two pages cover this problem, split the way the interview splits it.
+[Undo as Data](/morning-recall/viz/document-undo.html) steps through `set` / `undo` / `deleteLayer`
+with the document and the undo stack side by side, and shows why `invert` is a swap rather than a
+computation. [Two Stacks and a Buffer](/morning-recall/viz/undo-redo-batch.html) picks up at redo
+and batching: both stacks and the batch buffer drawn together, the redo branch visibly discarded
+when new work lands, and the five invariants checked live over four thousand random scripts.
 
 **Your first three questions.** Does setting a property on a missing layer create it or error? Does
 undo restore the previous value or remove the key — and what if the key never existed? Roughly how
@@ -949,6 +961,11 @@ inventing a tolerance constant with no justification when heights were available
 
 This is the interval problem, and the four-clause invariant from §04 B is the whole answer.
 
+**See it move first.** [Runs Over Text](/morning-recall/viz/styled-text.html) draws the runs under
+the characters and lets you drag the range: slice clips and then rebases to zero, and apply splits
+three ways and merges back, with the pre-`normalize` stage shown so the adjacent duplicates are
+visible before they disappear.
+
 **Your first three questions.** Are the ranges guaranteed sorted and non-overlapping on the way in?
 Does applying a style *merge* into what's there or *replace* it? Is a range inclusive or exclusive
 at the end — *and if they don't care, say you're using half-open and why.*
@@ -1035,6 +1052,11 @@ calling it correct because the rendering would look the same · mutating the inp
 > **The prompt, roughly.** A document is a tree of layers. Implement grouping a set of layers,
 > ungrouping, and moving a layer to a new parent. Ordering among siblings is z-order and must be
 > preserved.
+
+**See it move first.** [Z-Order Under Grouping](/morning-recall/viz/layer-tree.html) paints the
+tree onto a canvas, so a wrong slot for a new group is something you *see* rather than something
+you reason about — including the case the one-line rule hides, where the members aren't adjacent
+and no policy can leave the canvas alone.
 
 **Your first three questions.** Is `children[0]` the bottom or the top of the z-stack? Can I group
 layers that aren't siblings? When a group is created, where does it sit in the parent's order?
@@ -1169,6 +1191,10 @@ method.
 > **The prompt, roughly.** You're given a log of commands as text lines. Replay them. Then: support
 > answering "what was the state after the first n commands" many times, efficiently.
 
+**See it move first.** [Replay and Checkpoints](/morning-recall/viz/command-stream.html) has both
+sliders — stride `k` and query `n` — over a 64-op log, with the replayed span highlighted and both
+cost curves plotted against `k` so the √n crossing is a picture rather than a claim.
+
 <details>
 <summary><strong>Model answer — parse, step, checkpoint</strong></summary>
 
@@ -1254,6 +1280,11 @@ else. If the 9th hands you a problem nobody has reported, this is the shape to f
 
 The body is nine lines, which is exactly why it is on this list. Nine lines means **the grade is
 entirely in what you say**, and there is one thing to say that is worth the whole round.
+
+**See it move first.** [The Stack Is The Level](/morning-recall/viz/rich-text-levels.html) steps a
+token at a time with the stack of open containers on one side and the growing nesting on the other,
+and runs the stack version against the cached-level version side by side on the four tokens where
+they diverge.
 
 **Your first three questions.** Is the input guaranteed to start at level 1? Can a level be 0 or
 negative — and if the contract says no, what do I do with one anyway? Are the texts opaque, or is
@@ -1417,6 +1448,9 @@ which one you took.
 | Empty batch committed | Push an empty commit · skip it | **Skip it.** An empty commit is an undo step that appears to do nothing, and users hit undo twice. |
 | `undo` called while batching | Ignore · implicitly commit first · error | Ignore, and say why: the history is in an inconsistent intermediate state until the batch closes. |
 
+[Two Stacks and a Buffer](/morning-recall/viz/undo-redo-batch.html) has every row of that table as
+a scenario you can step through, and a live table of what does and does not clear the redo stack.
+
 Rollback is the same three lines as undo, which is the payoff of the change-as-data decision:
 
 ```ts
@@ -1433,6 +1467,11 @@ abort(): void {
 *"If I type ten characters, should undo remove all ten or one?"* Every real editor answers "all
 ten," and this is the follow-up that separates people who have thought about the product from
 people who have implemented a stack.
+
+**See it move first.** [One Undo Per Gesture](/morning-recall/viz/coalescing.html) puts a keystroke
+timeline against a `coalesceMs` slider, so the brackets regroup as you drag; it also has the
+`checkpoint()` boundary as a toggle and the bounded-history limit as a second slider, with the
+undo-until-false sequence tabulated underneath.
 
 The mechanism is a merge test against the top of the undo stack at commit time:
 
@@ -1829,6 +1868,16 @@ Non-negotiable, or the reps measure the wrong thing:
 | `figma-08-sealed` | 50 | **Unknown.** | **Do not read it before D-3.** Forces derivation rather than recall — the only rep that measures the method |
 | `figma-09-rich-text-levels` | 30 | Leveled tokens → nesting, and back | Nine lines of body, so the grade is all in the narration — §05 F |
 | `figma-01-practice-8-31` | 45 | Drill 1 again, from a blank file | The hints are stripped out on purpose: regenerating the four things you say before typing *is* the rep |
+
+**Each drill has a visualization**, indexed at [Drill Visualizations](/morning-recall/viz/) and
+linked from its §05 subsection. They run the drill's own reference code in the browser rather than
+a retelling of it, so a page cannot drift from the tests. Use them in exactly one of two places:
+**ten minutes before the first rep of a drill you have never seen**, or **after the timer stops and
+you have given the closing summary**. Opening one mid-rep converts the forty minutes of not knowing
+— which is the entire training effect — into reading.
+
+`figma-08-sealed`'s page is behind a confirmation click for the same reason the drill is sealed.
+Do not click through it before Sun 9/6.
 
 ### C. THE FULL MOCK (D-6, Thu 9/3)
 
