@@ -174,6 +174,12 @@ gets to make in one sentence, and pre-empting it is one of the cheapest strong s
 A fixed, typeable format, so that the rep is about the decisions and never about the layout. Use it
 in practice; in the interview, the same shape on a whiteboard.
 
+The store tag after the table name is one of five, and it is the second thing on the line because it
+is the second decision: `PG` PostgreSQL, `CASS` Cassandra, `DDB` DynamoDB, `REDIS` (the structure
+name stands in for it — a line that starts `ZSET` or `HASH` is a Redis line), and `S3` for blobs.
+Sidecars that are not the model — Kafka, ClickHouse, Elasticsearch — appear only in the storage table
+of step five, written out in full.
+
 ### A. RELATIONAL FORM, ANNOTATED
 
 ```text
@@ -228,6 +234,23 @@ timeline:{user_id}     ZSET   member=tweet_id   score=tweet_id (snowflake, time-
 
 Structure, key, member, score, the commands and their rates, and **the last line: is it derived, and
 what happens when it's gone.** That line is the one the interviewer asks for.
+
+`ZSET` is the example because it is the structure interviews reach for most — anything ordered by a
+number: a timeline, a leaderboard, a sliding window, a delay queue. It is not the default. **The
+structure is chosen by the command you need, not the other way round**, and the same five-line shape
+holds for each one. The lock and the cache, written the same way:
+
+```text
+lock:{event_id}:{seat_id}    STRING   value=holder_token   SET … NX EX 600
+  SET NX on hold (10k/s at onsale); DEL by token check on release; TTL is the expiry
+  derived — the seat row's status is the truth; a lost lock re-opens a hold the DB will still refuse
+
+user:{user_id}               HASH     fields=name,plan,avatar_url
+  HSET on profile write (100/s); HGETALL on read (50k/s); EX 300
+  derived — cache-aside from users PG; loss costs one slow read per user; stampede on a celebrity key
+```
+
+The full structure-by-command table, and the rule for picking one, are in §04 D.
 
 ### D. THE RULES
 
@@ -352,7 +375,44 @@ The structures and the operations they are for — pick the structure by the *co
 | Lock, lease | STRING | `lock:{resource}` | `SET … NX EX`, release by token check | A lock outlives its holder until TTL; the DB must still enforce the invariant |
 | Driver location, nearby search | GEO (a ZSET) | `drivers:{cell}` | `GEOADD`, `GEOSEARCH` | Regenerates in seconds from the next heartbeat |
 | Approximate uniques | HyperLogLog | `uniq:{day}` | `PFADD`, `PFCOUNT` | A day of analytics |
+| FIFO work queue, recent-N list | LIST | `jobs:{queue}` | `LPUSH`, `BRPOP` (blocking pop), `LTRIM` to cap | Jobs in flight are lost; use a durable queue if that matters |
 | Log with consumer groups | STREAM | `events:{shard}` | `XADD`, `XREADGROUP`, `XACK` | Use Kafka if losing it matters |
+| Wake-up across gateways | PUB/SUB | channel `ns:{namespace_id}` | `PUBLISH`, `SUBSCRIBE` | Fire-and-forget: a subscriber that is not connected never sees it, so it is a hint, and the truth is somewhere durable |
+
+**Picking the structure is one question: what is the operation?** Walk it in this order and stop at
+the first yes.
+
+1. One value by key — get, set, increment, expire: **STRING**. This covers the cache, the counter,
+   the session, the lock, and the idempotency marker. It is most of Redis.
+2. Several fields of one object you update independently: **HASH**. `HINCRBY` on one field beats
+   rewriting a JSON string.
+3. "Is X in the set?" or "give me the set": **SET**. Dedupe, membership, tags.
+4. Anything ordered by a number — a timestamp, a score, a sequence — that you read by rank or by
+   range: **ZSET**. This is the one people over-reach for: if you only need FIFO, a LIST is cheaper;
+   if you only need a count per window, `INCR` on a bucketed key is cheaper; if you need it durable
+   with consumers, it is a STREAM or Kafka.
+5. Push one end, pop the other: **LIST**. A job queue with no retry semantics.
+6. Distance from a point: **GEO**, which is a ZSET with a geohash score.
+7. A count where ±1% is fine and exact would not fit: **HyperLogLog**.
+8. Append-only with consumer groups and acknowledgement: **STREAM**, and then ask why it is not Kafka.
+9. Tell everyone connected right now, and do not care who missed it: **PUB/SUB**.
+
+**Then two questions of atomicity**, because "isn't that a race?" is the follow-up:
+
+- One command is atomic by itself — Redis executes commands serially, so `INCR`, `SET NX`, `ZADD`,
+  and `HINCRBY` never interleave. Say that, and most rate limiters and locks are done.
+- A check-then-act across commands is not — read a value, decide, write. Wrap it in a **Lua script**
+  (atomic, and the usual answer) or `MULTI`/`EXEC` (atomic, but it cannot branch on a read). In
+  cluster mode every key the script touches must share a hash tag.
+
+**How to say it, if Redis is not your daily tool.** One sentence per key, in this shape:
+*"I keep the STRUCTURE at KEY, member M, score S. The write is COMMAND at RATE, the read is COMMAND
+at RATE, TTL of T. It's derived from TABLE, rebuilt by MECHANISM, and losing it costs THIS."* For the
+timeline cache above: *"A ZSET per user, member tweet id, score the snowflake. ZADD on fanout at
+three million a second, ZREVRANGE of fifty on read, capped at four hundred. Derived from the
+author's post index; a lost node costs one slow read per user."* You do not need to know Redis
+internals to say that; you need the command name, the rate, and the loss story. If you cannot name
+the command, you have not chosen a structure yet.
 
 Three facts that always come up, so put them in the model before they are asked:
 

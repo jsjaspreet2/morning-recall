@@ -247,6 +247,24 @@ RAM-resident data structures with single-threaded command execution — every co
 - ZSET for leaderboards, waiting-room ordering, timer queues.
 - Ephemeral state with TTL auto-expiry (sessions, holds).
 
+### Structures (know cold)
+
+Every Redis design decision is "which command do I need," and the structure follows. Name the structure and the command, never just "Redis."
+
+| Structure | The operation | Commands |
+|---|---|---|
+| STRING | One value by key: cache, counter, session, lock, idempotency marker | `GET`/`SET … EX`, `INCR`, `SET … NX EX` |
+| HASH | Fields of one object, updated independently | `HSET`, `HGETALL`, `HINCRBY` |
+| SET | Membership, dedupe | `SADD`, `SISMEMBER` |
+| ZSET | Anything ordered by a number: timeline, leaderboard, sliding window, delay queue | `ZADD`, `ZREVRANGE`, `ZRANGEBYSCORE`, `ZREMRANGEBYSCORE` |
+| LIST | Push one end, pop the other: a plain job queue | `LPUSH`, `BRPOP`, `LTRIM` |
+| GEO | Nearby search (a ZSET with a geohash score) | `GEOADD`, `GEOSEARCH` |
+| HyperLogLog | Approximate uniques in 12KB | `PFADD`, `PFCOUNT` |
+| STREAM | Append-only log with consumer groups | `XADD`, `XREADGROUP`, `XACK` |
+| PUB/SUB | Fire-and-forget fan-out to whoever is connected now | `PUBLISH`, `SUBSCRIBE` |
+
+Single commands are atomic; a check-then-act across commands needs a Lua script (or `MULTI`/`EXEC`, which cannot branch). The pick-by-operation ladder, the key-shape notation, and the loss story each key must carry are in Data Modeling Under Pressure §04 D.
+
 ### Cache patterns to name
 
 - **Cache-aside (lazy):** app checks cache, on miss reads DB and populates. The default. Risk: stale entries → set TTLs / invalidate on write.
