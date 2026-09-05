@@ -31,6 +31,8 @@
 15. Push Notifications — the only channel that reaches a closed app; best-effort by construction
 16. Decision matrix — workload → pick, at a glance
 
+*After the matrix: Declaring a table — the words for keys, indexes, and constraints in each store, with the DDL, and the sentence to say.*
+
 *The client side — the browser as a runtime you deploy to but do not control.*
 
 17. localStorage / sessionStorage — synchronous, string-only, tiny; blocks the main thread
@@ -886,6 +888,131 @@ The flip: once notification *content* is owned by marketing rather than engineer
 ### The meta-rule
 
 Most systems are **Postgres + one or two specialists**: Postgres as the transactional source of truth, plus a cache (Redis), a blob store (S3), a CDN, and maybe a search, vector, or analytics index fed from Postgres via CDC. Reach for Cassandra / DynamoDB / Kafka / Flink / an orchestrator only when a *named requirement* — a specific hot table past ~15–50k writes/s, global write scale, replay/fan-out, real-time stream compute, durable multi-step coordination — forces it. Naming the one store as truth and treating the rest as derived is the coherence signal.
+
+
+---
+
+## Declaring a table — the vocabulary per store
+
+*Every store has the same five ideas — identity, placement, order within a group, a second read path, and a rule the store enforces — but each names them differently, and some are missing. Getting the word wrong ("the primary key of the DynamoDB table is customer_id") is the tell that you have not built on it. This section is the word, the DDL that declares it, and the sentence.*
+
+### The same idea in each store
+
+| Idea | PostgreSQL | DynamoDB | Cassandra | Redis |
+|---|---|---|---|---|
+| **Identity of a row** | `PRIMARY KEY` — any column or columns you choose | **Partition key**, or partition key + **sort key**; the *pair* is the item's identity. The API calls them `HASH` and `RANGE` | `PRIMARY KEY ((partition key), clustering columns)` — the partition key plus the clustering columns together identify a row | The key string |
+| **Which node holds it** | Not built in. A shard key (Citus "distribution column", or app-level) | The partition key, hashed | The partition key, hashed to a token | The key, hashed to a slot in Cluster mode |
+| **Order within a group** | `ORDER BY` at query time, served by an index on those columns | The sort key, byte-ordered; exactly one per table | **Clustering columns**, in declared order, with `CLUSTERING ORDER BY` | ZSET score, LIST position |
+| **A second read path** | `CREATE INDEX` — composite, partial, covering | **GSI** (any attributes, own throughput, eventually consistent) or **LSI** (same partition key, different sort key, creation-time only) | A second table you write to yourself, or an SAI index that fans out across the ring | A second key you maintain yourself |
+| **Uniqueness beyond the key** | `UNIQUE` constraint or unique index, on anything | None. `attribute_not_exists` condition on the key only; anything else unique is a second item in a transaction | None. `IF NOT EXISTS` (LWT) on the key only | `SET NX` on the key only |
+| **Referential integrity, value rules** | `FOREIGN KEY`, `CHECK`, `NOT NULL`, enums | None — the application | None — the application | None |
+| **Several rows atomically** | A transaction, any rows | `TransactWriteItems`, ≤ 100 items | A logged `BATCH`, one partition in practice | `MULTI`/`EXEC` or a Lua script, one slot |
+| **Expiry** | None built in — a job, or drop a partition | A TTL attribute, deleted within ~48h of the timestamp | `USING TTL` per write | `EXPIRE` per key |
+| **Lifecycle split** | `PARTITION BY RANGE` on the time-ordered id | Not needed | A bucket inside the partition key | Not needed |
+
+The cells that say **None** are where interviewers press. In DynamoDB and Cassandra, every rule the database is not enforcing is one you enforce with a conditional write, a second item, or a reconciliation job, and you should say which.
+
+### PostgreSQL — the key is whatever you say it is
+
+```sql
+CREATE TABLE orders (
+  order_id     uuid        PRIMARY KEY DEFAULT uuidv7(),   -- identity; time-ordered for index locality
+  customer_id  uuid        NOT NULL REFERENCES customers,  -- foreign key: the store enforces it
+  status       text        NOT NULL CHECK (status IN ('placed','paid','fulfilled','cancelled')),
+  total_cents  bigint      NOT NULL CHECK (total_cents >= 0),
+  session_id   uuid        NOT NULL,
+  version      int         NOT NULL DEFAULT 0,             -- optimistic concurrency
+  created_at   timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX        orders_by_customer ON orders (customer_id, created_at DESC);  -- "my orders, newest first"
+CREATE UNIQUE INDEX orders_by_session  ON orders (session_id);                    -- one order per checkout session
+CREATE INDEX        orders_open        ON orders (customer_id) WHERE status = 'placed';   -- partial: only the rows a read wants
+CREATE INDEX        orders_list        ON orders (customer_id, created_at DESC) INCLUDE (status, total_cents);  -- covering: index-only read
+```
+
+The words: **primary key** (identity, any columns), **composite index** (leftmost-column rule — `(customer_id, created_at)` serves a lookup by customer, not by date), **unique index** or **unique constraint** (the same thing; the only store here that enforces uniqueness on a non-key), **partial index** (a `WHERE` on the index — small, hot, and the answer to "index the open orders"), **covering index** (`INCLUDE` — the read never touches the heap), **foreign key** and **check** (rules the store enforces). Partitioning is a separate clause — `PARTITION BY RANGE (order_id)` — and every unique index on a partitioned table must include the partition column. Sharding is not a Postgres feature: Citus adds a distribution column, and everything that commits together is colocated on it.
+
+**The sentence:** *"Orders, primary key `order_id`, a uuidv7. A composite index on customer and created-at descending serves the order-history read; a unique index on session id makes the create idempotent; a partial index on open orders serves the fulfillment queue. Partitioned by month on the id range for retention."*
+
+### DynamoDB — the key is the partition key plus the sort key, and there is nothing else
+
+```jsonc
+// CreateTable — the shape of the API, trimmed
+{
+  "TableName": "cart",
+  "KeySchema": [
+    { "AttributeName": "customer_id", "KeyType": "HASH" },   // partition key: placement and grouping
+    { "AttributeName": "sku",         "KeyType": "RANGE" }   // sort key: identity within the group, and order
+  ],
+  "AttributeDefinitions": [ /* only key and index attributes are declared; everything else is schemaless */ ],
+  "GlobalSecondaryIndexes": [{
+    "IndexName": "by_sku",
+    "KeySchema": [{ "AttributeName": "sku", "KeyType": "HASH" }, { "AttributeName": "added_at", "KeyType": "RANGE" }],
+    "Projection": { "ProjectionType": "KEYS_ONLY" }          // KEYS_ONLY | INCLUDE | ALL — what the index copies
+  }],
+  "TimeToLiveSpecification": { "AttributeName": "expires_at", "Enabled": true }
+}
+```
+
+```text
+PutItem   cart  { customer_id, sku, qty }   ConditionExpression: attribute_not_exists(customer_id)   ← insert, do not overwrite
+UpdateItem inventory { sku, fc_id }  SET reserved = reserved + :q   CONDITION on_hand - reserved >= :q   ← the invariant
+```
+
+The words: **partition key** and **sort key** (never "primary key" alone; if you must, "the primary key is the pair"), **simple key** (partition only, one item per value) versus **composite key** (the pair is unique), **GSI** (its own partition and sort key on any attributes, its own throughput, eventually consistent, one extra write per item per index — "a table with four GSIs is paid for five times"), **LSI** (same partition key, a different sort key, declared at creation, shares the 10 GB partition cap, can be strongly consistent), **projection** (what the index stores; `KEYS_ONLY` then fetch, or `ALL` and pay the copy), **condition expression** (every invariant the store enforces is one of these), **TTL attribute**. There is no unique constraint on a non-key attribute: "email must be unique" is a second item keyed by email, written in the same `TransactWriteItems` with `attribute_not_exists`.
+
+**The sentence:** *"Cart, partition key `customer_id`, sort key `sku`, so the pair is the identity and a customer's cart is one `Query`. No GSI — every read is by customer. Adds are a conditional `PutItem`; expiry is a TTL attribute. If I needed the reverse read, that's a GSI on `sku`, keys-only, and I'd say it costs a second write per item."*
+
+### Cassandra — the key is the partition plus the clustering columns, and the query is the table
+
+```sql
+CREATE TABLE messages (
+  conversation_id uuid,
+  bucket          int,                 -- day, or seq / 10000: bounds the partition at ~100 MB
+  seq             bigint,
+  sender_id       uuid,
+  body            text,
+  sent_at         timestamp,
+  PRIMARY KEY ((conversation_id, bucket), seq)   -- ((partition key), clustering columns)
+) WITH CLUSTERING ORDER BY (seq DESC)
+  AND default_time_to_live = 2592000;            -- 30 days, on the transient branch
+
+-- the other read, as its own table, written by the application on every send
+CREATE TABLE messages_by_sender (
+  sender_id uuid, bucket int, seq bigint, conversation_id uuid, body text,
+  PRIMARY KEY ((sender_id, bucket), seq)
+) WITH CLUSTERING ORDER BY (seq DESC);
+
+-- the one rule the store enforces, and it is slow
+INSERT INTO conversations (conversation_id, created_at) VALUES (?, ?) IF NOT EXISTS;
+```
+
+The words: **partition key** (the double parentheses; a **composite partition key** when it is two columns; every query must supply all of it), **clustering columns** (order within the partition; a range predicate is allowed only on them, in declared order), **primary key** (both together — say "partition key" when you mean placement, "primary key" only when you mean the whole identity), **one table per query** (the second table is the "index"; you write both, and you own their consistency), **SAI** (a real secondary index in Cassandra 5, `CREATE CUSTOM INDEX … USING 'StorageAttachedIndex'`, but a query on it fans out to every replica set — fine for a rare read, wrong for a hot one), **LWT** (`IF NOT EXISTS`, `IF version = ?` — Paxos, single partition, several times the latency of a plain write), **TTL** (per write, or a table default). An `INSERT` with the same full primary key is an upsert with no error, which is the footgun to name.
+
+**The sentence:** *"Messages, partition key conversation id plus a day bucket so no partition passes a hundred megabytes, clustering by sequence descending, so the read is one partition slice, newest first. The by-sender read is its own table, written on every send. Sequence numbers come from Postgres, because an LWT counter here would be too slow."*
+
+### Redis — there is no schema, so the key name is the schema
+
+```text
+timeline:{user_id}    ZSET   member=post_id   score=snowflake     ZADD, ZREVRANGE 0 49, ZREMRANGEBYRANK 0 -401
+lock:{seat_id}        STRING value=token                          SET NX EX 600, DEL by token
+sess:{session_id}     HASH   fields=user_id,csrf,…                HSET, HGETALL, EXPIRE 86400
+```
+
+The words: **key naming convention** (`entity:{id}[:facet]`; the braces are the **hash tag** that keeps related keys in one Cluster slot), **structure** (§04 above: the structure is chosen by the command), **TTL** on everything, and the **loss story** — derived from what, rebuilt how. There are no indexes; a second access path is a second key you keep in step yourself, which is why Redis holds derived data and not truth.
+
+**The sentence:** *"A sorted set per user keyed by user id, members are post ids, score is the snowflake. Written on fanout, read as the top fifty, capped at four hundred. It's a cache of the author index, so a lost node costs one slow read."*
+
+### How to say any table in ten seconds
+
+1. **Name and store.** "Orders, in Postgres."
+2. **The key, in that store's word.** Primary key / partition key and sort key / partition key and clustering columns / key pattern and structure.
+3. **The read it serves.** "One query by customer, newest first."
+4. **The second read path and what it costs.** An index, a GSI, a second table, a second key.
+5. **The rule the store enforces, and the one it does not.** A unique index / a condition expression / an LWT / `NX`; and where the rest of the rules live.
+6. **Lifecycle.** Partition drop, TTL attribute, per-write TTL, `EXPIRE`.
+
+The full procedure, the compact notation these tables are written in, and ten worked models are in *Data Modeling Under Pressure*.
 
 ---
 
