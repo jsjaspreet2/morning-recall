@@ -238,6 +238,13 @@ cart              DDB    PK customer_id   SK sku
   serves R "cart for CUSTOMER" (Query on PK) and W "set line" (PutItem, conditional on version)
 ```
 
+In the Cassandra form, `PK (conversation_id, bucket)` is a composite partition key — one or more
+columns that place the row together — and `CLUSTER` lists zero or more columns that order within
+it. In the DynamoDB form, `PK` and `SK` are one attribute each, so a multi-column key is written as
+the concatenated string it will be: `PK CONV#{conversation_id}#{bucket}   SK seq`. And DynamoDB
+colocation only buys a single `Query`; `TransactWriteItems` spans partitions and tables, so the
+partition key is chosen for the read and never to make a write atomic.
+
 For DynamoDB, write every access pattern beside the key or GSI that serves it, and **say what each
 GSI costs**: an extra write per item per index, eventually consistent, its own throughput. A table
 with four GSIs is a table you have paid for five times.

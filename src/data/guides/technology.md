@@ -900,7 +900,7 @@ Most systems are **Postgres + one or two specialists**: Postgres as the transact
 
 | Idea | PostgreSQL | DynamoDB | Cassandra | Redis |
 |---|---|---|---|---|
-| **Identity of a row** | `PRIMARY KEY` — any column or columns you choose | **Partition key**, or partition key + **sort key**; the *pair* is the item's identity. The API calls them `HASH` and `RANGE` | `PRIMARY KEY ((partition key), clustering columns)` — the partition key plus the clustering columns together identify a row | The key string |
+| **Identity of a row** | `PRIMARY KEY` — any column or columns you choose | **Partition key**, or partition key + **sort key**; the *pair* is the item's identity. The API calls them `HASH` and `RANGE`. **Each is exactly one attribute** — a multi-column key is a concatenated string, `USER#123` | `PRIMARY KEY ((partition key), clustering columns)` — the partition key plus the clustering columns together identify a row. **The partition key may be several columns**, inside the inner parentheses; clustering columns may be zero or several | The key string |
 | **Which node holds it** | Not built in. A shard key (Citus "distribution column", or app-level) | The partition key, hashed | The partition key, hashed to a token | The key, hashed to a slot in Cluster mode |
 | **Order within a group** | `ORDER BY` at query time, served by an index on those columns | The sort key, byte-ordered; exactly one per table | **Clustering columns**, in declared order, with `CLUSTERING ORDER BY` | ZSET score, LIST position |
 | **A second read path** | `CREATE INDEX` — composite, partial, covering | **GSI** (any attributes, own throughput, eventually consistent) or **LSI** (same partition key, different sort key, creation-time only) | A second table you write to yourself, or an SAI index that fans out across the ring | A second key you maintain yourself |
@@ -961,6 +961,25 @@ UpdateItem inventory { sku, fc_id }  SET reserved = reserved + :q   CONDITION on
 
 The words: **partition key** and **sort key** (never "primary key" alone; if you must, "the primary key is the pair"), **simple key** (partition only, one item per value) versus **composite key** (the pair is unique), **GSI** (its own partition and sort key on any attributes, its own throughput, eventually consistent, one extra write per item per index — "a table with four GSIs is paid for five times"), **LSI** (same partition key, a different sort key, declared at creation, shares the 10 GB partition cap, can be strongly consistent), **projection** (what the index stores; `KEYS_ONLY` then fetch, or `ALL` and pay the copy), **condition expression** (every invariant the store enforces is one of these), **TTL attribute**. There is no unique constraint on a non-key attribute: "email must be unique" is a second item keyed by email, written in the same `TransactWriteItems` with `attribute_not_exists`.
 
+**Multi-column keys are strings you concatenate.** The partition key is one attribute and the sort key is one attribute, so where Cassandra writes `((conversation_id, bucket), seq)`, DynamoDB writes `pk = "CONV#<id>#<bucket>"`, `sk = <seq>` zero-padded so byte order is numeric order. The `ENTITY#` prefix is the convention, and `begins_with(sk, "ORDER#")` is how one partition holds several kinds of item.
+
+**What colocation buys you, and what it does not.** Putting a customer's cart and orders under the same partition key gives you exactly one thing: one `Query` returns both. It is not what makes a multi-item write atomic — `TransactWriteItems` already spans partitions *and* tables. So the partition key is chosen for the read, and the transaction is chosen for the invariant, independently:
+
+```text
+cart      PK customer_id       SK sku                    ← "my cart" is one Query
+orders    PK customer_id       SK order_id (uuidv7)      ← "my orders, newest first" is one Query, ScanIndexForward=false
+          GSI by_order  PK order_id   KEYS_ONLY          ← "order by id" when the caller has no customer; or put the customer in the id
+sessions  PK session_id        order_id                  ← the idempotency item; nothing else is keyed by session
+
+TransactWriteItems [
+  Put sessions { session_id, order_id }   CONDITION attribute_not_exists(session_id)   ← one order per session
+  Put orders   { customer_id, order_id, … }
+  Put outbox   { … }
+]                                                        ← atomic across three tables and three partitions
+```
+
+The single-table form is the same design with the tables folded together: `pk = "USER#<customer_id>"`, `sk = "CART#<sku>"` or `"ORDER#<uuidv7>"`, and `sk = "SESSION#<id>"` on its own partition. Nothing about the transaction changes. What the interviewer is checking is that you did not put `customer_id` on the sessions item to "colocate" it — that would only be needed if the store lacked cross-partition transactions, and this one does not.
+
 **The sentence:** *"Cart, partition key `customer_id`, sort key `sku`, so the pair is the identity and a customer's cart is one `Query`. No GSI — every read is by customer. Adds are a conditional `PutItem`; expiry is a TTL attribute. If I needed the reverse read, that's a GSI on `sku`, keys-only, and I'd say it costs a second write per item."*
 
 ### Cassandra — the key is the partition plus the clustering columns, and the query is the table
@@ -987,7 +1006,7 @@ CREATE TABLE messages_by_sender (
 INSERT INTO conversations (conversation_id, created_at) VALUES (?, ?) IF NOT EXISTS;
 ```
 
-The words: **partition key** (the double parentheses; a **composite partition key** when it is two columns; every query must supply all of it), **clustering columns** (order within the partition; a range predicate is allowed only on them, in declared order), **primary key** (both together — say "partition key" when you mean placement, "primary key" only when you mean the whole identity), **one table per query** (the second table is the "index"; you write both, and you own their consistency), **SAI** (a real secondary index in Cassandra 5, `CREATE CUSTOM INDEX … USING 'StorageAttachedIndex'`, but a query on it fans out to every replica set — fine for a rare read, wrong for a hot one), **LWT** (`IF NOT EXISTS`, `IF version = ?` — Paxos, single partition, several times the latency of a plain write), **TTL** (per write, or a table default). An `INSERT` with the same full primary key is an upsert with no error, which is the footgun to name.
+The words: **partition key** (the inner parentheses; one column, or a **composite partition key** of several — `((conversation_id, bucket), seq)` places by both columns together, and every query must supply all of them; with a single-column partition key the inner parentheses are optional, `PRIMARY KEY (conversation_id, seq)`), **clustering columns** (everything after the partition key — zero, one, or several, `((conversation_id, bucket), seq, message_id)` orders by `seq` then `message_id`), (order within the partition; a range predicate is allowed only on them, in declared order), **primary key** (both together — say "partition key" when you mean placement, "primary key" only when you mean the whole identity), **one table per query** (the second table is the "index"; you write both, and you own their consistency), **SAI** (a real secondary index in Cassandra 5, `CREATE CUSTOM INDEX … USING 'StorageAttachedIndex'`, but a query on it fans out to every replica set — fine for a rare read, wrong for a hot one), **LWT** (`IF NOT EXISTS`, `IF version = ?` — Paxos, single partition, several times the latency of a plain write), **TTL** (per write, or a table default). An `INSERT` with the same full primary key is an upsert with no error, which is the footgun to name.
 
 **The sentence:** *"Messages, partition key conversation id plus a day bucket so no partition passes a hundred megabytes, clustering by sequence descending, so the read is one partition slice, newest first. The by-sender read is its own table, written on every send. Sequence numbers come from Postgres, because an LWT counter here would be too slow."*
 
