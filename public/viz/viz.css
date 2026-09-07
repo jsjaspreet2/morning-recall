@@ -180,3 +180,15 @@ a { color: var(--accent); }
 .slevel .lv.top { box-shadow: 0 0 0 2px var(--accent-soft); border-color: var(--accent); }
 .slevel .lv.popped { opacity: .4; text-decoration: line-through; border-left-color: var(--bad); }
 .slevel .lv .n { color: var(--muted); font-size: 11px; }
+
+/* --- per-operation stepping: object identity made visible --- */
+[hidden] { display: none !important; }
+.idb { display: inline-block; font-size: 10px; line-height: 1.6; padding: 0 6px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); margin-right: 6px; font-weight: 700; font-family: ui-monospace, Menlo, monospace; }
+.idb.off { background: var(--bad-soft); color: var(--bad); }
+.nest .list.detached { border-color: var(--bad); border-style: dashed; background: var(--bad-soft); }
+.nest .list.fresh { outline: 2px dashed var(--ok); outline-offset: 2px; }
+.slevel .lv.dup { border-left-color: var(--bad); }
+.slevel .lv .tag { font-size: 10.5px; margin-left: 6px; padding: 0 5px; border-radius: 4px; }
+.slevel .lv .tag.bad { background: var(--bad-soft); color: var(--bad); }
+.slevel .lv .tag.ok { background: var(--ok-soft); color: var(--ok); }
+.orphan-wrap { margin-top: 10px; }

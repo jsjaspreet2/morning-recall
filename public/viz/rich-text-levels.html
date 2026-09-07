@@ -24,32 +24,74 @@
   <p class="note">The invariant that makes the code write itself: <b><code>stack.length</code> is the level of the container on top.</b> Start with <code>stack = [root]</code> — length 1, holding the container for level 1 — and it stays true by construction. Once it does, "go shallower" and "go deeper" are two while-loops over the same comparison and there is no arithmetic left to get wrong.</p>
 
   <!-- =============================================== -->
-  <h2><span class="k">1</span>Step through it</h2>
+  <h2><span class="k">1</span>Step through it, one operation at a time</h2>
+  <p>Not one frame per token — <b>one frame per statement</b>, so the two <code>while</code> loops
+  run in front of you. Every container gets a permanent badge (<span class="idb">#0</span>,
+  <span class="idb">#1</span>, …) the moment it is created, and the same badge appears in the tree
+  and on the stack. When one badge shows up in both places, that is not a copy: it is the same
+  array, and that sharing is the whole reason this algorithm works.</p>
   <div class="panel">
     <div class="controls">
-      <label for="scenario">Tokens</label>
+      <label for="scenario">tokens</label>
       <select id="scenario"></select>
+      <label for="variant" style="margin-left:10px">the descent line</label>
+      <select id="variant">
+        <option value="child">stack.push(child) — correct</option>
+        <option value="parent">stack.push(parent) — pushes what you linked into</option>
+        <option value="fresh">stack.push([]) — a different array</option>
+      </select>
+    </div>
+    <div class="controls">
       <button id="btn-reset">Reset</button>
       <button id="btn-back">← Back</button>
       <button id="btn-step" class="primary">Step →</button>
       <button id="btn-play">Play</button>
       <span class="note" id="step-counter"></span>
     </div>
-    <div class="grid2">
+    <div class="table-wrap"><table id="tokens"></table></div>
+    <div class="grid2" style="margin-top:12px">
       <div>
-        <div class="stack-title">tokens</div>
-        <div class="table-wrap"><table id="tokens"></table></div>
-        <div class="stack-title" style="margin-top:12px">the stack &nbsp;<span class="note">top = the open container</span></div>
+        <div class="stack-title">the stack &nbsp;<span class="note">top last</span></div>
         <div class="slevel" id="stack"></div>
+        <div class="orphan-wrap" id="orphans"></div>
       </div>
       <div>
-        <div class="stack-title">the result so far</div>
+        <div class="stack-title">the tree, rooted at <span class="idb">#0</span></div>
         <div class="nest" id="out"></div>
-        <div class="log" id="log"></div>
-<pre id="code" style="margin-top:10px"><span class="ln" data-l="init">const root: RichNode[] = []</span><span class="ln" data-l="init">const stack: RichNode[][] = [root]      <span style="color:var(--muted)">// stack.length === current level</span></span><span class="ln" data-l="loop">for (const [level, text] of tokens) {</span><span class="ln" data-l="guard">  if (!Number.isInteger(level) || level &lt; 1) throw new Error(...)</span><span class="ln" data-l="pop">  while (stack.length &gt; level) stack.pop()          <span style="color:var(--muted)">// shallower</span></span><span class="ln" data-l="push">  while (stack.length &lt; level) {                    <span style="color:var(--muted)">// deeper</span></span><span class="ln" data-l="push">    const child: RichNode[] = []</span><span class="ln" data-l="push">    stack[stack.length - 1].push(child)</span><span class="ln" data-l="push">    stack.push(child)</span><span class="ln" data-l="push">  }</span><span class="ln" data-l="append">  stack[stack.length - 1].push(text)</span><span class="ln" data-l="loop">}</span></pre>
       </div>
     </div>
+    <div class="log" id="log"></div>
+<pre id="code" style="margin-top:10px"><span class="ln" data-l="init">const root: RichNode[] = []</span><span class="ln" data-l="init">const stack: RichNode[][] = [root]        <span style="color:var(--muted)">// stack.length === current level</span></span><span class="ln" data-l="loop">for (const [level, text] of tokens) {</span><span class="ln" data-l="guard">  if (!Number.isInteger(level) || level &lt; 1) throw new Error(...)</span><span class="ln" data-l="pop">  while (stack.length &gt; level) stack.pop()              <span style="color:var(--muted)">// shallower</span></span><span class="ln" data-l="deeper">  while (stack.length &lt; level) {                        <span style="color:var(--muted)">// deeper</span></span><span class="ln" data-l="parent">    const parent = stack[stack.length - 1]</span><span class="ln" data-l="create">    const child: RichNode[] = []</span><span class="ln" data-l="link">    parent.push(child)     <span style="color:var(--muted)">// link: the tree now holds it</span></span><span class="ln" data-l="push" data-v="child">    stack.push(child)      <span style="color:var(--ok)">// descend: the stack holds the SAME array</span></span><span class="ln" data-l="push" data-v="parent" hidden>    stack.push(parent)     <span style="color:var(--bad)">// descends into what you just linked INTO</span></span><span class="ln" data-l="push" data-v="fresh" hidden>    stack.push([])         <span style="color:var(--bad)">// descends into an array nothing references</span></span><span class="ln" data-l="deeper">  }</span><span class="ln" data-l="append">  stack[stack.length - 1].push(text)</span><span class="ln" data-l="loop">}</span></pre>
   </div>
+  <p class="note"><b>The frame to watch is <code>stack.push</code>.</b> All three variants grow
+  <code>stack.length</code> by one, so all three terminate and none of them throw. The loop
+  condition cannot tell them apart — <code>stack.length</code> is only half the invariant. The other
+  half is <b><code>stack[i]</code> <em>is</em> the open container for level <code>i+1</code></b>, and
+  that half is about identity, which no length check will ever notice.</p>
+
+  <!-- =============================================== -->
+  <h2><span class="k">1b</span>The stack holds handles into the tree</h2>
+  <p>Two lines store the same reference twice. The tree owns <code>child</code> structurally;
+  the stack holds it as a live handle. So <code>stack[stack.length - 1].push(text)</code> mutates an
+  array that is <em>already inside</em> <code>root</code> — which is why the function can end with a
+  bare <code>return root</code> and no assembly step. <b>The aliasing is the mechanism, not an
+  incidental detail.</b></p>
+  <div class="panel"><div id="viz-alias"></div></div>
+  <p>That is also why the two near-miss versions fail in different ways, and why one of them is much
+  quieter than the other. Both are run live below against the drill's own part-1 tests.</p>
+  <div class="table-wrap"><table id="variants"></table></div>
+  <p class="note"><b>Notice which two tests every variant passes:</b> empty input, and all tokens at
+  level 1. Those are exactly the cases where the descent loop never runs. If the only tests failing
+  are the ones that go deeper, the bug is inside that loop — that pattern alone localises it before
+  you have read a single line.</p>
+  <p class="note">The question that separates a load-bearing alias from a hazard, and it is worth
+  asking out loud in the room: <em>if I copied this value instead of sharing it, would the algorithm
+  still work?</em> Here the answer is <b>no</b> — copying <code>child</code> breaks it outright, so
+  the sharing is doing real work and you should say so. In
+  <a href="document-undo.html">drill 1</a> the answer is <b>yes</b> — copying the props map costs one
+  <code>new Map</code> and buys a snapshot instead of a view. Same language feature, opposite sign:
+  <b>alias when you are building a structure you will return, copy when you are recording something
+  you will compare against later.</b></p>
 
   <!-- =============================================== -->
   <h2><span class="k">2</span>The trap is the return, not the jump</h2>
@@ -191,75 +233,290 @@
     mount('viz-examples', wrap)
   })()
 
-  /* ---------- 1: the stepper ---------- */
+  /* ---------- 1: the stepper, one statement per frame ---------- */
   const SCEN = {
     'deep jump — [(1,"food"), (4,"banana")]': [[1, 'food'], [4, 'banana']],
     'down and back — [(1,"a"), (2,"b"), (2,"c"), (1,"d")]': [[1, 'a'], [2, 'b'], [2, 'c'], [1, 'd']],
     'the trap — [(1,"a"), (2,"b"), (1,"c"), (2,"d")]': [[1, 'a'], [2, 'b'], [1, 'c'], [2, 'd']],
     'partial return — [(1,"a"), (3,"b"), (2,"c")]': [[1, 'a'], [3, 'b'], [2, 'c']],
+    'one level down — [(1,"a"), (2,"b")]': [[1, 'a'], [2, 'b']],
     'empty — []': [],
   }
   const sel = $('scenario')
   Object.keys(SCEN).forEach((k) => sel.appendChild(h('option', { value: k, text: k })))
-  let tokens = SCEN[sel.value]
+  const varSel = $('variant')
 
-  /** The same algorithm, instrumented, so each token is one visible frame. */
-  function trace(toks) {
-    const root = []
-    const stack = [root]
-    const frames = [{ stack: [...stack], popped: [], created: 0, text: null, root, say: 'Start with one container: the root, which <em>is</em> the container for level 1. <code>stack.length === 1</code>.' }]
-    for (const [level, text] of toks) {
-      const popped = []
-      while (stack.length > level) popped.push(stack.pop())
-      const created = []
-      while (stack.length < level) {
-        const child = []
-        stack[stack.length - 1].push(child)
-        stack.push(child)
-        created.push(child)
-      }
-      stack[stack.length - 1].push(text)
-      const parts = []
-      if (popped.length) parts.push(`popped <b>${popped.length}</b> container${popped.length === 1 ? '' : 's'} to get back to level ${level}${popped.length ? ' — and those are now unreachable, which is the point' : ''}`)
-      if (created.length) parts.push(`created <b>${created.length}</b> new list${created.length === 1 ? '' : 's'}, each nested in the one before`)
-      if (!parts.length) parts.push('already at the right level, so neither loop ran')
-      frames.push({
-        stack: [...stack], popped, created: created.length, text,
-        root, say: `Token <code>(${level}, ${JSON.stringify(text)})</code>: ` + parts.join('; ') + `; then appended the text to the innermost container. <code>stack.length</code> is now ${stack.length}.`,
-      })
+  const DESCEND = {
+    child: (parent, child) => child,
+    parent: (parent) => parent,
+    fresh: () => [],
+  }
+
+  /**
+   * The same algorithm, emitting one frame per statement. Containers are given a
+   * stable id the moment they are created, so the tree view and the stack view
+   * can show that an entry in one IS an entry in the other.
+   */
+  function trace(tokens, variant) {
+    const frames = []
+    const ids = new Map()
+    const created = []
+    let next = 0
+    const idOf = (arr) => {
+      if (!ids.has(arr)) { ids.set(arr, next++); created.push(arr) }
+      return ids.get(arr)
     }
+    const root = []
+    idOf(root)
+    const stack = [root]
+
+    const reachable = () => {
+      const seen = new Set()
+      const walk = (a) => { if (seen.has(a)) return; seen.add(a); for (const n of a) if (typeof n !== 'string') walk(n) }
+      walk(root)
+      return seen
+    }
+    const snap = (a) => ({ id: idOf(a), items: a.map((n) => (typeof n === 'string' ? n : snap(n))) })
+
+    const emit = (o) => {
+      const reach = reachable()
+      const held = new Set()
+      for (const c of created) for (const n of c) if (typeof n !== 'string') held.add(n)
+      const orphanRoots = created.filter((c) => !reach.has(c) && !held.has(c))
+      frames.push(Object.assign({
+        tree: snap(root),
+        detached: orphanRoots.map(snap),
+        stack: stack.map(idOf),
+        reachIds: [...reach].map(idOf),
+        tokenIdx: -1,
+      }, o))
+    }
+
+    emit({ line: 'init', say: 'One container exists — the root, <span class="idb">#0</span>, which <em>is</em> the container for level 1. It is both <code>stack[0]</code> and the array that will be returned.' })
+
+    tokens.forEach(([level, text], ti) => {
+      emit({ line: 'loop', tokenIdx: ti, say: `Read <code>(${level}, ${JSON.stringify(text)})</code>. The stack is ${stack.length} deep, so the current level is <b>${stack.length}</b> and the target is <b>${level}</b>.` })
+      emit({ line: 'guard', tokenIdx: ti, say: `<code>${level}</code> is a positive integer, so the guard passes. Rejecting here rather than clamping is also what makes the pop loop provably unable to empty the stack.` })
+
+      let pops = 0
+      while (stack.length > level) {
+        const closed = stack[stack.length - 1]
+        stack.pop()
+        pops++
+        emit({
+          line: 'pop', tokenIdx: ti, closedId: idOf(closed),
+          say: `<code>stack.length ${stack.length + 1} &gt; ${level}</code>, so pop. Container <span class="idb">#${idOf(closed)}</span> is now closed. It is still in the tree where it was built — <b>the stack simply stops holding a handle to it</b>, and that is what makes the next descent create a <em>new</em> sibling rather than reopening this one.`,
+        })
+      }
+      if (pops === 0 && stack.length < level) {
+        emit({ line: 'pop', tokenIdx: ti, say: `<code>stack.length ${stack.length} &gt; ${level}</code> is false, so the pop loop does not run. We are going deeper instead.` })
+      }
+
+      while (stack.length < level) {
+        const parent = stack[stack.length - 1]
+        emit({
+          line: 'parent', tokenIdx: ti, parentId: idOf(parent), focusId: idOf(parent),
+          say: `<code>stack.length ${stack.length} &lt; ${level}</code>, so descend once. <code>parent</code> is the container on top: <span class="idb">#${idOf(parent)}</span>.`,
+        })
+        const child = []
+        idOf(child)
+        emit({
+          line: 'create', tokenIdx: ti, childId: idOf(child), freshId: idOf(child), focusId: idOf(child),
+          say: `A new empty container <span class="idb">#${idOf(child)}</span> exists, but <b>nothing points at it yet</b> — it is neither in the tree nor on the stack. It shows below the stack, under "not reachable from the root".`,
+        })
+        parent.push(child)
+        emit({
+          line: 'link', tokenIdx: ti, childId: idOf(child), parentId: idOf(parent), freshId: idOf(child), focusId: idOf(child),
+          say: `<code>parent.push(child)</code> — <span class="idb">#${idOf(child)}</span> is now nested inside <span class="idb">#${idOf(parent)}</span>. It has moved into the tree. The stack has not changed, so the top is still <span class="idb">#${idOf(parent)}</span>.`,
+        })
+        const pushed = DESCEND[variant](parent, child)
+        idOf(pushed)
+        stack.push(pushed)
+        const ok = pushed === child
+        const explain = variant === 'child'
+          ? `<code>stack.push(child)</code> — the stack now holds <span class="idb">#${idOf(child)}</span>, <b>the same array the tree holds</b>. Two references, one object. Everything appended through the stack from now on lands inside the tree automatically.`
+          : variant === 'parent'
+            ? `<code>stack.push(parent)</code> pushed <span class="idb">#${idOf(parent)}</span> — the container you just linked <em>into</em>, not the one you created. <code>stack.length</code> still grew, so the loop still terminates and nothing throws. But the top of the stack is the parent again, and <span class="idb">#${idOf(child)}</span> will never be written to: it stays in the tree as an empty list.`
+            : `<code>stack.push([])</code> pushed a brand-new <span class="idb">#${idOf(pushed)}</span>. It is <b>not</b> the array you linked into the tree, and nothing in the tree points at it. Anything appended to it is unreachable from the root, and the next <code>pop</code> drops the last reference to it entirely.`
+        emit({
+          line: 'push', tokenIdx: ti, childId: idOf(child), pushedId: idOf(pushed), identityOk: ok,
+          focusId: idOf(pushed), say: explain,
+        })
+      }
+
+      const top = stack[stack.length - 1]
+      top.push(text)
+      const inTree = reachable().has(top)
+      emit({
+        line: 'append', tokenIdx: ti, topId: idOf(top), justText: text, focusId: idOf(top),
+        say: `<code>stack[stack.length - 1].push(${JSON.stringify(text)})</code> — the text goes into <span class="idb">#${idOf(top)}</span>. ` +
+          (inTree
+            ? 'That container is inside the tree, so the text is already part of the result — nothing has to be copied back.'
+            : '<b>That container is not reachable from the root</b>, so this text is not in the result at all. It has been written into an object that will be garbage as soon as the stack pops.'),
+      })
+    })
+
+    emit({
+      line: 'done', tokenIdx: tokens.length,
+      say: `<b>Done.</b> <code>return root</code> — and the result is whatever the tree already is, because every append happened through a handle into it.`,
+    })
     return frames
   }
 
+  let frames = trace(SCEN[sel.value], varSel.value)
+
+  function nestSnap(node, o) {
+    const draw = (n, depth) => {
+      const box = h('div', {
+        class: 'list d' + (depth % 4)
+          + (o.stackIds.includes(n.id) ? ' open' : '')
+          + (n.id === o.freshId ? ' fresh' : '')
+          + (o.detached ? ' detached' : ''),
+      })
+      box.appendChild(h('span', { class: 'idb' + (o.detached ? ' off' : ''), text: '#' + n.id }))
+      if (n.items.length === 0) box.appendChild(h('span', { class: 'empty', text: '(empty)' }))
+      for (const item of n.items) {
+        if (typeof item === 'string') box.appendChild(h('span', { class: 'txt' + (item === o.justText ? ' new' : ''), text: JSON.stringify(item) }))
+        else box.appendChild(draw(item, depth + 1))
+      }
+      return box
+    }
+    return draw(node, 0)
+  }
+
   function render(i) {
-    // Recompute from scratch so the drawn tree matches the frame exactly.
-    const frames = trace(tokens.slice(0, i))
-    const f = frames[frames.length - 1]
-    mount('tokens', table(['', 'level', 'text'], tokens.map((t, k) => ({
-      cells: [{ t: k < i ? '✓' : k === i ? '→' : '' }, { t: String(t[0]), cls: 'mono' }, { t: JSON.stringify(t[1]), cls: 'mono' }],
+    const f = frames[Math.min(i, frames.length - 1)]
+    const toks = SCEN[sel.value]
+
+    mount('tokens', table(['', 'level', 'text'], toks.map((t, k) => ({
+      cells: [
+        { t: k < f.tokenIdx ? '✓' : k === f.tokenIdx ? '→' : '' },
+        { t: String(t[0]), cls: 'mono' },
+        { t: JSON.stringify(t[1]), cls: 'mono' },
+      ],
     }))))
+
+    // the stack, with identity called out
     const st = $('stack')
     st.textContent = ''
-    f.stack.forEach((list, idx) => {
-      st.appendChild(h('div', { class: 'lv' + (idx === f.stack.length - 1 ? ' top' : '') }, [
-        h('span', { class: 'n', text: `stack[${idx}] — the open container for level ${idx + 1}   ` }),
-        h('span', { text: show(list) }),
-      ]))
+    if (f.stack.length === 0) st.appendChild(h('div', { class: 'empty', text: 'empty' }))
+    f.stack.forEach((id, idx) => {
+      const dup = f.stack.indexOf(id) !== idx
+      const inTree = f.reachIds.includes(id)
+      const row = h('div', { class: 'lv' + (idx === f.stack.length - 1 ? ' top' : '') + (dup || !inTree ? ' dup' : '') }, [
+        h('span', { class: 'n', text: `stack[${idx}]  ` }),
+        h('span', { class: 'idb' + (inTree ? '' : ' off'), text: '#' + id }),
+        h('span', { text: idx === f.stack.length - 1 ? '← top' : '' }),
+      ])
+      if (dup) row.appendChild(h('span', { class: 'tag bad', text: `the same object as stack[${f.stack.indexOf(id)}]` }))
+      if (!inTree) row.appendChild(h('span', { class: 'tag bad', text: 'not in the tree' }))
+      st.appendChild(row)
     })
-    f.popped.forEach((list) => {
-      st.appendChild(h('div', { class: 'lv popped' }, [h('span', { class: 'n', text: 'just popped — unreachable   ' }), h('span', { text: show(list) })]))
-    })
-    mount('out', nest(f.root, { justAdded: f.text, openList: f.stack }))
-    $('log').innerHTML = f.say + (i === tokens.length && tokens.length ? `<br><b>Result:</b> <code>${show(f.root)}</code>` : '')
-    highlight('code', i === 0 ? ['init'] : ['loop', f.popped.length ? 'pop' : null, f.created ? 'push' : null, 'append'].filter(Boolean))
+
+    // anything created but unreachable from the root
+    const orph = $('orphans')
+    orph.textContent = ''
+    if (f.detached.length) {
+      orph.appendChild(h('div', { class: 'stack-title', text: 'not reachable from the root' }))
+      const wrap = h('div', { class: 'nest' })
+      for (const d of f.detached) wrap.appendChild(nestSnap(d, { stackIds: f.stack, freshId: f.freshId, justText: f.justText, detached: true }))
+      orph.appendChild(wrap)
+    }
+
+    mount('out', nestSnap(f.tree, { stackIds: f.stack, freshId: f.freshId, justText: f.justText }))
+
+    const log = $('log')
+    const bad = f.line === 'push' && f.identityOk === false
+    log.className = 'log' + (bad ? ' bad' : f.line === 'push' ? ' ok' : '')
+    log.innerHTML = f.say + (f.line === 'push'
+      ? `<br><code>stack[stack.length - 1] === child</code> → <span class="pill ${f.identityOk ? 'ok' : 'bad'}">${f.identityOk}</span>`
+      : '')
+    highlight('code', [f.line])
   }
 
   const step = stepper(
     { reset: 'btn-reset', step: 'btn-step', back: 'btn-back', play: 'btn-play', counter: 'step-counter' },
-    () => tokens.length, render, { interval: 1300 },
+    () => frames.length - 1, render, { interval: 1100 },
   )
-  sel.addEventListener('change', () => { tokens = SCEN[sel.value]; step.reset() })
-  step.draw()
+  function rebuild() {
+    frames = trace(SCEN[sel.value], varSel.value)
+    for (const ln of document.querySelectorAll('#code .ln[data-v]')) ln.hidden = ln.dataset.v !== varSel.value
+    step.reset()
+  }
+  sel.addEventListener('change', rebuild)
+  varSel.addEventListener('change', rebuild)
+  rebuild()
+
+  /* ---------- 1b: aliasing, and the three descent lines ---------- */
+  function aliasSvg() {
+    const g = V.svgRoot(660, 210, 'canvas plain')
+    const box = (x, y, w, hh, fill, stroke, label, sub) => {
+      g.appendChild(V.s('rect', { x, y, width: w, height: hh, rx: 8, fill, stroke, 'stroke-width': 1.6 }))
+      g.appendChild(V.s('text', { x: x + 10, y: y + 20, 'font-size': 12, 'font-family': 'ui-monospace, Menlo, monospace', fill: 'var(--ink)', text: label }))
+      if (sub) g.appendChild(V.s('text', { x: x + 10, y: y + 38, 'font-size': 10.5, fill: 'var(--muted)', text: sub }))
+    }
+    g.appendChild(V.s('text', { x: 4, y: 14, fill: 'var(--muted)', 'font-size': 12, text: 'after parent.push(child) and stack.push(child)' }))
+    box(4, 24, 250, 52, 'var(--row0)', 'var(--accent)', 'the tree', 'root #0 contains #1')
+    box(4, 132, 250, 52, 'var(--row1)', 'var(--accent)', 'the stack', 'stack[1] holds #1')
+    box(390, 78, 250, 52, 'var(--panel)', 'var(--ok)', 'one array — #1', 'created once, referenced twice')
+    g.appendChild(V.s('path', { d: 'M 258 50 C 330 50 330 96 386 100', stroke: 'var(--accent)', fill: 'none', 'stroke-width': 1.8 }))
+    g.appendChild(V.s('path', { d: 'M 258 158 C 330 158 330 112 386 108', stroke: 'var(--accent)', fill: 'none', 'stroke-width': 1.8 }))
+    g.appendChild(V.s('text', { x: 300, y: 44, 'font-size': 10.5, fill: 'var(--accent)', text: 'structural' }))
+    g.appendChild(V.s('text', { x: 300, y: 176, 'font-size': 10.5, fill: 'var(--accent)', text: 'a live handle' }))
+    g.appendChild(V.s('text', { x: 4, y: 200, 'font-size': 11.5, fill: 'var(--muted)', text: 'push through the handle and the tree changes, because there is nothing to keep in sync — it is the same object.' }))
+    return g
+  }
+  mount('viz-alias', aliasSvg())
+
+  ;(function variantTable() {
+    const build = (variant) => (tokens) => {
+      const root = []
+      const stack = [root]
+      for (const [level, text] of tokens) {
+        while (stack.length > level) stack.pop()
+        while (stack.length < level) {
+          const parent = stack[stack.length - 1]
+          const child = []
+          parent.push(child)
+          stack.push(DESCEND[variant](parent, child))
+        }
+        stack[stack.length - 1].push(text)
+      }
+      return root
+    }
+    // The drill's own part-1 expectations, verbatim.
+    const CASES = [
+      [[[1, 'food'], [4, 'banana']], ['food', [[['banana']]]]],
+      [[[1, 'a'], [2, 'b'], [2, 'c'], [1, 'd']], ['a', ['b', 'c'], 'd']],
+      [[], []],
+      [[[1, 'a'], [2, 'b'], [1, 'c'], [2, 'd']], ['a', ['b'], 'c', ['d']]],
+      [[[1, 'a'], [3, 'b'], [2, 'c']], ['a', [['b'], 'c']]],
+      [[[1, 'x'], [2, 'x'], [1, 'y']], ['x', ['x'], 'y']],
+      [[[1, 'a'], [1, 'b'], [1, 'c']], ['a', 'b', 'c']],
+    ]
+    const texts = (n) => (typeof n === 'string' ? [n] : n.flatMap(texts))
+    const probe = [[1, 'a'], [2, 'b'], [3, 'c']]
+    const rows = [
+      ['child', 'stack.push(child)', 'ok'],
+      ['parent', 'stack.push(parent)', 'bad'],
+      ['fresh', 'stack.push([])', 'bad'],
+    ].map(([v, label, tone]) => {
+      const fn = build(v)
+      const pass = CASES.filter(([toks, want]) => JSON.stringify(fn(toks)) === JSON.stringify(want)).length
+      const out = fn(probe)
+      const kept = texts(out)
+      return [
+        { t: label, cls: 'mono' },
+        { t: JSON.stringify(out), cls: 'mono' },
+        { html: kept.length === 3 ? `<span class="pill ok">${JSON.stringify(kept)}</span>` : `<span class="pill bad">${JSON.stringify(kept)}</span>` },
+        { html: pass === CASES.length ? `<span class="pill ok">${pass}/${CASES.length}</span>` : `<span class="pill bad">${pass}/${CASES.length}</span>` },
+      ]
+    })
+    mount('variants', table(
+      ['the descent line', 'result for [(1,"a"), (2,"b"), (3,"c")]', 'texts that survive', "the drill's part-1 tests"],
+      rows,
+    ))
+  })()
 
   /* ---------- 2: the trap ---------- */
   const TRAPS = {
