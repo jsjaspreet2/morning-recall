@@ -967,7 +967,7 @@ This is the interval problem, and the four-clause invariant from §04 B is the w
 **See it move first.** [Runs Over Text](/morning-recall/viz/styled-text.html) draws the runs under
 the characters and lets you drag the range: slice clips and then rebases to zero, and apply splits
 three ways and merges back, with the pre-`normalize` stage shown so the adjacent duplicates are
-visible before they disappear.
+visible before they disappear. It carries parts III and IV too: the three regions of a text replacement drawn before and after `normalize` with the suffix already shifted by the net delta, and a live aliasing audit that shows which output styles the naive `applyStyle` still shares with the input.
 
 **Your first three questions.** Are the ranges guaranteed sorted and non-overlapping on the way in?
 Does applying a style *merge* into what's there or *replace* it? Is a range inclusive or exclusive

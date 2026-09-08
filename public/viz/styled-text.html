@@ -11,7 +11,7 @@
 <body>
 <main>
   <h1>Runs Over Text</h1>
-  <p class="lede">Drill <code>figma-04-styled-text-ranges</code>: what a "style range" is, what slicing does to one, and why applying a style is a three-way split followed by a merge. Drag the range below and watch the runs rebuild.</p>
+  <p class="lede">Drill <code>figma-04-styled-text-ranges</code>: what a "style range" is, what slicing does to one, why applying a style is a three-way split followed by a merge, and then the two follow-ups: editing the text under the runs, and patching an object style without aliasing. Drag the range below and watch the runs rebuild.</p>
   <p class="backlink"><a href="./">All drill visualizations</a> · companion to guide §05 C</p>
 
   <!-- =============================================== -->
@@ -79,6 +79,37 @@
   </div>
 
   <!-- =============================================== -->
+  <h2><span class="k">Part 3</span>Replace text: prefix, replacement, suffix — then shift by the <em>net</em> delta</h2>
+  <p>Now the text itself changes length under the runs. Rebuild in three regions. The <b>prefix</b> is every run clipped to <code>[0, start)</code>; its offsets do not move. The <b>replacement</b> is one run at <code>[start, start + text.length)</code>, emitted only when the text is non-empty. The <b>suffix</b> is every run clipped to <code>[end, ∞)</code>, and every one of its boundaries shifts by <code>delta = replacement.length − (end − start)</code>. Then <code>normalize</code>, because the replacement can join its left neighbour, its right neighbour, both, or neither.</p>
+<pre id="replace-code"><span class="ln" data-l="delta">const delta = replacement.text.length - (end - start)</span><span class="ln" data-l="prefix">for (const r of ranges) if (r.start &lt; start) out.push({ start: r.start, end: Math.min(r.end, start), style: r.style })</span><span class="ln" data-l="repl">if (replacement.text.length &gt; 0) out.push({ start, end: start + replacement.text.length, style: replacement.style })</span><span class="ln" data-l="suffix">for (const r of ranges) if (r.end &gt; end) out.push({ start: Math.max(r.start, end) + delta, end: r.end + delta, style: r.style })</span><span class="ln" data-l="norm">return { text: text.slice(0, start) + replacement.text + text.slice(end), ranges: normalize(out) }</span></pre>
+  <div class="panel">
+    <div class="controls">
+      <label for="repl-text">replacement text</label><input type="text" id="repl-text" value="there" size="12">
+      <label for="repl-style">style</label>
+      <select id="repl-style"><option value="plain">{ }</option><option value="bold">{ bold }</option><option value="italic">{ italic }</option></select>
+      <span class="pill" id="repl-label"></span>
+    </div>
+    <div class="stage-title">input — the window <code>[from, to)</code> is what gets replaced</div>
+    <div class="runwrap"><div id="viz-repl-in"></div></div>
+    <div class="stage-title">the three regions, before <code>normalize</code> — suffix already shifted</div>
+    <div class="runwrap"><div id="viz-repl-split"></div></div>
+    <div class="stage-title">after <code>normalize</code> — the result, with the inserted characters marked</div>
+    <div class="runwrap"><div id="viz-repl-out"></div></div>
+    <p class="caption" id="repl-note"></p>
+  </div>
+  <p class="note"><b>The failure is shifting by the replacement length instead of the delta.</b> It hides whenever the window is empty, because then the two numbers are equal. Set the window to three characters and the replacement to one, and watch the suffix land two positions early if you get it wrong. The second failure is emitting a zero-width run for an empty replacement; <code>normalize</code> would drop it, but the guard says what you mean.</p>
+
+  <!-- =============================================== -->
+  <h2><span class="k">Part 4</span>Patch an object style: <code>applyStyle</code> on a node, plus one clause</h2>
+  <p>When the style becomes a shallow object — <code>{ bold?, italic?, color? }</code> — the split-and-merge is unchanged; the middle piece is <code>{ ...r.style, ...patch }</code>, exactly as in part 2. What the follow-up adds is a rule about <em>identity</em>: <b>no output style may alias an input style, even on runs the patch never touched, and even on the empty-selection no-op.</b> Part 2's <code>applyStyle</code> does not promise that — it pushes untouched runs through by reference — so the node version clones on the way out.</p>
+<pre><span class="ln">function patchTextRangeStyle(node, start, end, patch) {</span><span class="ln">  const ranges = start &gt;= end ? node.ranges : applyStyle(node.ranges, start, end, patch)</span><span class="ln"><span style="color:var(--ok)">  return { text: node.text, ranges: ranges.map((r) => ({ ...r, style: { ...r.style } })) }</span></span><span class="ln">}</span></pre>
+  <div class="panel">
+    <div class="stage-title">aliasing audit, live — the current window and patch, over the current runs</div>
+    <div class="table-wrap"><table id="alias"></table></div>
+    <p class="caption">"Aliases input" means the output run's <code>style</code> is the <em>same object</em> as one in the input, so mutating either would change both. The naive column is what you get by calling part 2's function directly; the drill's tests reject it on the untouched runs and on the empty selection.</p>
+  </div>
+
+  <!-- =============================================== -->
   <h2><span class="k">3</span>Patch, not replace</h2>
   <p><code>{ ...r.style, ...patch }</code> and <code>patch</code> are one keystroke apart and are different features. Applying <b>italic</b> to text that is already bold should give bold italic; replacing would silently strip the bold. Ask which they want — it is one of the three opening questions — and then make the code say the answer.</p>
   <div class="table-wrap"><table id="patchvreplace"></table></div>
@@ -94,6 +125,8 @@
   <div class="say">"Slice clips each run to the window and then rebases it, because the returned runs index into the new string, not the old one."</div>
   <div class="say">"Applying a style is a three-way split — keep left, patch middle, keep right — and then a merge pass. A range strictly inside one run is the case that needs all three, so that's the test I'll write first."</div>
   <div class="say">"I'm treating the style as a patch rather than a replacement, so applying italic to bold text gives both. If you want replace semantics it's one spread to delete."</div>
+  <div class="say">"Replacing text is prefix, replacement, suffix, then normalize. The prefix never moves, the replacement sits at <code>start</code> by definition, and the suffix shifts by the net delta — replacement length minus window length — not by the replacement length."</div>
+  <div class="say">"Patching an object style is the same split and merge with one extra promise: the output shares no style objects with the input, untouched runs and the empty-selection no-op included. So I clone on the way out rather than trusting <code>applyStyle</code> to."</div>
   <p class="note">And the follow-up they reach for when you finish early: <em>"what does this cost?"</em> Both functions are <b>O(n)</b> in the number of runs, not the number of characters — which is the entire reason for the model. If the runs were not guaranteed sorted you would sort first, at <code>O(n log n)</code>, and you should say which you are assuming.</p>
 </main>
 
@@ -150,6 +183,35 @@
       if (hi < r.end) out.push({ start: hi, end: r.end, style: r.style })
     }
     return out
+  }
+
+  /* ---------- parts 3 and 4, verbatim from the solution ---------- */
+  function replaceTextRange(node, start, end, replacement) {
+    const delta = replacement.text.length - (end - start)
+    const out = []
+    for (const r of node.ranges) {
+      if (r.start < start) out.push({ start: r.start, end: Math.min(r.end, start), style: { ...r.style } })
+    }
+    if (replacement.text.length > 0) {
+      out.push({ start, end: start + replacement.text.length, style: { ...replacement.style } })
+    }
+    for (const r of node.ranges) {
+      if (r.end > end) out.push({ start: Math.max(r.start, end) + delta, end: r.end + delta, style: { ...r.style } })
+    }
+    return { text: node.text.slice(0, start) + replacement.text + node.text.slice(end), ranges: normalize(out) }
+  }
+  /** The same body without the final normalize, so the three regions are visible. */
+  function replaceSplitOnly(node, start, end, replacement) {
+    const delta = replacement.text.length - (end - start)
+    const out = []
+    for (const r of node.ranges) if (r.start < start) out.push({ start: r.start, end: Math.min(r.end, start), style: r.style, region: 'prefix' })
+    if (replacement.text.length > 0) out.push({ start, end: start + replacement.text.length, style: replacement.style, region: 'replacement' })
+    for (const r of node.ranges) if (r.end > end) out.push({ start: Math.max(r.start, end) + delta, end: r.end + delta, style: r.style, region: 'suffix' })
+    return out
+  }
+  function patchTextRangeStyle(node, start, end, patch) {
+    const ranges = start >= end ? node.ranges : applyStyle(node.ranges, start, end, patch)
+    return { text: node.text, ranges: ranges.map((r) => ({ ...r, style: { ...r.style } })) }
   }
 
   /* ---------- rendering ---------- */
@@ -216,6 +278,8 @@
   $('p-under').addEventListener('click', () => togglePatch('underline'))
   $('p-reset').addEventListener('click', () => { runs = BASE.map((r) => ({ ...r, style: { ...r.style } })); render() })
   for (const el of [fromEl, toEl]) { el.addEventListener('input', render); el.addEventListener('change', render) }
+  const REPL_STYLES = { plain: {}, bold: { bold: true }, italic: { italic: true } }
+  for (const el of [$('repl-text'), $('repl-style')]) { el.addEventListener('input', render); el.addEventListener('change', render) }
 
   /* ---------- 0: the model picture ---------- */
   mount('viz-model', strip(TEXT, BASE, {
@@ -246,6 +310,7 @@
   ;(function cases() {
     const R = (a, b, st) => ({ start: a, end: b, style: st })
     const show = (rs) => rs.map((r) => `[${r.start},${r.end})${label(r.style)}`).join(' ') || '(none)'
+    const showNode = (n) => `${JSON.stringify(n.text)}  ` + show(n.ranges)
     const rows = [
       ['range strictly inside one run → three runs', show(applyStyle([R(0, 10, {})], 3, 6, { bold: true }))],
       ['merges with an equal neighbour instead of leaving two', show(applyStyle([R(0, 3, { bold: true }), R(3, 10, {})], 3, 6, { bold: true }))],
@@ -254,6 +319,11 @@
       ['covering everything still tiles the string', show(applyStyle([R(0, 4, {}), R(4, 8, { bold: true })], 0, 8, { italic: true }))],
       ['slice inside one run, rebased to 0', show(sliceStyled('hello world', [R(0, 11, { bold: true })], 2, 5).runs)],
       ['slice across runs clips both ends', show(sliceStyled('hello world', [R(0, 5, { bold: true }), R(5, 11, {})], 3, 8).runs)],
+      ['replace to the end, matching style → one run', showNode(replaceTextRange({ text: 'Hello world', ranges: [R(0, 6, {}), R(6, 11, { bold: true })] }, 5, 11, { text: ' there', style: {} }))],
+      ['insert with a different style → three runs', showNode(replaceTextRange({ text: 'Hello', ranges: [R(0, 5, {})] }, 2, 2, { text: '!', style: { bold: true } }))],
+      ['delete the run between two equal runs → they merge', showNode(replaceTextRange({ text: 'abcdef', ranges: [R(0, 2, {}), R(2, 4, { bold: true }), R(4, 6, {})] }, 2, 4, { text: '', style: {} }))],
+      ['suffix shifts by the net delta (+2), not the replacement length (+3)', showNode(replaceTextRange({ text: 'abcdef', ranges: [R(0, 3, {}), R(3, 6, { bold: true })] }, 1, 2, { text: 'XYZ', style: {} }))],
+      ['patch preserves the other keys and merges by value', showNode(patchTextRangeStyle({ text: 'Hello world', ranges: [R(0, 6, { color: 'black' }), R(6, 11, { italic: true, color: 'black' })] }, 0, 11, { bold: true }))],
     ]
     const inputRuns = [R(0, 10, {})]
     const copy = JSON.stringify(inputRuns)
@@ -318,6 +388,43 @@
         (merged > 0 ? `, merging ${merged} adjacent pair${merged === 1 ? '' : 's'} that ended up carrying the same style. Dashed borders in the middle row mark them.` : '. Nothing merged this time — no two neighbours ended up equal.') +
         ' Every run in the result still tiles the string with no gaps.'
     highlight('apply-code', from >= to ? ['guard'] : ['loop', 'ov', 'left', 'mid', 'right', 'norm'])
+
+    // Part 3 — replace
+    const replacement = { text: $('repl-text').value, style: REPL_STYLES[$('repl-style').value] || {} }
+    const node = { text: TEXT, ranges: runs }
+    const delta = replacement.text.length - (to - from)
+    const regions = replaceSplitOnly(node, from, to, replacement)
+    const replaced = replaceTextRange(node, from, to, replacement)
+    const kind = from === to ? (replacement.text ? 'insertion' : 'nothing') : replacement.text ? 'replacement' : 'deletion'
+    $('repl-label').textContent = `${kind}: [${from}, ${to}) → ${JSON.stringify(replacement.text)}   delta ${delta >= 0 ? '+' : ''}${delta}`
+    mount('viz-repl-in', strip(TEXT, runs, { from, to }))
+    mount('viz-repl-split', strip(replaced.text, regions, { patched: regions.filter((r) => r.region === 'replacement') }))
+    mount('viz-repl-out', strip(replaced.text, replaced.ranges, { from, to: from + replacement.text.length }))
+    const suffix = regions.filter((r) => r.region === 'suffix')
+    const mergedR = regions.length - replaced.ranges.length
+    $('repl-note').innerHTML =
+      `Text goes from <b>${TEXT.length}</b> to <b>${replaced.text.length}</b> characters, so <code>delta = ${replacement.text.length} − (${to} − ${from}) = ${delta}</code>. ` +
+      (suffix.length ? `The first suffix piece covered original <code>[${Math.max(runs.find((r) => r.end > to).start, to)}, …)</code> and now starts at <code>${suffix[0].start}</code>. ` : 'No suffix survives — the window reaches the end of the string. ') +
+      (replacement.text ? '' : 'Empty replacement, so no run is emitted for it; the prefix and suffix meet directly. ') +
+      `${regions.length} region${regions.length === 1 ? '' : 's'} before <code>normalize</code>, <b>${replaced.ranges.length}</b> after` +
+      (mergedR > 0 ? ` — ${mergedR} merge${mergedR === 1 ? '' : 's'}, dashed in the middle row.` : ' — nothing merged.')
+    highlight('replace-code', ['delta', 'prefix', replacement.text ? 'repl' : null, 'suffix', 'norm'].filter(Boolean))
+
+    // Part 4 — aliasing audit
+    const inputStyles = new Set(runs.map((r) => r.style))
+    const naive = applyStyle(runs, from, to, patch)
+    const good = patchTextRangeStyle(node, from, to, patch)
+    const touched = (r) => Math.max(r.start, from) < Math.min(r.end, to)
+    mount('alias', table(['output run', 'touched by the window?', 'naive applyStyle: aliases input?', 'patchTextRangeStyle: aliases input?'], good.ranges.map((r, i) => {
+      const n = naive[i]
+      const aliasN = n && inputStyles.has(n.style)
+      return [
+        { t: `[${r.start},${r.end}) ${label(r.style)}`, cls: 'mono' },
+        touched(r) && from < to ? 'yes' : 'no',
+        { html: aliasN ? '<span class="pill bad">yes</span>' : '<span class="pill ok">no</span>' },
+        { html: inputStyles.has(r.style) ? '<span class="pill bad">yes</span>' : '<span class="pill ok">no</span>' },
+      ]
+    })))
   }
 
   // Clicking a character in the input strip applies the current patch, so the
