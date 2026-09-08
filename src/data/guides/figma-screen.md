@@ -656,7 +656,7 @@ the point is to rehearse the *method*, not to have five answers memorized. If yo
 "implement a spreadsheet's fill-down," E is why you'll be fine.
 
 **Every one of these has a visualization.** [Drill Visualizations](/morning-recall/viz/) is an
-index of nine interactive pages, one per drill, each running that drill's own reference code live
+index of ten interactive pages, one per drill, each running that drill's own reference code live
 in the browser — so what you watch is what the tests grade. They are linked from each subsection
 below. **Read one before the first timed rep, or after a rep that went badly — never during.**
 
@@ -1477,7 +1477,9 @@ where the table above says ignore. And the redo stack is cleared **when the draf
 it commits, so an undo that discards the draft cannot bring the redo branch back. `getUsers` returns
 the draft while one is pending, else the committed list. Part 1 of that question, one step per CRUD
 call, is the same class with `commit()` called at the end of every mutator — if your part 1 is not
-shaped that way, part 2 is a rewrite. `figma-10-undoable-database` is the rep.
+shaped that way, part 2 is a rewrite. `figma-10-undoable-database` is the rep, and
+[A Draft, Not a Buffer](/morning-recall/viz/undoable-database.html) steps every one of those choices
+next to drill 2's, with the snapshot history and the draft drawn side by side.
 
 ### D. COALESCING
 
@@ -1884,7 +1886,7 @@ Non-negotiable, or the reps measure the wrong thing:
 | `figma-07-coalescing-history` | 35 | Gesture coalescing, forced boundaries, bounded history | The two follow-ups most likely to arrive if you're fast — §06 D and §04 F |
 | `figma-08-sealed` | 50 | **Unknown.** | **Do not read it before D-3.** Forces derivation rather than recall — the only rep that measures the method |
 | `figma-09-rich-text-levels` | 30 | Leveled tokens → nesting, and back | Nine lines of body, so the grade is all in the narration — §05 F |
-| `figma-10-undoable-database` | 30 + 35 | CRUD on records with undo/redo, then a live draft committed as one step | Drill 2 reframed, with the implicit-draft batching variant — §06 C |
+| `figma-10-undoable-database` | 30 + 35 | CRUD on records with undo/redo, then a live draft committed as one step | Drill 2 reframed, with the implicit-draft batching variant — §06 C, and the only drill whose viz runs two models side by side |
 | `figma-01-practice-8-31` | 45 | Drill 1 again, from a blank file | The hints are stripped out on purpose: regenerating the four things you say before typing *is* the rep |
 
 **Each drill has a visualization**, indexed at [Drill Visualizations](/morning-recall/viz/) and

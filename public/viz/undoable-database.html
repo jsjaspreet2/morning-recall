@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="../favicon.svg">
+<link rel="stylesheet" href="viz.css">
+<title>A Draft, Not a Buffer</title>
+</head>
+<body>
+<main>
+  <h1>A Draft, Not a Buffer</h1>
+  <p class="lede">Drill <code>figma-10-undoable-database</code>: drill 2's mechanism reframed as CRUD on records, and then a batch whose three hardest semantics are answered the other way — the draft starts on its own, undo <em>discards</em> it, and redo dies the moment it opens.</p>
+  <p class="backlink"><a href="./">All drill visualizations</a> · companion to guide §06 C · previous: <a href="undo-redo-batch.html">Two Stacks and a Buffer</a></p>
+
+  <!-- =============================================== -->
+  <h2><span class="k">0</span>Part 1 is part 2 with <code>commit()</code> inlined</h2>
+  <p>Both classes have the same three mutators and the same history. The only difference is <em>when</em> the next list becomes a history entry. In part 1 every successful call commits itself. In part 2 the call writes a draft, and <code>commit()</code> is a separate, public step. If your part 1 is shaped like the left panel, part 2 is a rename and one new method.</p>
+  <div class="grid2">
+    <div class="panel">
+      <div class="stack-title">part 1 — Database</div>
+<pre><span class="ln">addUser(user) {</span><span class="ln">  this.commit(nextUsers(this.current, 'add', user.id, user))</span><span class="ln">}</span><span class="ln">private commit(next) {</span><span class="ln">  if (next === null) return               // no-op: not a step</span><span class="ln">  this.history = this.history.slice(0, this.index + 1)</span><span class="ln">  this.history.push(next)</span><span class="ln">  this.index++</span><span class="ln">}</span></pre>
+    </div>
+    <div class="panel">
+      <div class="stack-title">part 2 — DraftDatabase</div>
+<pre><span class="ln">addUser(user) {</span><span class="ln"><span style="color:var(--ok)">  this.edit(nextUsers(this.current, 'add', user.id, user))</span></span><span class="ln">}</span><span class="ln"><span style="color:var(--ok)">private edit(next) {</span></span><span class="ln">  if (next === null) return               // no-op: no draft</span><span class="ln"><span style="color:var(--ok)">  if (this.draft === null)                 // the draft STARTS here</span></span><span class="ln">    this.history = this.history.slice(0, this.index + 1)</span><span class="ln"><span style="color:var(--ok)">  this.draft = next</span></span><span class="ln">}</span><span class="ln"><span style="color:var(--ok)">commit() {</span></span><span class="ln"><span style="color:var(--ok)">  if (this.draft === null) return</span></span><span class="ln">  this.history.push(this.draft)</span><span class="ln">  this.index++</span><span class="ln"><span style="color:var(--ok)">  this.draft = null</span></span><span class="ln">}</span></pre>
+    </div>
+  </div>
+  <p class="note">The <code>slice</code> that clears redo moved from <code>commit</code> to the <em>first edit</em>. That one move is what makes the rest of the semantics fall out — see section 1.</p>
+
+  <!-- =============================================== -->
+  <h2><span class="k">1</span>Three rows answered the other way</h2>
+  <p>The batching table from drill 2 has a column of choices. This prompt picks differently on three of them, and it is worth being able to argue either side because the interviewer may be holding either.</p>
+  <div class="table-wrap"><table id="diff"></table></div>
+
+  <!-- =============================================== -->
+  <h2><span class="k">2</span>Step through it</h2>
+  <div class="panel">
+    <div class="controls">
+      <label for="scenario">Scenario</label>
+      <select id="scenario"></select>
+      <button id="btn-reset">Reset</button>
+      <button id="btn-back">← Back</button>
+      <button id="btn-step" class="primary">Step →</button>
+      <button id="btn-play">Play</button>
+      <span class="note" id="step-counter"></span>
+    </div>
+    <div class="grid2">
+      <div>
+        <div class="stack-title">Calls</div>
+        <div class="table-wrap"><table id="calls"></table></div>
+      </div>
+      <div>
+        <div class="stack-title" id="users-title">getUsers()</div>
+        <div class="kv" id="users"></div>
+      </div>
+    </div>
+    <div class="grid2" style="margin-top:14px">
+      <div><div class="stack-title">history — snapshots, index marks the visible one</div><div class="stack" id="history"></div></div>
+      <div><div class="stack-title">draft</div><div class="stack" id="draft"></div></div>
+    </div>
+    <div class="log" id="log"></div>
+<pre id="code" style="margin-top:12px"><span class="ln" data-l="edit">private edit(next) {</span><span class="ln" data-l="noop">  if (next === null) return                          // no-op: nothing starts, nothing clears</span><span class="ln" data-l="start">  if (this.draft === null) this.history = this.history.slice(0, this.index + 1)   // draft starts; redo dies NOW</span><span class="ln" data-l="draft">  this.draft = next</span><span class="ln" data-l="edit">}</span><span class="ln" data-l="commit">commit() {</span><span class="ln" data-l="commitnoop">  if (this.draft === null) return                    // nothing pending: not a step</span><span class="ln" data-l="push">  this.history.push(this.draft); this.index++</span><span class="ln" data-l="push">  this.draft = null</span><span class="ln" data-l="commit">}</span><span class="ln" data-l="undo">undo() {</span><span class="ln" data-l="discard">  if (this.draft !== null) { this.draft = null; return }   // DISCARD the draft; history untouched</span><span class="ln" data-l="undoidx">  if (this.index > 0) this.index--</span><span class="ln" data-l="undo">}</span><span class="ln" data-l="redo">redo() {</span><span class="ln" data-l="redoguard">  if (this.draft !== null) return                    // redo was cleared when the draft started</span><span class="ln" data-l="redoidx">  if (this.index < this.history.length - 1) this.index++</span><span class="ln" data-l="redo">}</span><span class="ln" data-l="p1">// part 1: every mutator is  this.edit(next); this.commit()</span></pre>
+  </div>
+
+  <!-- =============================================== -->
+  <h2><span class="k">3</span>Snapshots, priced</h2>
+  <p>This prompt is worded as snapshots — <em>"one committed empty snapshot"</em>, <em>"return the draft list, otherwise the committed list"</em> — so the reference uses them. Drill 1 defaulted to inverse commands. Both pass. The graded sentence is the one that says which you chose and what it would cost to switch.</p>
+  <div class="table-wrap"><table id="models"></table></div>
+  <p class="note">What survives the swap: <code>history</code>, <code>index</code>, <code>undo</code>, <code>redo</code>, <code>commit</code>. What does not: <code>nextUsers</code> becomes three change constructors, and <code>getUsers</code> stops being a lookup. That is the same lesson as drill 1's §06 A, seen from the other side.</p>
+
+  <!-- =============================================== -->
+  <h2><span class="k">4</span>The invariants, checked live</h2>
+  <p>These run in your browser against the reference right now. The first one is the claim in section 0, tested rather than asserted.</p>
+  <div class="table-wrap"><table id="invariants"></table></div>
+
+  <!-- =============================================== -->
+  <h2><span class="k">5</span>Say it out loud</h2>
+  <div class="say">"This is the layers question with records instead of properties. History is a list of snapshots and an index; undo and redo move the index; a successful call truncates everything above the index and pushes. A call that changes nothing does none of that."</div>
+  <div class="say">"Part 2 is part 1 with the commit taken out of the mutators. The first edit after a commit starts the draft, and that is where the redo branch is discarded — not at commit — because once you have edited on top of an older state the branch is already unreachable."</div>
+  <div class="say">"Undo with a draft pending throws the draft away and leaves history alone. That is a different answer from ignoring it, and I'd pick it here because the prompt treats the draft as a dialog the user can cancel. If this were a drag, I'd ignore instead."</div>
+  <div class="say">"I'm using snapshots because the prompt describes them and the list is small. It's O(n) per step; the day that matters I'd swap the three mutators for inverse commands and keep the history code as it is."</div>
+  <p class="note">The three rows in section 1 are the whole difference between this and drill 2. Name them before the interviewer does and the batching part is a conversation, not a test.</p>
+</main>
+
+<script src="viz.js"></script>
+<script>
+(function () {
+  const { h, mount, table, stepper, highlight, fmt, $ } = V
+
+  /* ---------- the drill's reference solution, verbatim in JS ---------- */
+  function shallowEqual(a, b) {
+    const ka = Object.keys(a), kb = Object.keys(b)
+    return ka.length === kb.length && ka.every((k) => a[k] === b[k])
+  }
+  function copyAll(users) { return users.map((u) => ({ ...u })) }
+  function nextUsers(users, op, id, payload) {
+    const i = users.findIndex((u) => u.id === id)
+    switch (op) {
+      case 'add': return [...users, { ...payload }]
+      case 'update': {
+        if (i < 0) return null
+        const merged = { ...users[i], ...payload, id: users[i].id }
+        if (shallowEqual(merged, users[i])) return null
+        return users.map((u, j) => (j === i ? merged : u))
+      }
+      case 'delete':
+        if (i < 0) return null
+        return users.filter((_, j) => j !== i)
+    }
+  }
+
+  class Database {
+    constructor() { this.history = [[]]; this.index = 0 }
+    getUsers() { return copyAll(this.history[this.index]) }
+    addUser(user) { this.commit(nextUsers(this.history[this.index], 'add', user.id, user)) }
+    updateUser(id, updates) { this.commit(nextUsers(this.history[this.index], 'update', id, updates)) }
+    deleteUser(id) { this.commit(nextUsers(this.history[this.index], 'delete', id)) }
+    undo() { if (this.index > 0) this.index-- }
+    redo() { if (this.index < this.history.length - 1) this.index++ }
+    commit(next) {
+      if (next === null) return
+      this.history = this.history.slice(0, this.index + 1)
+      this.history.push(next)
+      this.index++
+    }
+  }
+
+  class DraftDatabase {
+    constructor() { this.history = [[]]; this.index = 0; this.draft = null }
+    get current() { return this.draft ?? this.history[this.index] }
+    getUsers() { return copyAll(this.current) }
+    addUser(user) { this.edit(nextUsers(this.current, 'add', user.id, user)) }
+    updateUser(id, updates) { this.edit(nextUsers(this.current, 'update', id, updates)) }
+    deleteUser(id) { this.edit(nextUsers(this.current, 'delete', id)) }
+    commit() {
+      if (this.draft === null) return
+      this.history.push(this.draft)
+      this.index++
+      this.draft = null
+    }
+    undo() {
+      if (this.draft !== null) { this.draft = null; return }
+      if (this.index > 0) this.index--
+    }
+    redo() {
+      if (this.draft !== null) return
+      if (this.index < this.history.length - 1) this.index++
+    }
+    edit(next) {
+      if (next === null) return
+      if (this.draft === null) this.history = this.history.slice(0, this.index + 1)
+      this.draft = next
+    }
+  }
+
+  /* ---------- 1: the three rows ---------- */
+  mount('diff', table(['situation', 'drill 2 — beginBatch / commitBatch', 'this prompt — a live draft', 'why the prompt can afford it'], [
+    ['how a batch opens', { html: 'an explicit <code>beginBatch()</code>' }, { html: '<b>the first CRUD call</b> after a commit starts the draft' }, 'The draft is the dialog. There is no moment where the user opens a batch on purpose; they just start editing.'],
+    ['undo while it is open', { html: '<b>ignored</b> — history is intermediate' }, { html: '<b>discards the draft</b>; committed history is untouched' }, 'A dialog has a Cancel button. Undo is that button. A drag does not, which is why drill 2 ignores instead.'],
+    ['when redo is cleared', { html: 'at <code>commitBatch()</code>, if non-empty' }, { html: '<b>when the draft starts</b>, before anything is committed' }, 'Otherwise: undo to an old state, start editing, hit undo to cancel, and the old redo branch comes back — onto a document it was never recorded against.'],
+    ['what <code>getUsers</code> shows', { html: 'the document, always — changes apply as they arrive' }, { html: 'the <b>draft</b> while pending, else the committed list' }, 'Same thing in different words: the draft is applied immediately and only history waits.'],
+    ['empty commit', { html: 'not a step' }, { html: 'not a step — <code>commit()</code> with no draft is a no-op' }, 'Unspecified by the prompt. Decide it, say it.'],
+    ['a no-op call', { html: 'neither enters history nor clears redo' }, { html: 'does not start a draft, so does not clear redo' }, 'Unspecified by the prompt. Same rule as part 1, said once.'],
+  ]))
+
+  /* ---------- 3: the models ---------- */
+  mount('models', table(['', 'snapshots (this page)', 'inverse commands (drill 2)'], [
+    ['a history entry is', 'the whole user list', 'one change: (id, before, after), or a list of them'],
+    ['edit cost', 'O(n) — copy the list', 'O(1)'],
+    ['undo / redo cost', 'O(1) — move the index', 'O(change)'],
+    ['memory', 'O(n × depth)', 'O(total change)'],
+    ['what a draft is', 'a list you have not pushed yet', 'a buffer of changes you have not pushed yet'],
+    ['what the no-op check needs', { html: 'a <code>shallowEqual</code> on the merged record' }, { html: 'a <code>before === after</code> check per change' }],
+    ['reach for it when', 'the list is small and the prompt says "snapshot" — and say so', 'by default; and always once n is a real document'],
+  ]))
+
+  /* ---------- 2: the stepper ---------- */
+  const alice = { id: 1, name: 'Alice', role: 'admin' }
+  const S = {
+    'Part 1 — the worked example': { cls: Database, steps: [
+      { c: "addUser({ id: 1, name: 'Alice', role: 'admin' })", op: (d) => d.addUser({ ...alice }), lines: ['p1', 'edit', 'start', 'draft', 'push'], say: 'Part 1 is edit-then-commit in one call. A new snapshot lands above the empty one and the index moves onto it.' },
+      { c: "addUser({ id: 2, name: 'Bob' })", op: (d) => d.addUser({ id: 2, name: 'Bob' }), lines: ['p1', 'push'], say: 'Three snapshots now. Each is a full list — that is the price of this model, and it is fine at this size.' },
+      { c: "updateUser(2, { role: 'editor', active: true })", op: (d) => d.updateUser(2, { role: 'editor', active: true }), lines: ['p1', 'push'], say: 'Two keys merged in one call is <b>one</b> step. The prompt says so explicitly and it is the first thing a per-key design gets wrong.' },
+      { c: 'deleteUser(1)', op: (d) => d.deleteUser(1), lines: ['p1', 'push'], say: 'Alice is gone from the visible snapshot. She is still in the three below it, which is why undo is free.' },
+      { c: 'undo()', op: (d) => d.undo(), lines: ['undo', 'undoidx'], say: 'The index moves down one. Nothing is recomputed, nothing is inverted; the earlier list was never destroyed.' },
+      { c: 'undo()', op: (d) => d.undo(), lines: ['undo', 'undoidx'], say: 'Down again: Bob without his update. The two snapshots above the index are the redo branch.' },
+      { c: 'redo()', op: (d) => d.redo(), lines: ['redo', 'redoidx'], say: 'Up one. The update is back, exactly as recorded.' },
+      { c: "updateUser(2, { role: 'editor' })  — identical", op: (d) => d.updateUser(2, { role: 'editor' }), lines: ['p1', 'noop'], say: 'The merged record equals the stored one, so <code>nextUsers</code> returns null: no snapshot, no index move, and — <b>look at the branch above the index — it survived.</b> A no-op must not clear redo.' },
+      { c: 'redo()', op: (d) => d.redo(), lines: ['redo', 'redoidx'], say: 'Proof: the delete is still there to redo.' },
+    ] },
+    'Part 2 — the worked example': { cls: DraftDatabase, steps: [
+      { c: "addUser({ id: 1, name: 'Alice' })", op: (d) => d.addUser({ id: 1, name: 'Alice' }), lines: ['edit', 'start', 'draft'], say: 'No <code>beginBatch</code>. This call <b>starts the draft</b>, and the visible list is now the draft, not the committed snapshot.' },
+      { c: "updateUser(1, { role: 'admin' })", op: (d) => d.updateUser(1, { role: 'admin' }), lines: ['edit', 'draft'], say: 'The second edit replaces the draft with a newer list. History has not moved.' },
+      { c: 'commit()', op: (d) => d.commit(), lines: ['commit', 'push'], say: 'Two edits, <b>one</b> snapshot. The draft closes.' },
+      { c: "addUser({ id: 2, name: 'Bob' })", op: (d) => d.addUser({ id: 2, name: 'Bob' }), lines: ['edit', 'start', 'draft'], say: 'A new draft opens on top of the committed list.' },
+      { c: 'deleteUser(1)', op: (d) => d.deleteUser(1), lines: ['edit', 'draft'], say: 'Alice is gone from the draft. <code>getUsers()</code> shows only Bob.' },
+      { c: 'undo()  — with a draft pending', op: (d) => d.undo(), lines: ['undo', 'discard'], say: '<b>The draft is discarded.</b> The index did not move; the committed Alice is simply visible again. Drill 2 would have ignored this call.' },
+      { c: "addUser({ id: 2, name: 'Bob' })", op: (d) => d.addUser({ id: 2, name: 'Bob' }), lines: ['edit', 'start', 'draft'], say: 'Try again.' },
+      { c: 'commit()', op: (d) => d.commit(), lines: ['commit', 'push'], say: 'Committed as one step.' },
+      { c: 'undo()', op: (d) => d.undo(), lines: ['undo', 'undoidx'], say: 'No draft pending, so this is an ordinary undo: the index steps down and Bob is gone.' },
+      { c: 'redo()', op: (d) => d.redo(), lines: ['redo', 'redoidx'], say: 'And back.' },
+    ] },
+    'Undo discards the draft; the next undo pops history': { cls: DraftDatabase, steps: [
+      { c: 'addUser({ id: 1 })', op: (d) => d.addUser({ id: 1 }), lines: ['edit', 'start', 'draft'], say: 'Draft opens.' },
+      { c: 'commit()', op: (d) => d.commit(), lines: ['commit', 'push'], say: 'One committed step.' },
+      { c: 'addUser({ id: 2 })', op: (d) => d.addUser({ id: 2 }), lines: ['edit', 'start', 'draft'], say: 'Second draft opens. Visible list: 1 and 2.' },
+      { c: 'undo()', op: (d) => d.undo(), lines: ['undo', 'discard'], say: 'First undo: <b>draft only</b>. History still has its two snapshots and the index has not moved. Visible list: just 1.' },
+      { c: 'undo()', op: (d) => d.undo(), lines: ['undo', 'undoidx'], say: 'Second undo: no draft, so the index moves. Visible list: empty. Two undos, two different meanings — say that.' },
+      { c: 'redo()', op: (d) => d.redo(), lines: ['redo', 'redoidx'], say: 'Redo brings back the committed step, not the discarded draft. The draft was never history.' },
+    ] },
+    'Redo dies when the draft starts, not at commit': { cls: DraftDatabase, steps: [
+      { c: 'addUser({ id: 1 })', op: (d) => d.addUser({ id: 1 }), lines: ['edit', 'start', 'draft'], say: 'Draft opens.' },
+      { c: 'commit()', op: (d) => d.commit(), lines: ['commit', 'push'], say: 'Committed.' },
+      { c: 'undo()', op: (d) => d.undo(), lines: ['undo', 'undoidx'], say: 'Index back to the empty snapshot. The snapshot with user 1 is now the redo branch.' },
+      { c: 'addUser({ id: 2 })', op: (d) => d.addUser({ id: 2 }), lines: ['edit', 'start', 'draft'], say: '<b>The draft starts and the redo branch is gone</b> — the <code>slice</code> ran before anything was committed. Watch the ghost card.' },
+      { c: 'undo()  — discards the draft', op: (d) => d.undo(), lines: ['undo', 'discard'], say: 'Cancel the draft.' },
+      { c: 'redo()', op: (d) => d.redo(), lines: ['redo', 'redoidx'], say: '<b>Nothing to redo.</b> Had the clear waited for commit, user 1 would come back here — restored onto a state the user had already edited on top of, then cancelled. That is the bug the early clear prevents.' },
+    ] },
+    'Commit with nothing pending, and no-op edits': { cls: DraftDatabase, steps: [
+      { c: 'addUser({ id: 1, name: "A" })', op: (d) => d.addUser({ id: 1, name: 'A' }), lines: ['edit', 'start', 'draft'], say: 'Draft opens.' },
+      { c: 'commit()', op: (d) => d.commit(), lines: ['commit', 'push'], say: 'Committed.' },
+      { c: 'commit()  — nothing pending', op: (d) => d.commit(), lines: ['commit', 'commitnoop'], say: 'No draft, so <b>not a step</b>. Unspecified by the prompt; this is the choice to say out loud. Pushing an empty step would give the user an undo that appears to do nothing.' },
+      { c: 'undo()', op: (d) => d.undo(), lines: ['undo', 'undoidx'], say: 'Back to empty — one undo, because the stray commit did not count.' },
+      { c: 'updateUser(1, { name: "A" })  — missing id', op: (d) => d.updateUser(1, { name: 'A' }), lines: ['edit', 'noop'], say: 'User 1 is not in the visible list, so the call is unsuccessful: <b>no draft starts</b>, and the redo branch above the index is still there.' },
+      { c: 'redo()', op: (d) => d.redo(), lines: ['redo', 'redoidx'], say: 'Proof: the committed step comes back.' },
+      { c: 'updateUser(1, { name: "A" })  — identical', op: (d) => d.updateUser(1, { name: 'A' }), lines: ['edit', 'noop'], say: 'Same values as stored: <code>nextUsers</code> returns null, no draft opens.' },
+      { c: 'commit()', op: (d) => d.commit(), lines: ['commit', 'commitnoop'], say: 'Still nothing pending, still not a step.' },
+    ] },
+  }
+
+  const sel = $('scenario')
+  Object.keys(S).forEach((k) => sel.appendChild(h('option', { value: k, text: k })))
+  let scenario = S[sel.value]
+
+  function runTo(i) {
+    const d = new scenario.cls()
+    for (let k = 0; k < i; k++) scenario.steps[k].op(d)
+    return d
+  }
+
+  const listText = (users) => users.length ? users.map((u) => u.id + (u.name ? ':' + u.name : '')).join(', ') : '(empty)'
+
+  function fillHistory(d, ghosts) {
+    const st = $('history')
+    st.textContent = ''
+    d.history.forEach((users, k) => {
+      const cls = 'card' + (k === d.index ? ' top' : k > d.index ? ' redo' : '')
+      st.appendChild(h('div', { class: cls }, [
+        h('div', { class: 'cid', text: `#${k}${k === d.index ? '  ← index (visible)' : k > d.index ? '  redo branch' : ''}` }),
+        h('div', { text: listText(users) }),
+      ]))
+    })
+    ;(ghosts || []).forEach((users) => {
+      st.appendChild(h('div', { class: 'card redo ghost' }, [h('div', { class: 'cid', text: 'discarded' }), h('div', { text: listText(users) })]))
+    })
+  }
+
+  function fillDraft(d) {
+    const st = $('draft')
+    st.textContent = ''
+    if (!('draft' in d)) { st.appendChild(h('div', { class: 'empty', text: 'part 1 has no draft: every call commits itself' })); return }
+    if (d.draft === null) { st.appendChild(h('div', { class: 'empty', text: 'none pending (this.draft === null)' })); return }
+    st.appendChild(h('div', { class: 'card batch top' }, [h('div', { class: 'cid', text: 'pending — getUsers() returns this' }), h('div', { text: listText(d.draft) })]))
+  }
+
+  function renderUsers(d) {
+    const wrap = h('div')
+    const users = d.getUsers()
+    if (users.length === 0) { wrap.appendChild(h('div', { class: 'none', text: '[]' })); return wrap }
+    for (const u of users) {
+      const l = h('div', { class: 'layer' }, h('h4', { text: `id: ${fmt(u.id)}` }))
+      for (const k of Object.keys(u)) if (k !== 'id') l.appendChild(h('div', { class: 'prop' }, [h('span', { class: 'k', text: k }), h('span', { text: fmt(u[k]) })]))
+      wrap.appendChild(l)
+    }
+    return wrap
+  }
+
+  function render(i) {
+    const d = runTo(i)
+    const prev = i > 0 ? runTo(i - 1) : null
+    const ghosts = prev && prev.history.length > d.history.length ? prev.history.slice(d.history.length) : []
+    mount('calls', table(null, scenario.steps.map((st, k) => ({ cells: [{ t: k < i ? '✓' : k === i ? '→' : '' }, { t: st.c, cls: 'mono' }] }))))
+    $('users-title').textContent = 'getUsers()' + ('draft' in d && d.draft !== null ? ' — showing the draft' : ' — showing history[index]')
+    mount('users', renderUsers(d))
+    fillHistory(d, ghosts)
+    fillDraft(d)
+    const log = $('log')
+    log.className = 'log'
+    if (i === 0) { log.innerHTML = 'Fresh instance: one committed empty snapshot, index 0. Press <b>Step</b>.'; highlight('code', []) }
+    else { log.innerHTML = scenario.steps[i - 1].say; highlight('code', scenario.steps[i - 1].lines) }
+  }
+
+  const step = stepper(
+    { reset: 'btn-reset', step: 'btn-step', back: 'btn-back', play: 'btn-play', counter: 'step-counter' },
+    () => scenario.steps.length, render, { interval: 1400 },
+  )
+  sel.addEventListener('change', () => { scenario = S[sel.value]; step.reset() })
+  step.draw()
+
+  /* ---------- 4: invariants ---------- */
+  ;(function invariants() {
+    const results = []
+    const check = (name, fn) => { let ok = false, note = ''; try { ok = fn() } catch (e) { note = e.message } results.push([name, ok, note]) }
+    const rnd = (n) => (Math.random() * n) | 0
+    const randomOp = () => {
+      const o = ['add', 'add', 'update', 'delete', 'undo', 'redo'][rnd(6)]
+      const id = 1 + rnd(3)
+      if (o === 'add') return (d) => d.addUser({ id, name: 'u' + id })
+      const role = ['a', 'b'][rnd(2)]
+      if (o === 'update') return (d) => d.updateUser(id, { role })
+      if (o === 'delete') return (d) => d.deleteUser(id)
+      if (o === 'undo') return (d) => d.undo()
+      return (d) => d.redo()
+    }
+    const same = (a, b) => JSON.stringify(a.getUsers()) === JSON.stringify(b.getUsers())
+
+    check('1. part 1 ≡ part 2 with commit() after every call — 3000 random scripts', () => {
+      for (let t = 0; t < 3000; t++) {
+        const a = new Database(), b = new DraftDatabase()
+        for (let k = 0; k < 14; k++) {
+          const op = randomOp()
+          op(a); op(b); b.commit()
+          if (!same(a, b) || a.history.length !== b.history.length || a.index !== b.index) return false
+        }
+      }
+      return true
+    })
+    check('2. undo then redo returns an identical list — 3000 random scripts', () => {
+      for (let t = 0; t < 3000; t++) {
+        const d = new DraftDatabase()
+        for (let k = 0; k < 14; k++) { randomOp()(d); if (Math.random() < 0.4) d.commit() }
+        d.commit()
+        if (d.index === 0) continue
+        const before = JSON.stringify(d.getUsers())
+        d.undo(); d.redo()
+        if (JSON.stringify(d.getUsers()) !== before) return false
+      }
+      return true
+    })
+    check('3. a no-op call neither starts a draft nor clears redo', () => {
+      const d = new DraftDatabase()
+      d.addUser({ id: 1, name: 'A' }); d.commit(); d.undo()
+      const len = d.history.length
+      d.updateUser(1, { name: 'A' }); d.deleteUser(9); d.updateUser(9, { x: 1 })
+      return d.draft === null && d.history.length === len
+    })
+    check('4. undo with a draft pending changes neither history nor index', () => {
+      const d = new DraftDatabase()
+      d.addUser({ id: 1 }); d.commit(); d.addUser({ id: 2 })
+      const len = d.history.length, idx = d.index
+      d.undo()
+      return d.draft === null && d.history.length === len && d.index === idx && d.getUsers().length === 1
+    })
+    check('5. redo is empty from the moment a draft starts, even if the draft is then discarded', () => {
+      const d = new DraftDatabase()
+      d.addUser({ id: 1 }); d.commit(); d.undo()
+      if (d.history.length !== 2) return false
+      d.addUser({ id: 2 })
+      if (d.history.length !== 1) return false
+      d.undo(); d.redo()
+      return d.getUsers().length === 0
+    })
+    check('6. getUsers returns a fresh array of fresh objects', () => {
+      const d = new DraftDatabase()
+      d.addUser({ id: 1, name: 'A' })
+      const a = d.getUsers(); a[0].name = 'Z'; a.push({ id: 9 })
+      const b = d.getUsers()
+      return b.length === 1 && b[0].name === 'A' && a !== b && a[0] !== b[0]
+    })
+
+    mount('invariants', table(['invariant', 'result'], results.map(([n, ok, note]) => [
+      { t: n },
+      { html: ok ? '<span class="pill ok">holds</span>' : `<span class="pill bad">FAILS</span> ${note}` },
+    ])))
+  })()
+})()
+</script>
+</body>
+</html>
