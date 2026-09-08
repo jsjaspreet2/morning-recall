@@ -1,5 +1,7 @@
 # Figma Screen — Wed 9/9, 3:00–4:00 PT
 
+*Last updated Sun 9/7.*
+
 > One hour, one interviewer, one **multi-part** coding problem in CoderPad. You pick the language.
 > **No AI tools.** Camera on, no filters. This guide is the twelve-day plan, the round script, and
 > the one chapter of material that decides the hour: the mutable document model and its history.
