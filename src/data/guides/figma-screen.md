@@ -89,7 +89,8 @@ these are load-bearing.
 | **High** | *"Pretty standard algorithms and data structures questions, but they are all Figma-flavored."* LeetCode-medium, practical rather than puzzle-shaped. | interviewing.io, quoting a Figma engineer |
 | **High** | At least one candidate found the pad **pre-seeded with a code skeleton and failing tests** for the undo part, and was asked to make them pass before adding redo. Plan for this — see §01 E. | Glassdoor report |
 | **Medium** | **Reading order:** sort objects on a 2-D canvas into reading order, left-to-right and top-to-bottom; the follow-up handles rows whose elements are not perfectly aligned. Reported in 2026 screens. | Multiple aggregators |
-| **Medium** | **Styled text ranges:** slice styled text given text plus style ranges; the follow-up overwrites a range's style and normalizes the result. | GreatFrontend's Figma set |
+| **Medium** | **Styled text ranges:** slice styled text given text plus style ranges; the follow-up overwrites a range's style and normalizes the result. The same set continues to a part III, replace a text range while keeping the ranges in sync, and a part IV, patch a shallow `{ bold, italic, color }` object over a range. | GreatFrontend's Figma set |
+| **Medium** | **Undoable database:** CRUD on user records with undo and redo, one step per call; the follow-up makes every CRUD call edit a live draft that `commit()` records as one step, where undo with a draft pending discards the draft and redo is cleared the moment a draft starts. The same mechanism as the layers question with three of the batching choices made the other way. | GreatFrontend's Figma set |
 | **Medium** | Interviewers actively collaborate — they push on naming, extract helpers with you, and add edge cases mid-solution. Expect the problem to change shape while you are in it. | Interview-guide aggregators |
 | **Low** | Emily Kuhn is a full-stack engineer at Figma; CS at Michigan; previously SurveyMonkey and Minerva Project. Useful only for framing — do not open with it. | LinkedIn and data brokers |
 | **Ignore** | Every "33 Figma interview questions" listicle. Every page whose questions turn out to be about auto layout and prototyping. Claims of a 3-hour or 96-hour take-home — those are not this round and are unsupported for it. | SEO content farms |
@@ -1036,8 +1037,12 @@ function applyStyle(runs: Run[], from: number, to: number, patch: Style): Run[] 
 
 </details>
 
-**The follow-ups:** insert and delete text, where every run after the edit point shifts and a
-deletion can empty a run entirely — the reason `normalize` drops zero-length runs · "remove a
+**The follow-ups:** replace a text range, GreatFrontend's part III, where the prefix stays put, a
+replacement range is emitted only when its text is non-empty, and every suffix boundary shifts by
+the net delta `replacement.length - (end - start)` — a deletion can empty a run entirely, which is
+the reason `normalize` drops zero-length runs · patch a shallow style object, their part IV, which is
+`applyStyle` on a node plus two clauses: an empty selection is a no-op that still returns fresh
+objects, and no output style may alias an input style, untouched runs included · "remove a
 style," which is the same function with a delete instead of a spread · "what if ranges arrive
 overlapping," which is a sweep over boundary events and worth naming even if you don't build it ·
 "how would you store this for a real editor," where the honest answer is that a run list is O(n) per
@@ -1462,6 +1467,16 @@ abort(): void {
 }
 ```
 
+**The implicit-draft variant.** GreatFrontend's Undoable Database II frames the same batch with three
+of the rows above answered the other way, and it is worth having both sets in hand because the
+interviewer may hold either one. There is no `beginBatch`: the first CRUD call after a commit starts
+the draft. `undo` while a draft is pending **discards the draft** and leaves committed history alone,
+where the table above says ignore. And the redo stack is cleared **when the draft starts**, not when
+it commits, so an undo that discards the draft cannot bring the redo branch back. `getUsers` returns
+the draft while one is pending, else the committed list. Part 1 of that question, one step per CRUD
+call, is the same class with `commit()` called at the end of every mutator — if your part 1 is not
+shaped that way, part 2 is a rewrite. `figma-10-undoable-database` is the rep.
+
 ### D. COALESCING
 
 *"If I type ten characters, should undo remove all ten or one?"* Every real editor answers "all
@@ -1861,12 +1876,13 @@ Non-negotiable, or the reps measure the wrong thing:
 | `figma-01-document-undo` | 45 | Layers, key/value props, `apply`, `undo` | The highest-confidence reported question. Do it cold on D-11 before reading anything. |
 | `figma-02-undo-redo-batch` | 40 | Redo · `beginBatch`/`commitBatch` · rollback · nesting | The reported parts 2 and 3, on the same clock |
 | `figma-03-reading-order` | 35 | 2-D sort, then the row sweep | The non-transitive comparator trap, felt rather than read — §05 B |
-| `figma-04-styled-text-ranges` | 40 | Slice, then apply-and-normalize | The four-clause invariant, and the three-way split |
+| `figma-04-styled-text-ranges` | 40 + 45 + 45 | Slice, apply-and-normalize, then `replaceTextRange` and `patchTextRangeStyle` | The four-clause invariant, the three-way split, and the net-length delta on the suffix |
 | `figma-05-layer-tree` | 45 | Group, ungroup, reparent, z-order, cycles | Where the ordered-sequence invariant does real work |
 | `figma-06-command-stream` | 35 | Parse → data → step → checkpoint | The unfamiliar-problem fallback shape — §05 E |
 | `figma-07-coalescing-history` | 35 | Gesture coalescing, forced boundaries, bounded history | The two follow-ups most likely to arrive if you're fast — §06 D and §04 F |
 | `figma-08-sealed` | 50 | **Unknown.** | **Do not read it before D-3.** Forces derivation rather than recall — the only rep that measures the method |
 | `figma-09-rich-text-levels` | 30 | Leveled tokens → nesting, and back | Nine lines of body, so the grade is all in the narration — §05 F |
+| `figma-10-undoable-database` | 30 + 35 | CRUD on records with undo/redo, then a live draft committed as one step | Drill 2 reframed, with the implicit-draft batching variant — §06 C |
 | `figma-01-practice-8-31` | 45 | Drill 1 again, from a blank file | The hints are stripped out on purpose: regenerating the four things you say before typing *is* the rep |
 
 **Each drill has a visualization**, indexed at [Drill Visualizations](/morning-recall/viz/) and
