@@ -1078,85 +1078,105 @@ design tool, not a preference.
 <summary><strong>Model answer — group, ungroup, reparent, paint order</strong></summary>
 
 ```ts
-type Id = string
-type TreeNode = { id: Id; parent: Id | null; children: Id[] | null }  // null children = leaf
+export type Id = string
+type TreeNode = { id: Id; parent: Id | null; children: Id[] | null } // null children = leaf
 
-class Tree {
+/**
+ * A layer document is a tree whose sibling order IS the z-order:
+ * children[0] is the bottom of the stack, the last child is the top.
+ *
+ * Every operation is a splice on one or two children arrays plus a parent
+ * pointer update. The grade is whether the splice lands in the right slot.
+ */
+export class Tree {
   private nodes = new Map<Id, TreeNode>()
-  constructor(rootId: Id) { this.nodes.set(rootId, { id: rootId, parent: null, children: [] }) }
 
-  /** Convention, stated up front: children[0] is the BOTTOM of the z-stack. */
-  group(ids: Id[], groupId: Id): void {
-    if (ids.length === 0) throw new Error('nothing to group')
-    const parents = new Set(ids.map((id) => this.nodes.get(id)!.parent))
-    if (parents.size !== 1) throw new Error('can only group siblings')
-    const parentId = [...parents][0]!
-    const siblings = this.childrenOf(parentId)
-    const members = new Set(ids)
-
-    // The group lands where the topmost member was, so the canvas is unchanged.
-    const top = Math.max(...ids.map((id) => siblings.indexOf(id)))
-    const next: Id[] = []
-    siblings.forEach((cid, i) => {
-      if (members.has(cid)) { if (i === top) next.push(groupId); return }
-      next.push(cid)
-    })
-
-    // Members keep their relative order inside the group -- read it off the parent.
-    const ordered = siblings.filter((cid) => members.has(cid))
-    this.nodes.set(groupId, { id: groupId, parent: parentId, children: ordered })
-    for (const cid of ordered) this.nodes.get(cid)!.parent = groupId
-    siblings.length = 0
-    siblings.push(...next)
+  constructor(rootId: Id) {
+    this.nodes.set(rootId, { id: rootId, parent: null, children: [] })
   }
 
+  add(id: Id, parentId: Id, isContainer = false): void {
+    this.nodes.set(id, { id, parent: parentId, children: isContainer ? [] : null })
+    this.childrenOf(parentId).push(id) // new layers go on top of the stack
+  }
+
+  /** Wrap `ids` in a new group. The group takes the slot of the topmost member. */
+  group(ids: Id[], groupId: Id): void {
+    if (ids.length === 0) throw new Error('nothing to group')
+    const parentId = this.node(ids[0]).parent
+    if (parentId === null) throw new Error('cannot group the root')
+    if (!ids.every((id) => this.node(id).parent === parentId)) throw new Error('can only group siblings')
+
+    const siblings = this.childrenOf(parentId)
+    const members = new Set(ids)
+    // Member order comes from the parent, not from `ids`: the caller passes selection order.
+    const ordered = siblings.filter((id) => members.has(id))
+    const topmost = ordered[ordered.length - 1]
+
+    // The group stands where the topmost member stood; the other members leave the parent.
+    // Any other slot changes what the canvas looks like.
+    this.node(parentId).children = siblings
+      .map((id) => (id === topmost ? groupId : id))
+      .filter((id) => !members.has(id))
+    this.nodes.set(groupId, { id: groupId, parent: parentId, children: ordered })
+    for (const id of ordered) this.node(id).parent = groupId
+  }
+
+  /** Dissolve a group. Its children take its slot, in their existing order. */
   ungroup(groupId: Id): void {
-    const group = this.nodes.get(groupId)
-    if (!group || !group.children) throw new Error(`not a group: ${groupId}`)
+    const group = this.node(groupId)
+    if (!group.children) throw new Error(`not a group: ${groupId}`)
     if (group.parent === null) throw new Error('cannot ungroup the root')
     const siblings = this.childrenOf(group.parent)
-    const at = siblings.indexOf(groupId)
-    for (const cid of group.children) this.nodes.get(cid)!.parent = group.parent
-    siblings.splice(at, 1, ...group.children)   // one splice does remove and insert
+    siblings.splice(siblings.indexOf(groupId), 1, ...group.children) // remove the group, insert its children, one call
+    for (const id of group.children) this.node(id).parent = group.parent
     this.nodes.delete(groupId)
   }
 
+  /** Move `id` under `newParentId` at `index`. The index is read AFTER removal from the old parent. */
   reparent(id: Id, newParentId: Id, index: number): void {
-    if (id === newParentId) throw new Error('cannot parent a node to itself')
-    if (this.isAncestor(id, newParentId)) throw new Error('cannot parent a node into its own subtree')
-    const node = this.nodes.get(id)
-    if (!node || node.parent === null) throw new Error(`cannot move ${id}`)
+    if (id === newParentId || this.isAncestor(id, newParentId)) throw new Error(`cannot move ${id} into its own subtree`)
+    const node = this.node(id)
+    if (node.parent === null) throw new Error('cannot move the root')
+
     const from = this.childrenOf(node.parent)
-    from.splice(from.indexOf(id), 1)            // remove BEFORE computing the insert
+    from.splice(from.indexOf(id), 1) // remove first: when old and new parent are the same, this shifts the indices
     const to = this.childrenOf(newParentId)
-    to.splice(Math.max(0, Math.min(index, to.length)), 0, id)
+    to.splice(Math.min(Math.max(index, 0), to.length), 0, id) // clamp, then insert
     node.parent = newParentId
   }
 
+  /** Leaves in the order a renderer paints them: depth-first, bottom of each stack first. */
+  paintOrder(rootId: Id): Id[] {
+    const node = this.node(rootId)
+    return node.children ? node.children.flatMap((child) => this.paintOrder(child)) : [rootId]
+  }
+
+  childIds(id: Id): Id[] {
+    return [...(this.node(id).children ?? [])]
+  }
+
+  parentOf(id: Id): Id | null {
+    return this.node(id).parent
+  }
+
+  /** Walk up from `of`. True if `maybeAncestor` is on the path to the root. O(depth). */
   private isAncestor(maybeAncestor: Id, of: Id): boolean {
-    let cur: Id | null = this.nodes.get(of)?.parent ?? null
-    while (cur !== null) {
+    for (let cur = this.node(of).parent; cur !== null; cur = this.node(cur).parent) {
       if (cur === maybeAncestor) return true
-      cur = this.nodes.get(cur)!.parent
     }
     return false
   }
 
-  /** Leaves, bottom of the stack first. The order a renderer would paint them. */
-  paintOrder(rootId: Id): Id[] {
-    const out: Id[] = []
-    const walk = (id: Id): void => {
-      const n = this.nodes.get(id)!
-      if (!n.children) { out.push(id); return }
-      for (const c of n.children) walk(c)
-    }
-    walk(rootId)
-    return out
-  }
-
-  private childrenOf(id: Id): Id[] {
+  private node(id: Id): TreeNode {
     const n = this.nodes.get(id)
     if (!n) throw new Error(`no such node: ${id}`)
+    return n
+  }
+
+  /** The live children array of a container, so callers can splice it in place. */
+  private childrenOf(id: Id): Id[] {
+    const n = this.node(id)
     if (!n.children) throw new Error(`${id} is a leaf, not a container`)
     return n.children
   }
