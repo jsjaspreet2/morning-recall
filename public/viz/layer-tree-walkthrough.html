@@ -191,7 +191,7 @@ to.splice(Math.max(0, Math.min(index, to.length)), 0, id)   // then clamp and in
 /* ---------- solution, ported verbatim ---------- */
 class Tree {
   constructor(rootId) { this.nodes = new Map(); this.nodes.set(rootId, { id: rootId, parent: null, children: [] }); this.root = rootId }
-  add(id, parentId, isContainer = false) { this.nodes.set(id, { id, parent: parentId, children: isContainer ? [] : null }); this.childrenOf(parentId).push(id) }
+  add(id, parentId, isContainer = false) { const siblings = this.childrenOf(parentId); this.nodes.set(id, { id, parent: parentId, children: isContainer ? [] : null }); siblings.push(id) }
   group(ids, groupId) {
     if (ids.length === 0) throw new Error('nothing to group')
     const parentId = this.node(ids[0]).parent
@@ -234,8 +234,9 @@ class Tree {
 const SOLUTION_HTML = `<span class="ln">export type Id = string</span><span class="ln">type TreeNode = { id: Id; parent: Id | null; children: Id[] | null } // null children = leaf</span><span class="ln"> </span><span class="ln">/**</span><span class="ln"> * A layer document is a tree whose sibling order IS the z-order:</span><span class="ln"> * children[0] is the bottom of the stack, the last child is the top.</span><span class="ln"> *</span><span class="ln"> * Every operation is a splice on one or two children arrays plus a parent</span><span class="ln"> * pointer update. The grade is whether the splice lands in the right slot.</span><span class="ln"> */</span><span class="ln">export class Tree {</span><span class="ln">  private nodes = new Map&lt;Id, TreeNode&gt;()</span><span class="ln"> </span><span class="blk" data-scope="Tree" data-fn="constructor">  constructor(rootId: Id) {
     this.nodes.set(rootId, { id: rootId, parent: null, children: [] })
   }</span><span class="ln"> </span><span class="blk" data-scope="Tree" data-fn="add">  add(id: Id, parentId: Id, isContainer = false): void {
+    const siblings = this.childrenOf(parentId) // validate first: this throws before anything is written
     this.nodes.set(id, { id, parent: parentId, children: isContainer ? [] : null })
-    this.childrenOf(parentId).push(id) // new layers go on top of the stack
+    siblings.push(id) // new layers go on top of the stack
   }</span><span class="ln"> </span><span class="ln">  /** Wrap \`ids\` in a new group. The group takes the slot of the topmost member. */</span><span class="blk" data-scope="Tree" data-fn="group">  group(ids: Id[], groupId: Id): void {
     if (ids.length === 0) throw new Error(&#x27;nothing to group&#x27;)
     const parentId = this.node(ids[0]).parent

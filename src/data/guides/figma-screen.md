@@ -1096,8 +1096,9 @@ export class Tree {
   }
 
   add(id: Id, parentId: Id, isContainer = false): void {
+    const siblings = this.childrenOf(parentId) // validate first: this throws before anything is written
     this.nodes.set(id, { id, parent: parentId, children: isContainer ? [] : null })
-    this.childrenOf(parentId).push(id) // new layers go on top of the stack
+    siblings.push(id) // new layers go on top of the stack
   }
 
   /** Wrap `ids` in a new group. The group takes the slot of the topmost member. */
