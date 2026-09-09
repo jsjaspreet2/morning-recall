@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Drill 10 — Undoable Database, walkthrough</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #e8ecef;
+    --panel: #ffffff;
+    --ink: #17212b;
+    --muted: #66727f;
+    --line: #cfd6dc;
+    --live: #0f7b78;        /* committed + current */
+    --live-soft: #d6efec;
+    --draft: #b7791f;       /* pending, not yet a step */
+    --draft-soft: #fbeed2;
+    --dead: #9aa6b1;        /* redo-able frames to the right of the index */
+    --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.45; }
+  body { padding: 28px 24px 56px; }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+
+  header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 12px 24px; margin-bottom: 18px; }
+  h1 { font-size: 22px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+  h1 small { font-weight: 400; color: var(--muted); font-size: 15px; margin-left: 10px; }
+  nav { display: flex; gap: 4px; flex-wrap: wrap; }
+  nav button {
+    font: 500 14px var(--sans); color: var(--muted); background: transparent; border: 0;
+    padding: 8px 12px; border-radius: 8px; cursor: pointer;
+  }
+  nav button:hover { color: var(--ink); background: #dfe4e8; }
+  nav button[aria-selected="true"] { color: var(--ink); background: var(--panel); box-shadow: 0 1px 0 var(--line); }
+  nav button:focus-visible, .transport button:focus-visible, select:focus-visible { outline: 2px solid var(--live); outline-offset: 2px; }
+
+  .chapter { display: none; }
+  .chapter.is-active { display: block; }
+
+  /* ---------- prose chapters ---------- */
+  .prose { background: var(--panel); border-radius: 12px; padding: 28px 32px; max-width: 760px; }
+  .prose h2 { font-size: 18px; font-weight: 600; margin: 0 0 12px; }
+  .prose h3 { font-size: 15px; font-weight: 600; margin: 22px 0 6px; }
+  .prose p { margin: 0 0 12px; max-width: 66ch; }
+  .prose pre { font: 13px/1.5 var(--mono); background: #f2f4f6; border-radius: 8px; padding: 12px 14px; overflow-x: auto; margin: 8px 0 14px; }
+  .prose code { font-family: var(--mono); font-size: 0.92em; background: #f2f4f6; padding: 1px 5px; border-radius: 4px; }
+  .prose table { border-collapse: collapse; width: 100%; margin: 8px 0 16px; font-size: 14px; }
+  .prose th, .prose td { text-align: left; vertical-align: top; padding: 8px 10px 8px 0; border-bottom: 1px solid var(--line); }
+  .prose th { font-weight: 600; color: var(--muted); }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .two > div { min-width: 0; }
+  .say { border-left: 3px solid var(--live); padding: 6px 14px; margin: 14px 0; background: var(--live-soft); border-radius: 0 8px 8px 0; }
+  .say p { margin: 0; }
+  @media (max-width: 720px) { .two { grid-template-columns: 1fr; } .prose { padding: 20px; } }
+
+  /* ---------- stage ---------- */
+  .stage { background: var(--panel); border-radius: 12px; padding: 22px 24px 18px; }
+  .call { font: 500 15px/1.4 var(--mono); min-height: 24px; margin-bottom: 18px; white-space: pre-wrap; }
+  .call .fn { color: var(--live); }
+  .call.is-noop .fn { color: var(--muted); }
+
+  .strip-wrap { position: relative; overflow-x: auto; padding: 26px 4px 8px; margin: 0 -4px; }
+  .strip { display: flex; align-items: flex-start; gap: 14px; min-width: max-content; }
+  .frame {
+    position: relative; width: 168px; min-height: 96px; border: 1.5px solid var(--line); border-radius: 10px;
+    background: var(--panel); padding: 10px 12px 26px; transition: border-color .2s, opacity .2s, transform .2s;
+  }
+  .frame.is-current { border-color: var(--live); background: var(--live-soft); }
+  .frame.is-redo { opacity: .55; border-style: dashed; color: var(--dead); }
+  .frame.is-draft { border-color: var(--draft); border-style: dashed; background: var(--draft-soft); margin-left: 12px; }
+  .frame.is-draft.is-current { border-style: solid; }
+  .frame.pulse { animation: pulse .45s ease-out; }
+  @keyframes pulse { 0% { transform: translateY(-4px); } 100% { transform: none; } }
+  .frame .idx {
+    position: absolute; left: 10px; bottom: 6px; font: 12px var(--mono); color: var(--muted);
+  }
+  .frame.is-current .idx { color: var(--live); font-weight: 500; }
+  .frame.is-draft .idx { color: var(--draft); font-weight: 500; }
+  .frame .head {
+    position: absolute; top: -24px; left: 0; font: 500 12px var(--sans); color: var(--live);
+  }
+  .frame .head::before { content: "▼ "; }
+  .frame.is-draft .head { color: var(--draft); }
+  .user { display: flex; gap: 8px; font: 13px/1.35 var(--mono); padding: 2px 0; }
+  .user .id { flex: none; min-width: 16px; text-align: center; font-weight: 500; }
+  .user .props { color: inherit; opacity: .85; word-break: break-word; }
+  .empty { font: italic 13px var(--sans); color: var(--muted); }
+  .frame.is-redo .empty { color: var(--dead); }
+  .gap { width: 0; align-self: stretch; border-left: 1.5px dashed var(--line); margin: 0 2px; }
+
+  .readout { display: flex; gap: 10px; align-items: baseline; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); font: 13.5px var(--mono); }
+  .readout .lbl { color: var(--muted); flex: none; }
+  .readout .val { white-space: pre-wrap; word-break: break-word; }
+  .caption { margin-top: 12px; font-size: 16px; line-height: 1.5; min-height: 3.1em; max-width: 72ch; }
+  .caption b { font-weight: 600; }
+  .caption code { font-family: var(--mono); font-size: .9em; }
+
+  .transport { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+  .transport button {
+    font: 500 14px var(--sans); color: var(--ink); background: var(--panel); border: 1px solid var(--line);
+    padding: 8px 14px; border-radius: 8px; cursor: pointer;
+  }
+  .transport button:hover { border-color: var(--ink); }
+  .transport button:disabled { opacity: .4; cursor: default; border-color: var(--line); }
+  .transport button.play { background: var(--ink); color: #fff; border-color: var(--ink); min-width: 92px; }
+  .transport .count { font: 13px var(--mono); color: var(--muted); margin-left: 6px; }
+  .transport .spacer { flex: 1; }
+  .transport select { font: 14px var(--sans); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; background: var(--panel); color: var(--ink); }
+  .transport label { font-size: 13px; color: var(--muted); }
+  .progress { height: 3px; background: var(--line); border-radius: 2px; margin-top: 10px; overflow: hidden; }
+  .progress i { display: block; height: 100%; background: var(--live); width: 0; transition: width .25s; }
+
+  .transcript { display: none; margin-top: 14px; background: var(--panel); border-radius: 12px; padding: 18px 22px; }
+  .transcript.is-open { display: block; }
+  .transcript ol { margin: 0; padding-left: 22px; }
+  .transcript li { margin: 0 0 10px; max-width: 72ch; }
+  .transcript li code { font: 12.5px var(--mono); display: block; color: var(--muted); margin-bottom: 2px; }
+  .transcript li.is-here { border-left: 3px solid var(--live); margin-left: -12px; padding-left: 9px; }
+  .hint { font-size: 13px; color: var(--muted); margin-top: 10px; }
+  kbd { font: 12px var(--mono); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: #fff; }
+
+  @media (prefers-reduced-motion: reduce) { .frame, .progress i { transition: none; } .frame.pulse { animation: none; } }
+  @media (max-width: 720px) { body { padding: 18px 14px 40px; } .stage { padding: 16px; } .frame { width: 148px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Undoable Database <small>Drill 10, played through</small></h1>
+    <nav role="tablist" aria-label="Chapters">
+      <button role="tab" data-ch="0" aria-selected="true">The model</button>
+      <button role="tab" data-ch="1">Part 1: Database</button>
+      <button role="tab" data-ch="2">Part 2: DraftDatabase</button>
+      <button role="tab" data-ch="3">What to say</button>
+    </nav>
+  </header>
+
+  <!-- ================= chapter 0 ================= -->
+  <section class="chapter is-active prose" data-ch="0">
+    <h2>Say the model before you type</h2>
+    <p>Every undo/redo problem is the same machine: a history, two directions, and one choke point that decides what enters history. The only real decision is what a history entry <em>is</em>.</p>
+
+    <div class="two">
+      <div>
+        <h3>Snapshots</h3>
+        <pre>history: User[][]   // one full list per step
+index:   number     // points at the live one
+
+undo → index--
+redo → index++</pre>
+        <p>Copy the whole list on every edit. Undo and redo are index arithmetic; nothing is ever recomputed.</p>
+      </div>
+      <div>
+        <h3>Inverse commands</h3>
+        <pre>history: { do(), undo() }[]
+index:   number
+
+undo → history[index--].undo()
+redo → history[++index].do()</pre>
+        <p>Store the edit and its reverse. Memory is O(1) per step, but every CRUD method has to know how to invert itself, and a delete has to remember position.</p>
+      </div>
+    </div>
+
+    <div class="say"><p><b>The sentence that is most of the grade:</b> "This prompt is worded as snapshots and the record list is small, so I'll snapshot. That's O(n) per step in time and memory. When the list gets large I'd swap to inverse commands: the history code survives that swap, the three CRUD methods don't."</p></div>
+
+    <h3>The one choke point</h3>
+    <p>Each CRUD method computes the <em>next</em> list, or <code>null</code> when the call would change nothing (missing id, identical patch). Only a non-null list reaches <code>commit</code>. That single guard gives you three checklist items for free: no-ops aren't steps, no-ops don't clear redo, and the id can't change because the merge pins it: <code>{ ...user, ...patch, id: user.id }</code>.</p>
+
+    <pre>function nextUsers(users, op, id, payload): User[] | null {
+  const i = users.findIndex(u => u.id === id)
+  switch (op) {
+    case 'add':    return [...users, { ...payload }]
+    case 'update': if (i &lt; 0) return null
+                   const merged = { ...users[i], ...payload, id: users[i].id }
+                   if (shallowEqual(merged, users[i])) return null
+                   return users.map((u, j) => j === i ? merged : u)
+    case 'delete': if (i &lt; 0) return null
+                   return users.filter((_, j) => j !== i)
+  }
+}</pre>
+    <p>Use the chapter tabs to play each part. Arrow keys step, space plays.</p>
+  </section>
+
+  <!-- ================= chapters 1 & 2 (stage) ================= -->
+  <section class="chapter" data-ch="1" id="stage1"></section>
+  <section class="chapter" data-ch="2" id="stage2"></section>
+
+  <!-- ================= chapter 3 ================= -->
+  <section class="chapter prose" data-ch="3">
+    <h2>What to say out loud</h2>
+
+    <h3>Part 1 in one sentence</h3>
+    <p>"Three CRUD methods each compute a next list or null, and route it through one commit: slice history to <code>index + 1</code>, push, <code>index++</code>. Undo and redo just move the index with bounds guards."</p>
+
+    <h3>Part 2: three semantics that flipped from drill 2</h3>
+    <table>
+      <tr><th>Question</th><th>Drill 2 (layers batch)</th><th>Drill 10 (draft)</th></tr>
+      <tr><td>How does batching begin?</td><td>Explicit <code>beginBatch()</code></td><td>Implicitly, on the first real edit after a commit</td></tr>
+      <tr><td>Undo inside the batch?</td><td>Ignored</td><td>Discards the draft; committed history untouched</td></tr>
+      <tr><td>When does redo die?</td><td>At commit</td><td>When the draft starts, before commit</td></tr>
+    </table>
+    <p>The whole diff between the two classes lives in three places: <code>edit</code> (start the draft and slice history there), <code>undo</code> (draft pending means cancel), and <code>commit</code> (push without slicing, because the slice already happened).</p>
+
+    <pre>private edit(next: User[] | null) {
+  if (next === null) return
+  if (this.draft === null) this.history = this.history.slice(0, this.index + 1)
+  this.draft = next
+}
+commit() { if (this.draft === null) return; this.history.push(this.draft); this.index++; this.draft = null }
+undo()   { if (this.draft !== null) { this.draft = null; return } if (this.index > 0) this.index-- }
+redo()   { if (this.draft !== null) return; if (this.index &lt; this.history.length - 1) this.index++ }</pre>
+
+    <h3>Two things the prompt leaves open: decide and say so</h3>
+    <p>"<code>commit()</code> with nothing pending is a no-op, not a step. A CRUD call that would change nothing doesn't start a draft either. Both follow from the same null guard, and I'd confirm with the interviewer rather than assume."</p>
+
+    <h3>Diff against your figma-01 rep</h3>
+    <p>Part 1 should be Part 2 with <code>commit()</code> called at the end of every CRUD method. If your Part 1 isn't shaped that way, that's the finding from this drill.</p>
+
+    <h3>Copy detail worth one sentence</h3>
+    <p><code>getUsers</code> returns <code>users.map(u => ({ ...u }))</code>: a new array and new objects, so callers can't mutate history through the return value. The test mutates the returned object and asserts the store didn't change.</p>
+  </section>
+</div>
+
+<script>
+/* ---------- the solution, ported verbatim, plus instrumentation ---------- */
+function shallowEqual(a, b) {
+  const ka = Object.keys(a), kb = Object.keys(b)
+  return ka.length === kb.length && ka.every(k => a[k] === b[k])
+}
+const copyAll = users => users.map(u => ({ ...u }))
+function nextUsers(users, op, id, payload) {
+  const i = users.findIndex(u => u.id === id)
+  switch (op) {
+    case 'add': return [...users, { ...payload }]
+    case 'update': {
+      if (i < 0) return null
+      const merged = { ...users[i], ...payload, id: users[i].id }
+      if (shallowEqual(merged, users[i])) return null
+      return users.map((u, j) => (j === i ? merged : u))
+    }
+    case 'delete':
+      if (i < 0) return null
+      return users.filter((_, j) => j !== i)
+  }
+}
+class Database {
+  constructor() { this.history = [[]]; this.index = 0; this.draft = null }
+  getUsers() { return copyAll(this.history[this.index]) }
+  addUser(u) { this.commit(nextUsers(this.history[this.index], 'add', u.id, u)) }
+  updateUser(id, p) { this.commit(nextUsers(this.history[this.index], 'update', id, p)) }
+  deleteUser(id) { this.commit(nextUsers(this.history[this.index], 'delete', id)) }
+  undo() { if (this.index > 0) this.index-- }
+  redo() { if (this.index < this.history.length - 1) this.index++ }
+  commit(next) {
+    if (next === null) return
+    this.history = this.history.slice(0, this.index + 1)
+    this.history.push(next)
+    this.index++
+  }
+}
+class DraftDatabase {
+  constructor() { this.history = [[]]; this.index = 0; this.draft = null }
+  get current() { return this.draft ?? this.history[this.index] }
+  getUsers() { return copyAll(this.current) }
+  addUser(u) { this.edit(nextUsers(this.current, 'add', u.id, u)) }
+  updateUser(id, p) { this.edit(nextUsers(this.current, 'update', id, p)) }
+  deleteUser(id) { this.edit(nextUsers(this.current, 'delete', id)) }
+  commit() { if (this.draft === null) return; this.history.push(this.draft); this.index++; this.draft = null }
+  undo() { if (this.draft !== null) { this.draft = null; return } if (this.index > 0) this.index-- }
+  redo() { if (this.draft !== null) return; if (this.index < this.history.length - 1) this.index++ }
+  edit(next) {
+    if (next === null) return
+    if (this.draft === null) this.history = this.history.slice(0, this.index + 1)
+    this.draft = next
+  }
+}
+
+/* ---------- scripts ---------- */
+const P1 = [
+  { code: `const db = new Database()`,
+    say: `History starts with <b>one committed empty snapshot</b> at index 0. Nothing enters history except through <code>commit</code>.` },
+  { code: `db.addUser({ id: 1, name: 'Alice', role: 'admin' })`, run: d => d.addUser({ id: 1, name: 'Alice', role: 'admin' }),
+    say: `<code>add</code> builds the next list and hands it to <code>commit</code>: slice history to <code>index + 1</code>, push, <code>index++</code>. Exactly one step.` },
+  { code: `db.addUser({ id: 2, name: 'Bob' })`, run: d => d.addUser({ id: 2, name: 'Bob' }),
+    say: `Same path. Each frame on the strip is a full copy of the list. That's the snapshot cost you named up front.` },
+  { code: `db.updateUser(2, { role: 'editor', active: true })`, run: d => d.updateUser(2, { role: 'editor', active: true }),
+    say: `A multi-key patch is one merged object, so one step. The merge pins the id: <code>{ ...user, ...patch, id: user.id }</code>.` },
+  { code: `db.deleteUser(1)`, run: d => d.deleteUser(1),
+    say: `<code>filter</code> out the row, commit the result. Snapshots don't care about position, which is one reason they're cheaper to write than inverse commands.` },
+  { code: `db.undo()`, run: d => d.undo(),
+    say: `<code>undo</code> is <code>index--</code>. Nothing is destroyed. The frame to the right is now the redo stack.` },
+  { code: `db.undo()`, run: d => d.undo(),
+    say: `Again. Two frames to the right, both still redo-able.` },
+  { code: `db.redo()`, run: d => d.redo(),
+    say: `<code>redo</code> is <code>index++</code> with a bounds guard. Bob's update is back.` },
+  { code: `db.updateUser(2, { role: 'editor' })`, run: d => d.updateUser(2, { role: 'editor' }), noop: true,
+    say: `<b>No-op.</b> The merged object is shallow-equal to what's stored, so <code>nextUsers</code> returns <code>null</code> and <code>commit</code> never runs. The redo frame survives.` },
+  { code: `db.deleteUser(99)`, run: d => d.deleteUser(99), noop: true,
+    say: `Missing id: same null. Not a step, and redo history is still intact. One guard, three checklist items.` },
+  { code: `db.redo()`, run: d => d.redo(),
+    say: `Proof: redo still works after those two no-ops.` },
+  { code: `db.undo()`, run: d => d.undo(),
+    say: `Back one, so there's a redo frame to lose.` },
+  { code: `db.addUser({ id: 3, name: 'Cy' })`, run: d => d.addUser({ id: 3, name: 'Cy' }),
+    say: `A real edit after undo. The <code>slice</code> drops the old frame for good and the new one takes its place. This is the only destructive line in Part 1.` },
+  { code: `db.redo()`, run: d => d.redo(), noop: true,
+    say: `At the end of history, redo does nothing. The guard is <code>index &lt; history.length - 1</code>.` },
+]
+
+const P2 = [
+  { code: `const db = new DraftDatabase()`,
+    say: `Same history, same index. One extra slot: <b>draft</b>, <code>null</code> until the first real edit. <code>getUsers</code> reads <code>draft ?? history[index]</code>.` },
+  { code: `db.addUser({ id: 1, name: 'Alice' })`, run: d => d.addUser({ id: 1, name: 'Alice' }),
+    say: `The first edit <b>starts the draft</b>. Two things happen in <code>edit</code>: history is sliced (redo dies <em>now</em>) and <code>draft = next</code>. History itself is unchanged.` },
+  { code: `db.updateUser(1, { role: 'admin' })`, run: d => d.updateUser(1, { role: 'admin' }),
+    say: `A second edit overwrites the draft in place. Still nothing pushed. <code>getUsers</code> shows the draft immediately.` },
+  { code: `db.commit()`, run: d => d.commit(),
+    say: `<code>commit</code> pushes the draft as <b>one frame</b>, bumps the index, clears the draft. No slice here: that already happened when the draft started.` },
+  { code: `db.addUser({ id: 2, name: 'Bob' })`, run: d => d.addUser({ id: 2, name: 'Bob' }),
+    say: `New draft. Nothing to slice this time since the index is already at the end.` },
+  { code: `db.deleteUser(1)`, run: d => d.deleteUser(1),
+    say: `Both edits live in the draft. Undo now would be a question: cancel the draft, or pop history?` },
+  { code: `db.undo()`, run: d => d.undo(),
+    say: `<b>Draft pending, so undo discards the draft only.</b> The index doesn't move. Drill 2 ignored undo inside a batch; here it's a cancel.` },
+  { code: `db.addUser({ id: 2, name: 'Bob' })`, run: d => d.addUser({ id: 2, name: 'Bob' }),
+    say: `Try again, cleanly.` },
+  { code: `db.commit()`, run: d => d.commit(),
+    say: `One step for the draft. Two committed frames now.` },
+  { code: `db.undo()`, run: d => d.undo(),
+    say: `No draft pending, so this undo is the ordinary one: <code>index--</code>.` },
+  { code: `db.redo()`, run: d => d.redo(),
+    say: `And the ordinary redo. The worked example from the prompt passes end to end at this point.` },
+  { code: `db.undo()`, run: d => d.undo(),
+    say: `Now the trap. Undo once so there's a redo frame on the strip.` },
+  { code: `db.addUser({ id: 2, name: 'Bob' })`, run: d => d.addUser({ id: 2, name: 'Bob' }),
+    say: `The draft starts, and the redo frame is sliced <b>right now</b>, before any commit. Watch the strip: the dashed frame is gone.` },
+  { code: `db.redo()`, run: d => d.redo(), noop: true,
+    say: `Redo with a draft pending does nothing. It's a guard in <code>redo</code>, but there's nothing past the index anyway.` },
+  { code: `db.undo()`, run: d => d.undo(),
+    say: `Discard the draft without ever committing it.` },
+  { code: `db.redo()`, run: d => d.redo(), noop: true,
+    say: `<b>Still nothing.</b> The redo frame died when the draft started, not when it committed. This is the test titled "clears redo when the draft starts, not when it commits."` },
+  { code: `db.commit()`, run: d => d.commit(), noop: true,
+    say: `Nothing pending: not a step. The prompt doesn't specify this, so say it: "commit with no draft is a no-op; I'd confirm that's what you want."` },
+  { code: `db.updateUser(1, { name: 'Alice' })`, run: d => d.updateUser(1, { name: 'Alice' }), noop: true,
+    say: `Identical patch: the null guard fires before <code>edit</code> can start a draft. The second unspecified choice, and it falls out of the same code.` },
+]
+
+/* ---------- build frames by actually running the class ---------- */
+function buildFrames(Cls, script) {
+  const db = new Cls()
+  return script.map((s, i) => {
+    if (s.run) s.run(db)
+    return {
+      ...s,
+      history: db.history.map(copyAll),
+      index: db.index,
+      draft: db.draft ? copyAll(db.draft) : null,
+      out: db.getUsers(),
+    }
+  })
+}
+
+/* ---------- rendering ---------- */
+const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]))
+function userRow(u) {
+  const props = Object.entries(u).filter(([k]) => k !== 'id').map(([k, v]) => `${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`).join(', ')
+  return `<div class="user"><span class="id">${esc(u.id)}</span><span class="props">${esc(props) || '<i>—</i>'}</span></div>`
+}
+function frameHtml(list, { idx, cls, head, pulse }) {
+  const body = list.length ? list.map(userRow).join('') : `<div class="empty">empty</div>`
+  return `<div class="frame ${cls}${pulse ? ' pulse' : ''}">${head ? `<span class="head">${head}</span>` : ''}${body}<span class="idx">${idx}</span></div>`
+}
+function fmtOut(list) {
+  if (!list.length) return '[]'
+  return '[ ' + list.map(u => '{ ' + Object.entries(u).map(([k, v]) => `${k}: ${typeof v === 'string' ? `'${v}'` : JSON.stringify(v)}`).join(', ') + ' }').join(', ') + ' ]'
+}
+function highlightCall(code) {
+  return esc(code).replace(/\.(\w+)\(/, '.<span class="fn">$1</span>(')
+}
+
+function mountStage(root, title, frames, key) {
+  root.innerHTML = `
+    <div class="stage">
+      <div class="call" aria-live="polite"></div>
+      <div class="strip-wrap"><div class="strip"></div></div>
+      <div class="readout"><span class="lbl">getUsers()</span><span class="val"></span></div>
+      <p class="caption" aria-live="polite"></p>
+      <div class="progress"><i></i></div>
+      <div class="transport">
+        <button class="prev">← Back</button>
+        <button class="play">Play</button>
+        <button class="next">Next →</button>
+        <span class="count"></span>
+        <span class="spacer"></span>
+        <label>Pace <select class="speed"><option value="1.4">slow</option><option value="1" selected>normal</option><option value="0.6">fast</option></select></label>
+        <button class="tx">Transcript</button>
+      </div>
+    </div>
+    <div class="transcript"><ol></ol></div>
+    <p class="hint"><kbd>←</kbd> <kbd>→</kbd> step, <kbd>space</kbd> play. ${title}</p>`
+
+  const el = {
+    call: root.querySelector('.call'), strip: root.querySelector('.strip'), out: root.querySelector('.readout .val'),
+    cap: root.querySelector('.caption'), bar: root.querySelector('.progress i'), prev: root.querySelector('.prev'),
+    play: root.querySelector('.play'), next: root.querySelector('.next'), count: root.querySelector('.count'),
+    speed: root.querySelector('.speed'), tx: root.querySelector('.tx'), transcript: root.querySelector('.transcript'),
+    list: root.querySelector('.transcript ol'),
+  }
+  let i = 0, timer = null, playing = false
+
+  el.list.innerHTML = frames.map((f, j) => `<li data-j="${j}"><code>${esc(f.code)}</code><span>${f.say}</span></li>`).join('')
+  el.list.addEventListener('click', e => { const li = e.target.closest('li'); if (li) go(+li.dataset.j) })
+
+  function render(prev) {
+    const f = frames[i]
+    el.call.className = 'call' + (f.noop ? ' is-noop' : '')
+    el.call.innerHTML = highlightCall(f.code) + (f.noop ? '   <span style="color:var(--muted);font-family:var(--sans);font-weight:400">no-op</span>' : '')
+
+    const parts = []
+    f.history.forEach((list, j) => {
+      const isCur = j === f.index && f.draft === null
+      const changed = prev && (JSON.stringify(prev.history[j]) !== JSON.stringify(list) || (isCur && (prev.index !== f.index || prev.draft !== null)))
+      parts.push(frameHtml(list, {
+        idx: j,
+        cls: (j > f.index ? 'is-redo' : '') + (isCur ? ' is-current' : ''),
+        head: isCur ? 'index' : (j === f.index ? 'index' : ''),
+        pulse: !!changed,
+      }))
+    })
+    if (f.draft) {
+      parts.push('<div class="gap"></div>')
+      parts.push(frameHtml(f.draft, { idx: 'draft', cls: 'is-draft is-current', head: 'draft', pulse: !!prev }))
+    }
+    el.strip.innerHTML = parts.join('')
+    const cur = el.strip.querySelector('.is-current')
+    if (cur) cur.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' })
+
+    el.out.textContent = fmtOut(f.out)
+    el.cap.innerHTML = f.say
+    el.count.textContent = `step ${i + 1} / ${frames.length}`
+    el.bar.style.width = `${((i + 1) / frames.length) * 100}%`
+    el.prev.disabled = i === 0
+    el.next.disabled = i === frames.length - 1
+    el.list.querySelectorAll('li').forEach(li => li.classList.toggle('is-here', +li.dataset.j === i))
+  }
+  function go(j) { const prev = frames[i]; i = Math.max(0, Math.min(frames.length - 1, j)); render(j === i ? prev : null) }
+  function step(d) { const prev = frames[i]; i = Math.max(0, Math.min(frames.length - 1, i + d)); render(prev) }
+  function schedule() {
+    clearTimeout(timer)
+    if (!playing) return
+    if (i >= frames.length - 1) { stop(); return }
+    const text = frames[i].say.replace(/<[^>]+>/g, '')
+    const ms = (1800 + text.length * 45) * parseFloat(el.speed.value)
+    timer = setTimeout(() => { step(1); schedule() }, ms)
+  }
+  function start() { playing = true; el.play.textContent = 'Pause'; if (i >= frames.length - 1) go(0); schedule() }
+  function stop() { playing = false; el.play.textContent = i >= frames.length - 1 ? 'Replay' : 'Play'; clearTimeout(timer) }
+
+  el.prev.onclick = () => { stop(); step(-1) }
+  el.next.onclick = () => { stop(); step(1) }
+  el.play.onclick = () => (playing ? stop() : start())
+  el.speed.onchange = () => schedule()
+  el.tx.onclick = () => el.transcript.classList.toggle('is-open')
+
+  render(null)
+  return {
+    key,
+    onKey(e) {
+      if (e.key === 'ArrowRight') { e.preventDefault(); stop(); step(1) }
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); stop(); step(-1) }
+      else if (e.key === ' ') { e.preventDefault(); playing ? stop() : start() }
+    },
+    pause: stop,
+  }
+}
+
+const stages = {
+  1: mountStage(document.getElementById('stage1'), 'Part 1 follows the worked example, then the no-op and redo-clearing checklist items.', buildFrames(Database, P1), 1),
+  2: mountStage(document.getElementById('stage2'), 'Part 2 follows the worked example, then the three semantics that changed from drill 2.', buildFrames(DraftDatabase, P2), 2),
+}
+
+/* ---------- chapter tabs ---------- */
+let active = 0
+const tabs = [...document.querySelectorAll('nav [role=tab]')]
+function showChapter(n) {
+  active = n
+  tabs.forEach(t => t.setAttribute('aria-selected', String(+t.dataset.ch === n)))
+  document.querySelectorAll('.chapter').forEach(c => c.classList.toggle('is-active', +c.dataset.ch === n))
+  Object.values(stages).forEach(s => { if (s.key !== n) s.pause() })
+  history.replaceState(null, '', '#ch' + n)
+}
+tabs.forEach(t => (t.onclick = () => showChapter(+t.dataset.ch)))
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'SELECT' || e.target.tagName === 'INPUT') return
+  if (stages[active]) stages[active].onKey(e)
+})
+const m = location.hash.match(/#ch(\d)/)
+if (m) showChapter(+m[1])
+</script>
+</body>
+</html>

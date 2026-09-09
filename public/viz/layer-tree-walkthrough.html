@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Drill 5 — Layer Tree, walkthrough</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #e8ecef; --panel: #ffffff; --ink: #17212b; --muted: #66727f; --line: #cfd6dc;
+    --live: #0f7b78; --live-soft: #d6efec; --warn: #b7791f; --warn-soft: #fbeed2; --err: #b3261e; --err-soft: #f9e0de;
+    --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.45; }
+  body { padding: 28px 24px 56px; }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 12px 24px; margin-bottom: 18px; }
+  h1 { font-size: 22px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+  h1 small { font-weight: 400; color: var(--muted); font-size: 15px; margin-left: 10px; }
+  nav { display: flex; gap: 4px; flex-wrap: wrap; }
+  nav button { font: 500 14px var(--sans); color: var(--muted); background: transparent; border: 0; padding: 8px 12px; border-radius: 8px; cursor: pointer; }
+  nav button:hover { color: var(--ink); background: #dfe4e8; }
+  nav button[aria-selected="true"] { color: var(--ink); background: var(--panel); box-shadow: 0 1px 0 var(--line); }
+  nav button:focus-visible, .transport button:focus-visible, select:focus-visible { outline: 2px solid var(--live); outline-offset: 2px; }
+  .chapter { display: none; } .chapter.is-active { display: block; }
+
+  .prose { background: var(--panel); border-radius: 12px; padding: 28px 32px; max-width: 760px; }
+  .prose h2 { font-size: 18px; font-weight: 600; margin: 0 0 12px; }
+  .prose h3 { font-size: 15px; font-weight: 600; margin: 22px 0 6px; }
+  .prose p { margin: 0 0 12px; max-width: 66ch; }
+  .prose pre { font: 13px/1.5 var(--mono); background: #f2f4f6; border-radius: 8px; padding: 12px 14px; overflow-x: auto; margin: 8px 0 14px; }
+  .prose code { font-family: var(--mono); font-size: .92em; background: #f2f4f6; padding: 1px 5px; border-radius: 4px; }
+  .prose ul { margin: 0 0 12px; padding-left: 20px; max-width: 66ch; } .prose li { margin-bottom: 4px; }
+  .say { border-left: 3px solid var(--live); padding: 6px 14px; margin: 14px 0; background: var(--live-soft); border-radius: 0 8px 8px 0; }
+  .say p { margin: 0; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; } .two > div { min-width: 0; }
+  @media (max-width: 720px) { .two { grid-template-columns: 1fr; } .prose { padding: 20px; } }
+
+  .stage { background: var(--panel); border-radius: 12px; padding: 22px 24px 18px; }
+  .call { font: 500 15px/1.4 var(--mono); min-height: 24px; margin-bottom: 16px; white-space: pre-wrap; }
+  .call .fn { color: var(--live); }
+  .call .tag { font: 400 13px var(--sans); color: var(--muted); margin-left: 10px; }
+  .call.is-err .fn { color: var(--err); } .call.is-err .tag { color: var(--err); }
+
+  .scene { display: grid; grid-template-columns: 300px 1fr; gap: 20px; align-items: start; }
+  @media (max-width: 720px) { .scene { grid-template-columns: 1fr; } }
+  .layers { border: 1px solid var(--line); border-radius: 10px; padding: 8px 6px; font: 13.5px var(--mono); }
+  .layers .hd { font: 500 12px var(--sans); color: var(--muted); padding: 2px 8px 6px; display: flex; justify-content: space-between; }
+  .row { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 6px; }
+  .row .sw { width: 12px; height: 12px; border-radius: 3px; flex: none; border: 1px solid rgba(0,0,0,.12); }
+  .row .sw.grp { border: 1.5px dashed var(--muted); background: transparent; border-radius: 2px; }
+  .row .nm { flex: 1; }
+  .row .pos { color: var(--muted); font-size: 11.5px; }
+  .row.is-hot { background: var(--live-soft); }
+  .row.is-group { color: var(--ink); font-weight: 500; }
+  .canvas { border: 1px solid var(--line); border-radius: 10px; background: #f6f7f9; overflow: hidden; }
+  .canvas svg { display: block; width: 100%; height: auto; }
+  .canvas .hd { font: 500 12px var(--sans); color: var(--muted); padding: 8px 12px 0; }
+
+  .readouts { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); display: grid; gap: 6px; }
+  .readout { display: flex; gap: 10px; align-items: baseline; font: 13.5px var(--mono); }
+  .readout .lbl { color: var(--muted); flex: none; min-width: 160px; }
+  .readout.err .val { color: var(--err); }
+  .caption { margin-top: 12px; font-size: 16px; line-height: 1.5; min-height: 3.1em; max-width: 72ch; }
+  .caption b { font-weight: 600; } .caption code { font-family: var(--mono); font-size: .9em; }
+  .transport { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+  .transport button { font: 500 14px var(--sans); color: var(--ink); background: var(--panel); border: 1px solid var(--line); padding: 8px 14px; border-radius: 8px; cursor: pointer; }
+  .transport button:hover { border-color: var(--ink); }
+  .transport button:disabled { opacity: .4; cursor: default; border-color: var(--line); }
+  .transport button.play { background: var(--ink); color: #fff; border-color: var(--ink); min-width: 92px; }
+  .transport .count { font: 13px var(--mono); color: var(--muted); margin-left: 6px; }
+  .transport .spacer { flex: 1; }
+  .transport select { font: 14px var(--sans); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; background: var(--panel); color: var(--ink); }
+  .transport label { font-size: 13px; color: var(--muted); }
+  .progress { height: 3px; background: var(--line); border-radius: 2px; margin-top: 10px; overflow: hidden; }
+  .progress i { display: block; height: 100%; background: var(--live); width: 0; transition: width .25s; }
+  .transcript { display: none; margin-top: 14px; background: var(--panel); border-radius: 12px; padding: 18px 22px; }
+  .transcript.is-open { display: block; }
+  .transcript ol { margin: 0; padding-left: 22px; } .transcript li { margin: 0 0 10px; max-width: 72ch; }
+  .transcript li code { font: 12.5px var(--mono); display: block; color: var(--muted); margin-bottom: 2px; }
+  .transcript li.is-here { border-left: 3px solid var(--live); margin-left: -12px; padding-left: 9px; }
+  .hint { font-size: 13px; color: var(--muted); margin-top: 10px; }
+  kbd { font: 12px var(--mono); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: #fff; }
+  .canvas rect.leaf { transition: x .3s, y .3s; }
+  @media (prefers-reduced-motion: reduce) { .progress i, .canvas rect.leaf { transition: none; } }
+  @media (max-width: 720px) { body { padding: 18px 14px 40px; } .stage { padding: 16px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Layer Tree <small>Drill 5, played through</small></h1>
+    <nav role="tablist" aria-label="Chapters">
+      <button role="tab" data-ch="0" aria-selected="true">The model</button>
+      <button role="tab" data-ch="1">Part 1: group and ungroup</button>
+      <button role="tab" data-ch="2">Part 2: reparent</button>
+      <button role="tab" data-ch="3">What to say</button>
+    </nav>
+  </header>
+
+  <section class="chapter is-active prose" data-ch="0">
+    <h2>State the convention before you type</h2>
+    <p>A layer document is a tree where sibling order <em>is</em> z-order. Every method here is a list splice plus a parent-pointer update; the whole grade is whether the splice lands in the right slot.</p>
+
+    <div class="two">
+      <div>
+        <h3>The node</h3>
+        <pre>type TreeNode = {
+  id: Id
+  parent: Id | null
+  children: Id[] | null   // null = leaf
+}
+nodes = new Map&lt;Id, TreeNode&gt;()</pre>
+        <p>Ids, not object references, so parent and child pointers can't drift apart. A leaf has <code>children: null</code>, which makes "is this a container" a one-field check.</p>
+      </div>
+      <div>
+        <h3>The convention</h3>
+        <pre>children[0]  → BOTTOM of the z-stack
+children[n]  → TOP
+
+paintOrder = leaves, depth-first,
+             bottom first</pre>
+        <p>Say it out loud. The layers panel in this walkthrough shows top first, like Figma; the array is the reverse. Getting this backwards silently is how you fail your own test.</p>
+      </div>
+    </div>
+
+    <div class="say"><p><b>The answer interviewers wait for:</b> "A new group takes the slot of its <em>topmost</em> member, and the members keep the relative order they had in the parent, not the order the caller passed in. Any other placement changes what the canvas looks like, which is a correctness bug in a design tool, not a preference."</p></div>
+
+    <h3>Three rules that cover the rest</h3>
+    <ul>
+      <li><b>Remove before you insert.</b> Never reuse an index computed before a removal; the removal shifts everything after it.</li>
+      <li><b>Write the cycle check before they ask.</b> Reparenting a node under its own descendant makes something that is no longer a tree; every later traversal hangs. Walking parent pointers is O(depth) and three lines.</li>
+      <li><b>Ungroup is one splice.</b> <code>siblings.splice(at, 1, ...group.children)</code> removes the group and inserts its children in the same slot.</li>
+    </ul>
+    <p>Use the chapter tabs to play each part. Arrow keys step, space plays.</p>
+  </section>
+
+  <section class="chapter" data-ch="1" id="stage1"></section>
+  <section class="chapter" data-ch="2" id="stage2"></section>
+
+  <section class="chapter prose" data-ch="3">
+    <h2>What to say out loud</h2>
+
+    <h3>Group, in one pass over the parent</h3>
+    <pre>const top = Math.max(...ids.map(id => siblings.indexOf(id)))
+const next = []
+siblings.forEach((cid, i) => {
+  if (members.has(cid)) { if (i === top) next.push(groupId); return }
+  next.push(cid)
+})
+const ordered = siblings.filter(cid => members.has(cid))   // order from the PARENT</pre>
+    <p>"One walk over the parent's children: skip members, drop the group where the topmost member was, keep everything else. The group's children are the members filtered out of the parent, so the caller's selection order never matters."</p>
+
+    <h3>The non-adjacent case</h3>
+    <p>If the members aren't contiguous, no policy can leave the canvas untouched: something between them has to end up above or below the whole group. Topmost-slot is the choice that keeps the top member where it was and pulls the lower members up to meet it. Say that you know this, and that the alternative (bottommost slot) pushes the top member down instead.</p>
+
+    <h3>Ungroup does not undo group</h3>
+    <p>Ungroup splices the children back where the group sits, not where they came from. After grouping non-adjacent layers and ungrouping, the canvas matches the grouped state, not the original. That's correct: ungroup should never change the picture either.</p>
+
+    <h3>Reparent: the index semantics</h3>
+    <pre>from.splice(from.indexOf(id), 1)                      // remove first
+to.splice(Math.max(0, Math.min(index, to.length)), 0, id)   // then clamp and insert</pre>
+    <p>"I interpret the index <em>after</em> the removal. Moving within the same parent is the only case where that differs from pre-removal indexing, and it's the case a real drag hits constantly, so I'm naming it." Starting <code>[a,b,c,d,e]</code>, <code>reparent('a', root, 3)</code> gives <code>[b,c,d,a,e]</code>; the other reading gives <code>[b,c,a,d,e]</code>. Both are defensible; unstated is the failure.</p>
+
+    <h3>The cycle check</h3>
+    <pre>isAncestor(maybe, of) {
+  let cur = nodes.get(of)?.parent ?? null
+  while (cur !== null) { if (cur === maybe) return true; cur = node(cur).parent }
+  return false
+}</pre>
+    <p>Two guards at the top of <code>reparent</code>: <code>id === newParentId</code>, then <code>isAncestor(id, newParentId)</code>. Figma's own servers reject parent updates that would create a cycle. Mention it unprompted.</p>
+
+    <h3>Complexity, one line</h3>
+    <p>Group and ungroup are O(siblings). Reparent is O(depth + siblings). Everything is index-based on small arrays; a linked sibling list would make the splices O(1) at the cost of a much larger surface, which is the trade you'd name if asked to scale.</p>
+  </section>
+</div>
+
+<script>
+/* ---------- solution, ported verbatim ---------- */
+class Tree {
+  constructor(rootId) { this.nodes = new Map(); this.nodes.set(rootId, { id: rootId, parent: null, children: [] }); this.root = rootId }
+  add(id, parentId, isContainer = false) { const s = this.childrenOf(parentId); this.nodes.set(id, { id, parent: parentId, children: isContainer ? [] : null }); s.push(id) }
+  group(ids, groupId) {
+    if (ids.length === 0) throw new Error('nothing to group')
+    const parents = new Set(ids.map(id => this.node(id).parent))
+    if (parents.size !== 1) throw new Error('can only group siblings')
+    const parentId = [...parents][0]
+    if (parentId === null) throw new Error('cannot group the root')
+    const siblings = this.childrenOf(parentId), members = new Set(ids)
+    const top = Math.max(...ids.map(id => siblings.indexOf(id)))
+    const next = []
+    siblings.forEach((cid, i) => { if (members.has(cid)) { if (i === top) next.push(groupId); return } next.push(cid) })
+    const ordered = siblings.filter(cid => members.has(cid))
+    this.nodes.set(groupId, { id: groupId, parent: parentId, children: ordered })
+    for (const cid of ordered) this.node(cid).parent = groupId
+    siblings.length = 0; siblings.push(...next)
+  }
+  ungroup(groupId) {
+    const g = this.nodes.get(groupId)
+    if (!g || !g.children) throw new Error(`not a group: ${groupId}`)
+    if (g.parent === null) throw new Error('cannot ungroup the root')
+    const siblings = this.childrenOf(g.parent), at = siblings.indexOf(groupId)
+    for (const cid of g.children) this.node(cid).parent = g.parent
+    siblings.splice(at, 1, ...g.children)
+    this.nodes.delete(groupId)
+  }
+  reparent(id, newParentId, index) {
+    if (id === newParentId) throw new Error('cannot parent a node to itself')
+    if (this.isAncestor(id, newParentId)) throw new Error('cannot parent a node into its own subtree')
+    const node = this.node(id)
+    if (node.parent === null) throw new Error(`cannot move ${id}`)
+    const from = this.childrenOf(node.parent)
+    from.splice(from.indexOf(id), 1)
+    const to = this.childrenOf(newParentId)
+    to.splice(Math.max(0, Math.min(index, to.length)), 0, id)
+    node.parent = newParentId
+  }
+  paintOrder(rootId) { const out = []; const walk = id => { const n = this.node(id); if (!n.children) { out.push(id); return } for (const c of n.children) walk(c) }; walk(rootId); return out }
+  childIds(id) { return [...(this.node(id).children ?? [])] }
+  parentOf(id) { return this.node(id).parent }
+  isAncestor(maybe, of) { let cur = this.nodes.get(of)?.parent ?? null; while (cur !== null) { if (cur === maybe) return true; cur = this.node(cur).parent } return false }
+  node(id) { const n = this.nodes.get(id); if (!n) throw new Error(`no such node: ${id}`); return n }
+  childrenOf(id) { const n = this.node(id); if (!n.children) throw new Error(`${id} is a leaf, not a container`); return n.children }
+}
+
+/* ---------- scripts ---------- */
+const flat = () => { const t = new Tree('root'); for (const id of ['a', 'b', 'c', 'd', 'e']) t.add(id, 'root'); return t }
+const nested = () => { const t = new Tree('root'); t.add('f', 'root', true); t.add('x', 'f'); t.add('y', 'root'); return t }
+
+const P1 = [
+  { code: `const t = new Tree('root')\n['a','b','c','d','e'].forEach(id => t.add(id, 'root'))`, make: flat,
+    read: [['childIds(root)', t => t.childIds('root')]],
+    say: `Five leaves under root. <code>children[0]</code> is <b>a</b>, the bottom of the stack; <b>e</b> paints last, so it's on top. The panel shows top first, the array is the reverse.` },
+  { code: `t.group(['d', 'b'], 'G')`, run: t => t.group(['d', 'b'], 'G'), hot: ['G', 'b', 'd'],
+    read: [['childIds(root)', t => t.childIds('root')], ['childIds(G)', t => t.childIds('G')]],
+    say: `Caller passed <code>['d','b']</code>, selection order. The group lands in <b>d</b>'s slot, the topmost member, and its children are <code>[b, d]</code>, read off the parent. Watch the canvas: <b>b</b> lifted above <b>c</b>, because the members weren't adjacent and something had to give.` },
+  { code: `t.parentOf('b')`, read: [['parentOf(b)', t => t.parentOf('b')], ['parentOf(d)', t => t.parentOf('d')]],
+    say: `Parent pointers point at the group now. The map holds ids, so this is one field per member, no object surgery.` },
+  { code: `t.paintOrder('root')`, read: [['paintOrder(root)', t => t.paintOrder('root')]],
+    say: `Depth-first, bottom first, leaves only: <code>a, c, b, d, e</code>. Groups never appear; they're containers, not pixels.` },
+  { code: `t.group(['a', 'b'], 'H')`, run: t => t.group(['a', 'b'], 'H'),
+    say: `<b>Throws.</b> a's parent is root, b's parent is G. One <code>Set</code> of parents with size ≠ 1 is the whole check. Nothing changed.` },
+  { code: `t.ungroup('G')`, run: t => t.ungroup('G'), hot: ['b', 'd'],
+    read: [['childIds(root)', t => t.childIds('root')], ['parentOf(b)', t => t.parentOf('b')]],
+    say: `One splice: remove G, insert its children in the same slot. Note <b>b</b> did <em>not</em> go back between a and c. Ungroup preserves the canvas as it is now, not as it was before the group. The picture didn't change.` },
+  { code: `t.group(['c', 'b', 'd'], 'K')`, run: t => t.group(['c', 'b', 'd'], 'K'), hot: ['K', 'c', 'b', 'd'],
+    read: [['childIds(root)', t => t.childIds('root')], ['childIds(K)', t => t.childIds('K')]],
+    say: `The adjacent case. Members are contiguous, the group takes d's slot, and the canvas is <b>pixel-identical</b>. This is the invariant the topmost-slot rule protects.` },
+  { code: `t.group(['a'], 'S')`, run: t => t.group(['a'], 'S'), hot: ['S', 'a'],
+    read: [['childIds(root)', t => t.childIds('root')]],
+    say: `A single layer groups in place; the same code handles it because <code>top</code> is just a's own index. Root is now <code>[S, K, e]</code>.` },
+  { code: `t.paintOrder('root')`, read: [['paintOrder(root)', t => t.paintOrder('root')]],
+    say: `Still <code>a, c, b, d, e</code>. Two groups added, zero pixels moved. If you can say that sentence at the end of Part 1, you've hit the bar.` },
+]
+
+const P2 = [
+  { code: `const t = new Tree('root')\nt.add('f', 'root', true); t.add('x', 'f'); t.add('y', 'root')`, make: nested,
+    read: [['childIds(root)', t => t.childIds('root')], ['childIds(f)', t => t.childIds('f')]],
+    say: `A container <b>f</b> holding <b>x</b>, and a leaf <b>y</b> above it at root level. Reparent is: guard, remove from old parent, clamp, insert, update pointer. In that order.` },
+  { code: `t.reparent('y', 'f', 0)`, run: t => t.reparent('y', 'f', 0), hot: ['y'],
+    read: [['childIds(root)', t => t.childIds('root')], ['childIds(f)', t => t.childIds('f')], ['parentOf(y)', t => t.parentOf('y')]],
+    say: `y moves into f at index 0, the bottom of f's stack. On the canvas y drops <em>under</em> x, because index 0 is the bottom. Root is just <code>[f]</code> now.` },
+  { code: `t.reparent('y', 'f', 99)`, run: t => t.reparent('y', 'f', 99), hot: ['y'],
+    read: [['childIds(f)', t => t.childIds('f')]],
+    say: `Same parent, out-of-range index. Remove first: f is <code>[x]</code>. Then clamp 99 to <code>to.length</code>, which is 1. Result <code>[x, y]</code>. Clamping <em>after</em> the removal is what makes this right.` },
+  { code: `t.reparent('f', 'f', 0)`, run: t => t.reparent('f', 'f', 0),
+    say: `<b>Throws.</b> The identity guard is the cheap one; say it first so the ancestor walk doesn't have to handle it.` },
+  { code: `t.reparent('f', 'x', 0)`, run: t => t.reparent('f', 'x', 0),
+    say: `<b>Throws.</b> Walk up from x: parent is f. f is the node being moved, so this would make a cycle and every later traversal would hang. O(depth), written before anyone asked.` },
+  { code: `const t = flat()   // fresh [a,b,c,d,e]`, make: flat,
+    read: [['childIds(root)', t => t.childIds('root')]],
+    say: `Last: the case a real drag hits constantly. Move within the same parent, and the two readings of "index" disagree.` },
+  { code: `t.reparent('a', 'root', 3)`, run: t => t.reparent('a', 'root', 3), hot: ['a'],
+    read: [['childIds(root)', t => t.childIds('root')], ['paintOrder(root)', t => t.paintOrder('root')]],
+    say: `Index interpreted <b>after</b> the removal: <code>[b,c,d,e]</code>, insert at 3, <code>[b,c,d,a,e]</code>. Against the pre-removal array you'd get <code>[b,c,a,d,e]</code>. Both defensible. Pick one and name it out loud; unstated is the failure.` },
+]
+
+/* ---------- frames ---------- */
+function snap(t) { return { root: t.root, nodes: new Map([...t.nodes].map(([k, v]) => [k, { ...v, children: v.children ? [...v.children] : null }])) } }
+function buildFrames(script) {
+  let t = null
+  return script.map(s => {
+    let error = null
+    if (s.make) t = s.make()
+    if (s.run) { try { s.run(t) } catch (e) { error = e.message } }
+    const reads = (s.read || []).map(([lbl, fn]) => [lbl, JSON.stringify(fn(t))])
+    return { ...s, error, reads, state: snap(t), paint: t.paintOrder(t.root) }
+  })
+}
+
+/* ---------- canvas geometry ---------- */
+const PAL = { a: '#f2a541', b: '#5b8def', c: '#e46b6b', d: '#4cbf8a', e: '#9b7bd6', x: '#5b8def', y: '#f2a541' }
+const POS = { a: [16, 14], b: [52, 40], c: [88, 66], d: [124, 92], e: [160, 118], x: [40, 30], y: [110, 80] }
+const W = 130, H = 90
+const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]))
+
+function renderCanvas(f) {
+  const nodes = f.state.nodes
+  const leaves = f.paint
+  const groupBoxes = []
+  for (const n of nodes.values()) {
+    if (!n.children || n.parent === null) continue
+    const lv = leavesUnder(nodes, n.id)
+    if (!lv.length) continue
+    const xs = lv.map(id => POS[id][0]), ys = lv.map(id => POS[id][1])
+    groupBoxes.push({ id: n.id, x: Math.min(...xs) - 6, y: Math.min(...ys) - 6, w: Math.max(...xs) - Math.min(...xs) + W + 12, h: Math.max(...ys) - Math.min(...ys) + H + 12 })
+  }
+  const rects = leaves.map(id => `<rect class="leaf" x="${POS[id][0]}" y="${POS[id][1]}" width="${W}" height="${H}" rx="6" fill="${PAL[id]}" stroke="rgba(0,0,0,.18)"/><text x="${POS[id][0] + 10}" y="${POS[id][1] + 22}" font-family="IBM Plex Mono, monospace" font-size="15" font-weight="500" fill="#17212b">${esc(id)}</text>`).join('')
+  const boxes = groupBoxes.map(g => `<rect x="${g.x}" y="${g.y}" width="${g.w}" height="${g.h}" rx="9" fill="none" stroke="#66727f" stroke-width="1.5" stroke-dasharray="5 4"/><text x="${g.x + g.w - 8}" y="${g.y + g.h - 8}" text-anchor="end" font-family="IBM Plex Mono, monospace" font-size="12" fill="#66727f">${esc(g.id)}</text>`).join('')
+  return `<div class="hd">Canvas, painted in paintOrder</div><svg viewBox="0 0 330 236" role="img" aria-label="Canvas showing ${esc(leaves.join(', '))} painted bottom to top">${rects}${boxes}</svg>`
+}
+function leavesUnder(nodes, id) { const n = nodes.get(id); if (!n.children) return [id]; return n.children.flatMap(c => leavesUnder(nodes, c)) }
+
+function renderLayers(f) {
+  const nodes = f.state.nodes, hot = new Set(f.hot || [])
+  const rows = []
+  const walk = (id, depth) => {
+    const n = nodes.get(id)
+    const kids = n.children || []
+    for (let i = kids.length - 1; i >= 0; i--) {         // top of stack first, like a layers panel
+      const c = nodes.get(kids[i])
+      const isG = !!c.children
+      rows.push(`<div class="row${isG ? ' is-group' : ''}${hot.has(c.id) ? ' is-hot' : ''}" style="padding-left:${8 + depth * 18}px">
+        <span class="sw${isG ? ' grp' : ''}" style="${isG ? '' : `background:${PAL[c.id] || '#ccc'}`}"></span><span class="nm">${esc(c.id)}</span><span class="pos">[${i}]</span></div>`)
+      if (isG) walk(c.id, depth + 1)
+    }
+  }
+  walk(f.state.root, 0)
+  return `<div class="hd"><span>Layers</span><span>top ↑ bottom ↓</span></div>${rows.join('')}`
+}
+function highlightCall(code) { return esc(code).replace(/\.(group|ungroup|reparent|paintOrder|parentOf|childIds)\(/g, '.<span class="fn">$1</span>(') }
+
+function mountStage(root, hint, frames, key) {
+  root.innerHTML = `
+    <div class="stage">
+      <div class="call" aria-live="polite"></div>
+      <div class="scene"><div class="layers"></div><div class="canvas"></div></div>
+      <div class="readouts"></div>
+      <p class="caption" aria-live="polite"></p>
+      <div class="progress"><i></i></div>
+      <div class="transport">
+        <button class="prev">← Back</button><button class="play">Play</button><button class="next">Next →</button>
+        <span class="count"></span><span class="spacer"></span>
+        <label>Pace <select class="speed"><option value="1.4">slow</option><option value="1" selected>normal</option><option value="0.6">fast</option></select></label>
+        <button class="tx">Transcript</button>
+      </div>
+    </div>
+    <div class="transcript"><ol></ol></div>
+    <p class="hint"><kbd>←</kbd> <kbd>→</kbd> step, <kbd>space</kbd> play. ${hint}</p>`
+  const q = s => root.querySelector(s)
+  const el = { call: q('.call'), layers: q('.layers'), canvas: q('.canvas'), reads: q('.readouts'), cap: q('.caption'), bar: q('.progress i'),
+    prev: q('.prev'), play: q('.play'), next: q('.next'), count: q('.count'), speed: q('.speed'), tx: q('.tx'), transcript: q('.transcript'), list: q('.transcript ol') }
+  let i = 0, timer = null, playing = false
+  el.list.innerHTML = frames.map((f, j) => `<li data-j="${j}"><code>${esc(f.code)}</code><span>${f.say}</span></li>`).join('')
+  el.list.addEventListener('click', e => { const li = e.target.closest('li'); if (li) { stop(); i = +li.dataset.j; render() } })
+
+  function render() {
+    const f = frames[i]
+    el.call.className = 'call' + (f.error ? ' is-err' : '')
+    el.call.innerHTML = highlightCall(f.code) + (f.error ? `<span class="tag">throws: ${esc(f.error)}</span>` : (!f.run && !f.make ? '<span class="tag">read only</span>' : ''))
+    el.layers.innerHTML = renderLayers(f)
+    el.canvas.innerHTML = renderCanvas(f)
+    const reads = [...f.reads]
+    if (!reads.some(r => r[0].startsWith('paintOrder'))) reads.push(['paintOrder(root)', JSON.stringify(f.paint)])
+    el.reads.innerHTML = reads.map(([l, v]) => `<div class="readout"><span class="lbl">${esc(l)}</span><span class="val">${esc(v)}</span></div>`).join('')
+    el.cap.innerHTML = f.say
+    el.count.textContent = `step ${i + 1} / ${frames.length}`
+    el.bar.style.width = `${((i + 1) / frames.length) * 100}%`
+    el.prev.disabled = i === 0; el.next.disabled = i === frames.length - 1
+    el.list.querySelectorAll('li').forEach(li => li.classList.toggle('is-here', +li.dataset.j === i))
+  }
+  function step(d) { i = Math.max(0, Math.min(frames.length - 1, i + d)); render() }
+  function schedule() {
+    clearTimeout(timer); if (!playing) return
+    if (i >= frames.length - 1) { stop(); return }
+    const text = frames[i].say.replace(/<[^>]+>/g, '')
+    timer = setTimeout(() => { step(1); schedule() }, (1800 + text.length * 45) * parseFloat(el.speed.value))
+  }
+  function start() { playing = true; el.play.textContent = 'Pause'; if (i >= frames.length - 1) { i = 0; render() } schedule() }
+  function stop() { playing = false; el.play.textContent = i >= frames.length - 1 ? 'Replay' : 'Play'; clearTimeout(timer) }
+  el.prev.onclick = () => { stop(); step(-1) }
+  el.next.onclick = () => { stop(); step(1) }
+  el.play.onclick = () => (playing ? stop() : start())
+  el.speed.onchange = () => schedule()
+  el.tx.onclick = () => el.transcript.classList.toggle('is-open')
+  render()
+  return { key, pause: stop, onKey(e) {
+    if (e.key === 'ArrowRight') { e.preventDefault(); stop(); step(1) }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); stop(); step(-1) }
+    else if (e.key === ' ') { e.preventDefault(); playing ? stop() : start() }
+  } }
+}
+
+const stages = {
+  1: mountStage(document.getElementById('stage1'), 'Part 1: non-adjacent group, then the adjacent case where the canvas stays put.', buildFrames(P1), 1),
+  2: mountStage(document.getElementById('stage2'), 'Part 2: reparent, the two guards, and the same-parent index question.', buildFrames(P2), 2),
+}
+let active = 0
+const tabs = [...document.querySelectorAll('nav [role=tab]')]
+function showChapter(n) {
+  active = n
+  tabs.forEach(t => t.setAttribute('aria-selected', String(+t.dataset.ch === n)))
+  document.querySelectorAll('.chapter').forEach(c => c.classList.toggle('is-active', +c.dataset.ch === n))
+  Object.values(stages).forEach(s => { if (s.key !== n) s.pause() })
+  history.replaceState(null, '', '#ch' + n)
+}
+tabs.forEach(t => (t.onclick = () => showChapter(+t.dataset.ch)))
+document.addEventListener('keydown', e => { if (e.target.tagName === 'SELECT' || e.target.tagName === 'INPUT') return; if (stages[active]) stages[active].onKey(e) })
+const m = location.hash.match(/#ch(\d)/); if (m) showChapter(+m[1])
+</script>
+</body>
+</html>

@@ -1063,7 +1063,9 @@ calling it correct because the rendering would look the same · mutating the inp
 **See it move first.** [Z-Order Under Grouping](/morning-recall/viz/layer-tree.html) paints the
 tree onto a canvas, so a wrong slot for a new group is something you *see* rather than something
 you reason about — including the case the one-line rule hides, where the members aren't adjacent
-and no policy can leave the canvas alone.
+and no policy can leave the canvas alone. [Layer Tree, played through](/morning-recall/viz/layer-tree-walkthrough.html)
+is the same material as a narrated player: press play and each call, the layers panel, the canvas, and the
+sentence to say advance together.
 
 **Your first three questions.** Is `children[0]` the bottom or the top of the z-stack? Can I group
 layers that aren't siblings? When a group is created, where does it sit in the parent's order?
@@ -1479,7 +1481,9 @@ the draft while one is pending, else the committed list. Part 1 of that question
 call, is the same class with `commit()` called at the end of every mutator — if your part 1 is not
 shaped that way, part 2 is a rewrite. `figma-10-undoable-database` is the rep, and
 [A Draft, Not a Buffer](/morning-recall/viz/undoable-database.html) steps every one of those choices
-next to drill 2's, with the snapshot history and the draft drawn side by side.
+next to drill 2's, with the snapshot history and the draft drawn side by side, and
+[Undoable Database, played through](/morning-recall/viz/undoable-database-walkthrough.html) plays both parts as a
+filmstrip with the caption to say at each step.
 
 ### D. COALESCING
 
