@@ -87,6 +87,14 @@
   .canvas rect.leaf { transition: x .3s, y .3s; }
   @media (prefers-reduced-motion: reduce) { .progress i, .canvas rect.leaf { transition: none; } }
   @media (max-width: 720px) { body { padding: 18px 14px 40px; } .stage { padding: 16px; } }
+
+  .code-panel { margin-top: 14px; background: var(--panel); border-radius: 12px; padding: 14px 18px 16px; }
+  .code-panel summary { cursor: pointer; font: 500 14px var(--sans); color: var(--muted); }
+  .code-panel summary:hover { color: var(--ink); }
+  .code-panel pre.sol { position: relative; max-height: 360px; overflow: auto; font: 12.5px/1.5 var(--mono); background: #f2f4f6; border-radius: 8px; padding: 12px 14px; margin: 10px 0 0; }
+  .sol .ln, .sol .blk { display: block; white-space: pre; padding: 0 6px; margin: 0 -6px; border-radius: 4px; }
+  .sol .blk.on { background: var(--live-soft); outline: 1px solid var(--live); }
+  .sol .blk.on + .blk.on { margin-top: 2px; }
 </style>
 </head>
 <body>
@@ -226,6 +234,90 @@ class Tree {
   childrenOf(id) { const n = this.node(id); if (!n.children) throw new Error(`${id} is a leaf, not a container`); return n.children }
 }
 
+const SOLUTION_HTML = `<span class="ln">export type Id = string</span><span class="ln">type TreeNode = { id: Id; parent: Id | null; children: Id[] | null } // null children = leaf</span><span class="ln"> </span><span class="ln">export class Tree {</span><span class="ln">  private nodes = new Map&lt;Id, TreeNode&gt;()</span><span class="ln"> </span><span class="blk" data-scope="Tree" data-fn="constructor">  constructor(rootId: Id) {
+    this.nodes.set(rootId, { id: rootId, parent: null, children: [] })
+  }</span><span class="ln"> </span><span class="blk" data-scope="Tree" data-fn="add">  add(id: Id, parentId: Id, isContainer = false): void {
+    const siblings = this.childrenOf(parentId)
+    this.nodes.set(id, { id, parent: parentId, children: isContainer ? [] : null })
+    siblings.push(id)
+  }</span><span class="ln"> </span><span class="ln">  /** Convention, stated up front: children[0] is the BOTTOM of the z-stack. */</span><span class="blk" data-scope="Tree" data-fn="group">  group(ids: Id[], groupId: Id): void {
+    if (ids.length === 0) throw new Error(&#x27;nothing to group&#x27;)
+    const parents = new Set(ids.map((id) =&gt; this.node(id).parent))
+    if (parents.size !== 1) throw new Error(&#x27;can only group siblings&#x27;)
+    const parentId = [...parents][0]
+    if (parentId === null) throw new Error(&#x27;cannot group the root&#x27;)
+    const siblings = this.childrenOf(parentId)
+    const members = new Set(ids)
+ 
+    // The group lands where the TOPMOST member was, so the canvas is unchanged.
+    const top = Math.max(...ids.map((id) =&gt; siblings.indexOf(id)))
+    const next: Id[] = []
+    siblings.forEach((cid, i) =&gt; {
+      if (members.has(cid)) {
+        if (i === top) next.push(groupId)
+        return
+      }
+      next.push(cid)
+    })
+ 
+    // Relative order read off the PARENT, not off the caller&#x27;s \`ids\`.
+    const ordered = siblings.filter((cid) =&gt; members.has(cid))
+    this.nodes.set(groupId, { id: groupId, parent: parentId, children: ordered })
+    for (const cid of ordered) this.node(cid).parent = groupId
+    siblings.length = 0
+    siblings.push(...next)
+  }</span><span class="ln"> </span><span class="blk" data-scope="Tree" data-fn="ungroup">  ungroup(groupId: Id): void {
+    const group = this.nodes.get(groupId)
+    if (!group || !group.children) throw new Error(\`not a group: \${groupId}\`)
+    if (group.parent === null) throw new Error(&#x27;cannot ungroup the root&#x27;)
+    const siblings = this.childrenOf(group.parent)
+    const at = siblings.indexOf(groupId)
+    for (const cid of group.children) this.node(cid).parent = group.parent
+    siblings.splice(at, 1, ...group.children) // one splice: remove and insert
+    this.nodes.delete(groupId)
+  }</span><span class="ln"> </span><span class="blk" data-scope="Tree" data-fn="reparent">  reparent(id: Id, newParentId: Id, index: number): void {
+    if (id === newParentId) throw new Error(&#x27;cannot parent a node to itself&#x27;)
+    if (this.isAncestor(id, newParentId)) throw new Error(&#x27;cannot parent a node into its own subtree&#x27;)
+    const node = this.node(id)
+    if (node.parent === null) throw new Error(\`cannot move \${id}\`)
+    const from = this.childrenOf(node.parent)
+    from.splice(from.indexOf(id), 1) // remove BEFORE computing the insert
+    const to = this.childrenOf(newParentId)
+    to.splice(Math.max(0, Math.min(index, to.length)), 0, id)
+    node.parent = newParentId
+  }</span><span class="ln"> </span><span class="blk" data-scope="Tree" data-fn="paintOrder">  paintOrder(rootId: Id): Id[] {
+    const out: Id[] = []
+    const walk = (id: Id): void =&gt; {
+      const n = this.node(id)
+      if (!n.children) {
+        out.push(id)
+        return
+      }
+      for (const c of n.children) walk(c)
+    }
+    walk(rootId)
+    return out
+  }</span><span class="ln"> </span><span class="blk" data-scope="Tree" data-fn="childIds">  childIds(id: Id): Id[] {
+    return [...(this.node(id).children ?? [])]
+  }</span><span class="ln"> </span><span class="blk" data-scope="Tree" data-fn="parentOf">  parentOf(id: Id): Id | null {
+    return this.node(id).parent
+  }</span><span class="ln"> </span><span class="blk" data-scope="Tree" data-fn="isAncestor">  private isAncestor(maybeAncestor: Id, of: Id): boolean {
+    let cur: Id | null = this.nodes.get(of)?.parent ?? null
+    while (cur !== null) {
+      if (cur === maybeAncestor) return true
+      cur = this.node(cur).parent
+    }
+    return false
+  }</span><span class="ln"> </span><span class="blk" data-scope="Tree" data-fn="node">  private node(id: Id): TreeNode {
+    const n = this.nodes.get(id)
+    if (!n) throw new Error(\`no such node: \${id}\`)
+    return n
+  }</span><span class="ln"> </span><span class="blk" data-scope="Tree" data-fn="childrenOf">  private childrenOf(id: Id): Id[] {
+    const n = this.node(id)
+    if (!n.children) throw new Error(\`\${id} is a leaf, not a container\`)
+    return n.children
+  }</span><span class="ln">}</span>`
+const EXTRA = { group: ['childrenOf', 'node'], ungroup: ['childrenOf', 'node'], reparent: ['isAncestor', 'childrenOf', 'node'], paintOrder: ['node'], add: ['childrenOf'], childIds: ['node'], parentOf: ['node'] }
 /* ---------- scripts ---------- */
 const flat = () => { const t = new Tree('root'); for (const id of ['a', 'b', 'c', 'd', 'e']) t.add(id, 'root'); return t }
 const nested = () => { const t = new Tree('root'); t.add('f', 'root', true); t.add('x', 'f'); t.add('y', 'root'); return t }
@@ -333,7 +425,7 @@ function renderLayers(f) {
 }
 function highlightCall(code) { return esc(code).replace(/\.(group|ungroup|reparent|paintOrder|parentOf|childIds)\(/g, '.<span class="fn">$1</span>(') }
 
-function mountStage(root, hint, frames, key) {
+function mountStage(root, hint, frames, key, scope) {
   root.innerHTML = `
     <div class="stage">
       <div class="call" aria-live="polite"></div>
@@ -349,7 +441,8 @@ function mountStage(root, hint, frames, key) {
       </div>
     </div>
     <div class="transcript"><ol></ol></div>
-    <p class="hint"><kbd>←</kbd> <kbd>→</kbd> step, <kbd>space</kbd> play. ${hint}</p>`
+    <p class="hint"><kbd>←</kbd> <kbd>→</kbd> step, <kbd>space</kbd> play. ${hint}</p>
+    <details class="code-panel" open><summary>Solution — the method this step runs is highlighted</summary><pre class="sol">${SOLUTION_HTML}</pre></details>`
   const q = s => root.querySelector(s)
   const el = { call: q('.call'), layers: q('.layers'), canvas: q('.canvas'), reads: q('.readouts'), cap: q('.caption'), bar: q('.progress i'),
     prev: q('.prev'), play: q('.play'), next: q('.next'), count: q('.count'), speed: q('.speed'), tx: q('.tx'), transcript: q('.transcript'), list: q('.transcript ol') }
@@ -367,6 +460,16 @@ function mountStage(root, hint, frames, key) {
     if (!reads.some(r => r[0].startsWith('paintOrder'))) reads.push(['paintOrder(root)', JSON.stringify(f.paint)])
     el.reads.innerHTML = reads.map(([l, v]) => `<div class="readout"><span class="lbl">${esc(l)}</span><span class="val">${esc(v)}</span></div>`).join('')
     el.cap.innerHTML = f.say
+
+    // solution panel: highlight the methods this step exercises
+    const wanted = new Set()
+    for (const mm of f.code.matchAll(/\.(\w+)\(/g)) wanted.add(mm[1])
+    if (/new \w+\(/.test(f.code)) wanted.add('constructor')
+    for (const w of [...wanted]) for (const x of (EXTRA[w] || [])) wanted.add(x)
+    const pre = root.querySelector('.sol')
+    let first = null
+    pre.querySelectorAll('.blk').forEach(b => { const on = wanted.has(b.dataset.fn) && (!b.dataset.scope || b.dataset.scope === scope); b.classList.toggle('on', on); if (on && !first) first = b })
+    if (first) pre.scrollTop = Math.max(0, first.offsetTop - pre.offsetTop - 8)
     el.count.textContent = `step ${i + 1} / ${frames.length}`
     el.bar.style.width = `${((i + 1) / frames.length) * 100}%`
     el.prev.disabled = i === 0; el.next.disabled = i === frames.length - 1
@@ -395,8 +498,8 @@ function mountStage(root, hint, frames, key) {
 }
 
 const stages = {
-  1: mountStage(document.getElementById('stage1'), 'Part 1: non-adjacent group, then the adjacent case where the canvas stays put.', buildFrames(P1), 1),
-  2: mountStage(document.getElementById('stage2'), 'Part 2: reparent, the two guards, and the same-parent index question.', buildFrames(P2), 2),
+  1: mountStage(document.getElementById('stage1'), 'Part 1: non-adjacent group, then the adjacent case where the canvas stays put.', buildFrames(P1), 1, 'Tree'),
+  2: mountStage(document.getElementById('stage2'), 'Part 2: reparent, the two guards, and the same-parent index question.', buildFrames(P2), 2, 'Tree'),
 }
 let active = 0
 const tabs = [...document.querySelectorAll('nav [role=tab]')]

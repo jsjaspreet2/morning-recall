@@ -125,6 +125,14 @@
 
   @media (prefers-reduced-motion: reduce) { .frame, .progress i { transition: none; } .frame.pulse { animation: none; } }
   @media (max-width: 720px) { body { padding: 18px 14px 40px; } .stage { padding: 16px; } .frame { width: 148px; } }
+
+  .code-panel { margin-top: 14px; background: var(--panel); border-radius: 12px; padding: 14px 18px 16px; }
+  .code-panel summary { cursor: pointer; font: 500 14px var(--sans); color: var(--muted); }
+  .code-panel summary:hover { color: var(--ink); }
+  .code-panel pre.sol { position: relative; max-height: 360px; overflow: auto; font: 12.5px/1.5 var(--mono); background: #f2f4f6; border-radius: 8px; padding: 12px 14px; margin: 10px 0 0; }
+  .sol .ln, .sol .blk { display: block; white-space: pre; padding: 0 6px; margin: 0 -6px; border-radius: 4px; }
+  .sol .blk.on { background: var(--live-soft); outline: 1px solid var(--live); }
+  .sol .blk.on + .blk.on { margin-top: 2px; }
 </style>
 </head>
 <body>
@@ -279,6 +287,74 @@ class DraftDatabase {
   }
 }
 
+const SOLUTION_HTML = `<span class="ln">export type Id = string | number</span><span class="ln">export type User = { id: Id } &amp; Record&lt;string, unknown&gt;</span><span class="ln">export type UserPatch = Record&lt;string, unknown&gt;</span><span class="ln"> </span><span class="ln">/**</span><span class="ln"> * Snapshots, because that is the model the prompt describes and the record</span><span class="ln"> * list is small. Each history entry is a full user list; undo and redo move an</span><span class="ln"> * index. The trade to say out loud: O(n) per step in time and memory, so this</span><span class="ln"> * is the placeholder you would replace with inverse commands (drill 2) before</span><span class="ln"> * the list got large. The history code would survive that swap; the three</span><span class="ln"> * CRUD methods would not.</span><span class="ln"> */</span><span class="ln"> </span><span class="blk" data-scope="" data-fn="shallowEqual">function shallowEqual(a: Record&lt;string, unknown&gt;, b: Record&lt;string, unknown&gt;): boolean {
+  const ka = Object.keys(a)
+  const kb = Object.keys(b)
+  return ka.length === kb.length &amp;&amp; ka.every((k) =&gt; a[k] === b[k])
+}</span><span class="ln"> </span><span class="blk" data-scope="" data-fn="copyAll">function copyAll(users: User[]): User[] {
+  return users.map((u) =&gt; ({ ...u }))
+}</span><span class="ln"> </span><span class="ln">/** Returns the next list, or null when the call would change nothing. */</span><span class="blk" data-scope="" data-fn="nextUsers">function nextUsers(users: User[], op: &#x27;add&#x27; | &#x27;update&#x27; | &#x27;delete&#x27;, id: Id, payload?: UserPatch): User[] | null {
+  const i = users.findIndex((u) =&gt; u.id === id)
+  switch (op) {
+    case &#x27;add&#x27;:
+      return [...users, { ...(payload as User) }]
+    case &#x27;update&#x27;: {
+      if (i &lt; 0) return null
+      const merged = { ...users[i], ...payload, id: users[i].id } as User
+      if (shallowEqual(merged, users[i])) return null
+      return users.map((u, j) =&gt; (j === i ? merged : u))
+    }
+    case &#x27;delete&#x27;:
+      if (i &lt; 0) return null
+      return users.filter((_, j) =&gt; j !== i)
+  }
+}</span><span class="ln"> </span><span class="ln">export class Database {</span><span class="ln">  private history: User[][] = [[]]</span><span class="ln">  private index = 0</span><span class="ln"> </span><span class="blk" data-scope="Database" data-fn="getUsers">  getUsers(): User[] {
+    return copyAll(this.history[this.index])
+  }</span><span class="ln"> </span><span class="blk" data-scope="Database" data-fn="addUser">  addUser(user: User): void {
+    this.commit(nextUsers(this.history[this.index], &#x27;add&#x27;, user.id, user))
+  }</span><span class="ln"> </span><span class="blk" data-scope="Database" data-fn="updateUser">  updateUser(id: Id, updates: UserPatch): void {
+    this.commit(nextUsers(this.history[this.index], &#x27;update&#x27;, id, updates))
+  }</span><span class="ln"> </span><span class="blk" data-scope="Database" data-fn="deleteUser">  deleteUser(id: Id): void {
+    this.commit(nextUsers(this.history[this.index], &#x27;delete&#x27;, id))
+  }</span><span class="ln"> </span><span class="blk" data-scope="Database" data-fn="undo">  undo(): void {
+    if (this.index &gt; 0) this.index--
+  }</span><span class="ln"> </span><span class="blk" data-scope="Database" data-fn="redo">  redo(): void {
+    if (this.index &lt; this.history.length - 1) this.index++
+  }</span><span class="ln"> </span><span class="ln">  /** The one choke point: a no-op never enters history and never clears redo. */</span><span class="blk" data-scope="Database" data-fn="commit">  private commit(next: User[] | null): void {
+    if (next === null) return
+    this.history = this.history.slice(0, this.index + 1)
+    this.history.push(next)
+    this.index++
+  }</span><span class="ln">}</span><span class="ln"> </span><span class="ln">/**</span><span class="ln"> * Part 1 is this class with \`commit()\` called at the end of every CRUD method.</span><span class="ln"> * The differences that matter are all in \`edit\`, \`undo\`, and where the redo</span><span class="ln"> * clear lives: the draft starts on the first edit and that is when redo dies.</span><span class="ln"> */</span><span class="ln">export class DraftDatabase {</span><span class="ln">  private history: User[][] = [[]]</span><span class="ln">  private index = 0</span><span class="ln">  private draft: User[] | null = null</span><span class="ln"> </span><span class="blk" data-scope="DraftDatabase" data-fn="current">  private get current(): User[] {
+    return this.draft ?? this.history[this.index]
+  }</span><span class="ln"> </span><span class="blk" data-scope="DraftDatabase" data-fn="getUsers">  getUsers(): User[] {
+    return copyAll(this.current)
+  }</span><span class="ln"> </span><span class="blk" data-scope="DraftDatabase" data-fn="addUser">  addUser(user: User): void {
+    this.edit(nextUsers(this.current, &#x27;add&#x27;, user.id, user))
+  }</span><span class="ln"> </span><span class="blk" data-scope="DraftDatabase" data-fn="updateUser">  updateUser(id: Id, updates: UserPatch): void {
+    this.edit(nextUsers(this.current, &#x27;update&#x27;, id, updates))
+  }</span><span class="ln"> </span><span class="blk" data-scope="DraftDatabase" data-fn="deleteUser">  deleteUser(id: Id): void {
+    this.edit(nextUsers(this.current, &#x27;delete&#x27;, id))
+  }</span><span class="ln"> </span><span class="blk" data-scope="DraftDatabase" data-fn="commit">  commit(): void {
+    if (this.draft === null) return
+    this.history.push(this.draft)
+    this.index++
+    this.draft = null
+  }</span><span class="ln"> </span><span class="blk" data-scope="DraftDatabase" data-fn="undo">  undo(): void {
+    if (this.draft !== null) {
+      this.draft = null // discard the draft; committed history is untouched
+      return
+    }
+    if (this.index &gt; 0) this.index--
+  }</span><span class="ln"> </span><span class="blk" data-scope="DraftDatabase" data-fn="redo">  redo(): void {
+    if (this.draft !== null) return // redo was cleared when the draft started
+    if (this.index &lt; this.history.length - 1) this.index++
+  }</span><span class="ln"> </span><span class="blk" data-scope="DraftDatabase" data-fn="edit">  private edit(next: User[] | null): void {
+    if (next === null) return
+    if (this.draft === null) this.history = this.history.slice(0, this.index + 1) // draft starts: redo dies now
+    this.draft = next
+  }</span><span class="ln">}</span>`
+const EXTRA = { addUser: ['nextUsers', 'commit', 'edit'], updateUser: ['nextUsers', 'commit', 'edit', 'shallowEqual'], deleteUser: ['nextUsers', 'commit', 'edit'], getUsers: ['copyAll', 'current'] }
 /* ---------- scripts ---------- */
 const P1 = [
   { code: `const db = new Database()`,
@@ -383,7 +459,7 @@ function highlightCall(code) {
   return esc(code).replace(/\.(\w+)\(/, '.<span class="fn">$1</span>(')
 }
 
-function mountStage(root, title, frames, key) {
+function mountStage(root, title, frames, key, scope) {
   root.innerHTML = `
     <div class="stage">
       <div class="call" aria-live="polite"></div>
@@ -402,7 +478,8 @@ function mountStage(root, title, frames, key) {
       </div>
     </div>
     <div class="transcript"><ol></ol></div>
-    <p class="hint"><kbd>←</kbd> <kbd>→</kbd> step, <kbd>space</kbd> play. ${title}</p>`
+    <p class="hint"><kbd>←</kbd> <kbd>→</kbd> step, <kbd>space</kbd> play. ${title}</p>
+    <details class="code-panel" open><summary>Solution — the method this step runs is highlighted</summary><pre class="sol">${SOLUTION_HTML}</pre></details>`
 
   const el = {
     call: root.querySelector('.call'), strip: root.querySelector('.strip'), out: root.querySelector('.readout .val'),
@@ -442,6 +519,16 @@ function mountStage(root, title, frames, key) {
 
     el.out.textContent = fmtOut(f.out)
     el.cap.innerHTML = f.say
+
+    // solution panel: highlight the methods this step exercises
+    const wanted = new Set()
+    for (const mm of f.code.matchAll(/\.(\w+)\(/g)) wanted.add(mm[1])
+    if (/new \w+\(/.test(f.code)) wanted.add('constructor')
+    for (const w of [...wanted]) for (const x of (EXTRA[w] || [])) wanted.add(x)
+    const pre = root.querySelector('.sol')
+    let first = null
+    pre.querySelectorAll('.blk').forEach(b => { const on = wanted.has(b.dataset.fn) && (!b.dataset.scope || b.dataset.scope === scope); b.classList.toggle('on', on); if (on && !first) first = b })
+    if (first) pre.scrollTop = Math.max(0, first.offsetTop - pre.offsetTop - 8)
     el.count.textContent = `step ${i + 1} / ${frames.length}`
     el.bar.style.width = `${((i + 1) / frames.length) * 100}%`
     el.prev.disabled = i === 0
@@ -480,8 +567,8 @@ function mountStage(root, title, frames, key) {
 }
 
 const stages = {
-  1: mountStage(document.getElementById('stage1'), 'Part 1 follows the worked example, then the no-op and redo-clearing checklist items.', buildFrames(Database, P1), 1),
-  2: mountStage(document.getElementById('stage2'), 'Part 2 follows the worked example, then the three semantics that changed from drill 2.', buildFrames(DraftDatabase, P2), 2),
+  1: mountStage(document.getElementById('stage1'), 'Part 1 follows the worked example, then the no-op and redo-clearing checklist items.', buildFrames(Database, P1), 1, 'Database'),
+  2: mountStage(document.getElementById('stage2'), 'Part 2 follows the worked example, then the three semantics that changed from drill 2.', buildFrames(DraftDatabase, P2), 2, 'DraftDatabase'),
 }
 
 /* ---------- chapter tabs ---------- */
