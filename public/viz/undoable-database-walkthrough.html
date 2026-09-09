@@ -524,7 +524,7 @@ function mountStage(root, title, frames, key, scope) {
     const wanted = new Set()
     for (const mm of f.code.matchAll(/\.(\w+)\(/g)) wanted.add(mm[1])
     if (/new \w+\(/.test(f.code)) wanted.add('constructor')
-    for (const w of [...wanted]) for (const x of (EXTRA[w] || [])) wanted.add(x)
+    for (const w of [...wanted]) for (const x of (Object.hasOwn(EXTRA, w) ? EXTRA[w] : [])) wanted.add(x)
     const pre = root.querySelector('.sol')
     let first = null
     pre.querySelectorAll('.blk').forEach(b => { const on = wanted.has(b.dataset.fn) && (!b.dataset.scope || b.dataset.scope === scope); b.classList.toggle('on', on); if (on && !first) first = b })
