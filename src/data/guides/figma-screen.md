@@ -1146,10 +1146,22 @@ export class Tree {
     node.parent = newParentId
   }
 
-  /** Leaves in the order a renderer paints them: depth-first, bottom of each stack first. */
+  /**
+   * Leaves in the order a renderer paints them: depth-first, bottom of each
+   * stack first. Groups never appear, they are containers, not pixels.
+   */
   paintOrder(rootId: Id): Id[] {
-    const node = this.node(rootId)
-    return node.children ? node.children.flatMap((child) => this.paintOrder(child)) : [rootId]
+    const out: Id[] = []
+    const walk = (id: Id): void => {
+      const n = this.node(id)
+      if (!n.children) {
+        out.push(id) // a leaf: paint it
+        return
+      }
+      for (const c of n.children) walk(c) // a container: paint its children, bottom first
+    }
+    walk(rootId)
+    return out
   }
 
   childIds(id: Id): Id[] {
@@ -1160,10 +1172,16 @@ export class Tree {
     return this.node(id).parent
   }
 
-  /** Walk up from `of`. True if `maybeAncestor` is on the path to the root. O(depth). */
+  /**
+   * Walk up the parent pointers from `of`. True if `maybeAncestor` is on the
+   * way to the root. O(depth). This is the cycle check: moving a node into its
+   * own subtree would make something that is no longer a tree.
+   */
   private isAncestor(maybeAncestor: Id, of: Id): boolean {
-    for (let cur = this.node(of).parent; cur !== null; cur = this.node(cur).parent) {
+    let cur: Id | null = this.node(of).parent
+    while (cur !== null) {
       if (cur === maybeAncestor) return true
+      cur = this.node(cur).parent
     }
     return false
   }

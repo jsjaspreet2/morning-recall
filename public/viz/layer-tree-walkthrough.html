@@ -223,10 +223,10 @@ class Tree {
     to.splice(Math.min(Math.max(index, 0), to.length), 0, id)
     node.parent = newParentId
   }
-  paintOrder(rootId) { const n = this.node(rootId); return n.children ? n.children.flatMap(c => this.paintOrder(c)) : [rootId] }
+  paintOrder(rootId) { const out = []; const walk = id => { const n = this.node(id); if (!n.children) { out.push(id); return } for (const c of n.children) walk(c) }; walk(rootId); return out }
   childIds(id) { return [...(this.node(id).children ?? [])] }
   parentOf(id) { return this.node(id).parent }
-  isAncestor(maybe, of) { for (let cur = this.node(of).parent; cur !== null; cur = this.node(cur).parent) if (cur === maybe) return true; return false }
+  isAncestor(maybe, of) { let cur = this.node(of).parent; while (cur !== null) { if (cur === maybe) return true; cur = this.node(cur).parent } return false }
   node(id) { const n = this.nodes.get(id); if (!n) throw new Error(`no such node: ${id}`); return n }
   childrenOf(id) { const n = this.node(id); if (!n.children) throw new Error(`${id} is a leaf, not a container`); return n.children }
 }
@@ -273,16 +273,27 @@ const SOLUTION_HTML = `<span class="ln">export type Id = string</span><span clas
     const to = this.childrenOf(newParentId)
     to.splice(Math.min(Math.max(index, 0), to.length), 0, id) // clamp, then insert
     node.parent = newParentId
-  }</span><span class="ln"> </span><span class="ln">  /** Leaves in the order a renderer paints them: depth-first, bottom of each stack first. */</span><span class="blk" data-scope="Tree" data-fn="paintOrder">  paintOrder(rootId: Id): Id[] {
-    const node = this.node(rootId)
-    return node.children ? node.children.flatMap((child) =&gt; this.paintOrder(child)) : [rootId]
+  }</span><span class="ln"> </span><span class="ln">  /**</span><span class="ln">   * Leaves in the order a renderer paints them: depth-first, bottom of each</span><span class="ln">   * stack first. Groups never appear, they are containers, not pixels.</span><span class="ln">   */</span><span class="blk" data-scope="Tree" data-fn="paintOrder">  paintOrder(rootId: Id): Id[] {
+    const out: Id[] = []
+    const walk = (id: Id): void =&gt; {
+      const n = this.node(id)
+      if (!n.children) {
+        out.push(id) // a leaf: paint it
+        return
+      }
+      for (const c of n.children) walk(c) // a container: paint its children, bottom first
+    }
+    walk(rootId)
+    return out
   }</span><span class="ln"> </span><span class="blk" data-scope="Tree" data-fn="childIds">  childIds(id: Id): Id[] {
     return [...(this.node(id).children ?? [])]
   }</span><span class="ln"> </span><span class="blk" data-scope="Tree" data-fn="parentOf">  parentOf(id: Id): Id | null {
     return this.node(id).parent
-  }</span><span class="ln"> </span><span class="ln">  /** Walk up from \`of\`. True if \`maybeAncestor\` is on the path to the root. O(depth). */</span><span class="blk" data-scope="Tree" data-fn="isAncestor">  private isAncestor(maybeAncestor: Id, of: Id): boolean {
-    for (let cur = this.node(of).parent; cur !== null; cur = this.node(cur).parent) {
+  }</span><span class="ln"> </span><span class="ln">  /**</span><span class="ln">   * Walk up the parent pointers from \`of\`. True if \`maybeAncestor\` is on the</span><span class="ln">   * way to the root. O(depth). This is the cycle check: moving a node into its</span><span class="ln">   * own subtree would make something that is no longer a tree.</span><span class="ln">   */</span><span class="blk" data-scope="Tree" data-fn="isAncestor">  private isAncestor(maybeAncestor: Id, of: Id): boolean {
+    let cur: Id | null = this.node(of).parent
+    while (cur !== null) {
       if (cur === maybeAncestor) return true
+      cur = this.node(cur).parent
     }
     return false
   }</span><span class="ln"> </span><span class="blk" data-scope="Tree" data-fn="node">  private node(id: Id): TreeNode {
