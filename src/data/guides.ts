@@ -11,6 +11,7 @@ import technologyMd from './guides/technology.md?raw'
 import componentRoundMd from './guides/component-round.md?raw'
 import uieComponentsMd from './guides/uie-components.md?raw'
 import clientSideSystemDesignMd from './guides/client-side-system-design.md?raw'
+import systemDesignCardMd from './guides/system-design-card.md?raw'
 import figmaScreenMd from './guides/figma-screen.md?raw'
 import discordScreenMd from './guides/discord-screen.md?raw'
 import openaiScreenMd from './guides/openai-screen.md?raw'
@@ -125,6 +126,18 @@ export const guides: Guide[] = [
       'The client as a replica, not a view: the seven-layer checklist, the transport ladder, streaming and backpressure, offline and reconciliation — plus component API design and test quality.',
     accent: 'amber',
     md: clientSideSystemDesignMd,
+  },
+  // The read-it-at-T-30 sheet for the design round, built from a reviewed mock:
+  // the process card, the minute-35 NFR audit, and a 0–2 rubric with its re-run
+  // threshold. Everything on it exists in longer form in the three guides above
+  // and on the Demand response and Smart-meter telemetry design pages.
+  {
+    id: 'system-design-card',
+    title: 'The System Design Round — one page',
+    subtitle:
+      'Read at T-30: the rubric echo, the load-proportional budget, the state machine before the boxes, kill a box, the minute-35 NFR audit, a 0–2 rubric with its re-run threshold, and five same-archetype reps.',
+    accent: 'amber',
+    md: systemDesignCardMd,
   },
   {
     id: 'animation',
