@@ -124,6 +124,20 @@ const META: Record<string, Meta> = {
       'Lossy, at-least-once usage events have to converge on an exact number of dollars — and the money leaves through a third party you do not control. The inverse of ChatGPT: the same two token counts, but dropping one is revenue rather than a metric.',
     accent: 'emerald',
   },
+  telemetry: {
+    label: 'Smart-meter telemetry',
+    archetype: 'Write-heavy telemetry / analytics',
+    tension:
+      'A million small writes a second that are allowed to be lossy, feeding one query that wants the before-and-after of a command across ten million meters — event time is not arrival time, and the lateness number you pick is the state you pay for. The inverse of LLM API billing: the same firehose, but dropping one is a metric, not revenue.',
+    accent: 'teal',
+  },
+  'demand-response': {
+    label: 'Demand response',
+    archetype: 'Coordination / command workflow',
+    tension:
+      'One operator action becomes ten million per-device state machines that have to reach a terminal state and be reconciled — the fanout is cheap, the closure is the work. The inverse of IDE settings sync: the push is not a hint, it is an actuation with a deadline, and the product is knowing which targets did it.',
+    accent: 'rose',
+  },
   checkout: {
     label: 'Amazon checkout',
     archetype: 'Multi-service order orchestration',
