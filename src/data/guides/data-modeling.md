@@ -1094,6 +1094,10 @@ quotas; a subject with rules in two scopes (hash tags or two round trips); the s
 memory at a 100k/min limit; whether the local bucket is "good enough" (only if you can say the error
 bound: N gateways over-admit by up to N×burst).
 
+**The other half.** This model is the storage decision; the multi-region enforcement, the lease
+that shrinks near the limit, shadow-mode config rollout, and the fail-open/fail-closed policy per
+rule are the Distributed rate limiter design page, which starts from the same six artifacts.
+
 </details>
 
 ### H. PAYMENTS LEDGER
