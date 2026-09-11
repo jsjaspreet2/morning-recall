@@ -1290,6 +1290,8 @@ the pressure lands lets you steer there yourself.
 | File / photo / video | Direct upload, async processing, CDN, moderation |
 | Search / maps | Index freshness, ranking stages, geo cells, ACL filtering |
 | Metrics / trending | Stream windows, lateness, rollups, hot keys |
+| Telemetry ingest (meters, GPS, sensors, analytics) | Partition and batching math, event-time watermarks with a picked lateness, a named TSDB with retention and downsampling, cohort before/after queries — the Smart-meter telemetry design page |
+| Command / rollout to a fleet (demand response, OTA, flags, config push, bulk send) | The per-target state machine first, broadcast vs unicast fanout, where idempotency lives, store-and-forward retries, sweeper reconciliation, the safety checklist — the Demand response design page |
 | Collaboration | Sequencing, OT vs CRDT, offline reconnect, compaction |
 | LLM assistant | Streaming, context assembly, tools, RAG, evals, budgets (§11–12) |
 

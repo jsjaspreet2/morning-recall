@@ -22,7 +22,7 @@ not instead of one:
 | Alex Xu, *System Design Interview* Vol 1–2 | End-to-end walkthroughs of canonical systems | Building intuition; seeing a whole design assembled |
 | Hello Interview | Walkthroughs plus a delivery framework and live-round coaching | Rehearsing the room; problem-specific depth |
 | **This guide** | Decision tables, estimation anchors, failure and operational depth, AI-native systems | Look-up during practice; the closing drill; the parts courses skip |
-| `Technology Choices` (companion guide) | One page per technology: mechanism, when it flips, the line to say | Any question of the form "why Postgres and not X" |
+| `Technology Choices` (companion guide) | One page per technology, server and browser: mechanism, when it flips, the line to say | Any question of the form "why Postgres and not X" — and, from §17, "why IndexedDB and not localStorage" |
 
 The division with `Technology Choices` is worth stating plainly, because they used to overlap:
 **that guide picks the technology, this one shapes the system.** When a section here needs a store,
@@ -763,6 +763,9 @@ one distinction clean: **realtime delivery does not imply realtime durable stora
 separate systems with separate guarantees, and conflating them is how presence data ends up in a
 transactional database.
 
+For what each rung is from the browser's side — and what the client owes you in return, since
+reconnect and resumption are where these designs actually fail — see `Technology Choices` §22–25.
+
 ### B. THE CONNECTION PLANE
 
 - A **gateway** authenticates, rate limits, maintains heartbeats, and tracks subscriptions.
@@ -1287,6 +1290,8 @@ the pressure lands lets you steer there yourself.
 | File / photo / video | Direct upload, async processing, CDN, moderation |
 | Search / maps | Index freshness, ranking stages, geo cells, ACL filtering |
 | Metrics / trending | Stream windows, lateness, rollups, hot keys |
+| Telemetry ingest (meters, GPS, sensors, analytics) | Partition and batching math, event-time watermarks with a picked lateness, a named TSDB with retention and downsampling, cohort before/after queries — the Smart-meter telemetry design page |
+| Command / rollout to a fleet (demand response, OTA, flags, config push, bulk send) | The per-target state machine first, broadcast vs unicast fanout, where idempotency lives, store-and-forward retries, sweeper reconciliation, the safety checklist — the Demand response design page |
 | Collaboration | Sequencing, OT vs CRDT, offline reconnect, compaction |
 | LLM assistant | Streaming, context assembly, tools, RAG, evals, budgets (§11–12) |
 
