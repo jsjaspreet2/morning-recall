@@ -534,6 +534,16 @@ REQUIRES_AUTH ─▶ AUTHORIZED ─▶ CAPTURED ─▶ SETTLED ─▶ PAID_OUT
 - **An unknown-outcome timeout sends a reversal advice** and moves to `REQUIRES_ACTION`, never to approved or declined (§6, Flow A). **→ ties to the authorization-availability row in §2**, which is the one place in this repo where the answer is fail closed rather than fail open.
 - **Fee estimation is separate from fee truth.** At capture we book our *estimated* fee to `fee_revenue`; the settlement file carries the actual interchange, and the difference is booked to `network_cost`. **Pretending the estimate was right is how a P&L drifts from reality by a rounding error a hundred million times.**
 
+### Batch capture, and the failure inside the batch
+
+The prompt that says *"holds and batching"* — authorize now, capture in an end-of-day batch — is this state machine with `AUTHORIZED → CAPTURED` driven by a job instead of a call, and the questions it adds are the ones a batch always adds.
+
+- **The batch is a set of independent captures, not a transaction.** Ten thousand `AUTHORIZED` payments are captured one by one, each its own idempotent submission keyed `(payment_id, capture_attempt)`; **a failure on the 4,317th leaves 4,316 captured and 5,683 to retry**, and the batch record tracks per-item outcome, never a single status. The interviewer's push is exactly *"one fails — what happens to the rest?"*, and the answer is "nothing; they were never one thing."
+- **A batch that dies halfway resumes from its own record**, not from the top: items already `CAPTURED` are skipped by the state machine's guard (`WHERE state = 'AUTHORIZED'`), so re-running the whole batch is safe and is the recovery procedure.
+- **Holds expire (~7 days), and the batch runs against a moving deadline.** A capture attempted after the authorization lapsed declines; the batch job orders items by `auth_expires_at` and flags anything within 24 hours of expiry for **re-authorization** before capture — the Amazon checkout page's `§11` job, seen from the side that runs it.
+- **Capture ≤ authorization**, and the remainder is released; over-capture tolerances are a network rule, not ours. Incremental authorization exists for the opposite case and is a new auth, not a mutation.
+- **Direct charge is auth + capture in one call and one state transition pair**, and it is the *same* machine — a direct charge that times out after the auth landed is the unknown-outcome case above, not a special one.
+
 ### What it costs
 
 **Merchants see money as "pending" for days and find it baffling**, and the support load from that is real and permanent — the honest answer, "we don't have it yet either," is not one people enjoy. **You have taken a hard batch dependency**: the settlement file is a daily deadline owned by someone else, and when it is late nothing settles and no payouts run (§6). **Reversal advices are best-effort** — the network may not honor one, so a cardholder can carry a hold for days on a payment that never existed, which generates its own complaints. And the three-state model has to be **exposed in the API rather than hidden**, because a merchant who can't distinguish captured from settled will build their own accounting on the wrong number.
