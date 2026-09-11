@@ -271,6 +271,12 @@ Blind threads, prep-site question banks, and interview-experience aggregators, p
 public statement of what engineering interviews look for. The bank below is those reports, deduped,
 grouped by the *technique* each demands, and ranked.
 
+**A second source, added 9/11:** PracHub's OpenAI › Software Engineer › System Design list — 80
+questions with a heart count each. Hearts are a demand signal, not a frequency signal, but they
+are the only *ranked* data available, and the top five by hearts (rate limiter 915, sandboxed cloud
+IDE 396, GPU credit allocator 367, hosted notebook platform 294, payments with holds 102) are what
+re-ordered the architecture bank in `§03 C` and added `§06 E`.
+
 **Rank by technique, not by title.** Question titles rotate every few months; the techniques do
 not. Two prompts that sound different — "build a streaming chat input" and "build a chatbot-style
 chat interface with status tracking" — are the same four techniques with different framing. Prepare
@@ -352,19 +358,29 @@ works end to end.
 **Family 3 — the classic at OpenAI scale.** These are the "can you do normal distributed systems"
 checks, asked with aggressive scale follow-ups.
 
-| Prompt | Where the depth lands |
-|---|---|
-| **Design Slack**, with 100× and 1000× follow-ups | Fanout, presence, ordering, connection count. `Designs → Discord` is this page |
-| **Design a job scheduler** / GPU job scheduler for text-to-video | Queues, priority, preemption, fairness under sustained overload |
-| **Design a distributed webhook delivery system** | Retries, idempotency, ordering, poison messages |
-| **Design a payment system with exactly-once charging** | Idempotency keys, sagas, reconciliation |
-| **Design a token-usage / quota monitoring system** across millions of users | Metering accuracy vs cost, aggregation windows, late events |
+Ranked by the PracHub heart count where one exists (scraped 9/11 — see `§03 A`); the report-only
+rows follow.
 
-**Bet allocation.** Family 1 is where to spend two-thirds of design prep, because it is the most
+| Prompt | Hearts · round | Where the depth lands |
+|---|---|---|
+| **Design a distributed rate limiter** | **915 · screen** | The counter-op arithmetic, one atomic script per key, the gateway lease and its overshoot bound, multi-region as local shares plus gossip, fail-open with a local bucket. `Designs → Distributed rate limiter` is this page |
+| **Design a GPU credit allocator** | **367 · screen, hard** | Reserve-then-stream-settle, the scheduler's lease contract, four controls kept distinct, prepaid vs postpaid as one floor. `§06 E` here, on top of `Designs → LLM API billing` |
+| **Design a hosted notebook platform** | **294 · screen** | Session state machine under CAS, the itemised resume budget, suspend-to-snapshot, three durability classes. `Designs → Hosted notebooks` |
+| **Design a payment system with holds and batching** | **102 · screen, hard** | Authorize / capture / settle as three money events, batch capture with a failure inside the batch, hold expiry. `Designs → Payment processor §9` |
+| **Design a CI/CD pipeline with a scheduler** | 101 | The per-job state machine first (`Designs → Demand response §4`), queues and leases, ephemeral runners (`Designs → Hosted notebooks §15`) |
+| **Design a scalable payment system** | 94 | Idempotency keys, sagas, reconciliation. `Designs → Payment processor`, `Designs → Amazon checkout` |
+| **Design the GPU job scheduler** for text-to-video | 68 | Queues, priority, preemption, fairness under sustained overload. `Designs → ChatGPT §9–§10`, `Designs → Cursor Tab §9` |
+| **Design an Instagram-like feed** | 66 | Fanout hybrid, the celebrity threshold, pagination. `Designs → Twitter feed` |
+| **Design Slack**, with 100× and 1000× follow-ups | 64 | Fanout, presence, ordering, connection count. `Designs → Discord` is this page |
+| **Design a distributed webhook delivery system** | reported | Retries, idempotency, ordering, poison messages. `Designs → Payment processor §10` is the sender's side |
+| **Design a token-usage / quota monitoring system** across millions of users | reported | Metering accuracy vs cost, aggregation windows, late events. `Designs → LLM API billing`, `Designs → Smart-meter telemetry` |
+
+**Bet allocation.** Family 1 is still where two-thirds of design prep goes, because it is the most
 reported *and* the most transferable — a Playground answer is a ChatGPT answer with different
-controls, and a Codex answer is a ChatGPT answer with an async job in the middle. Family 3 is
-already covered by `Designs → Discord`, `Designs → Ticketmaster`, and `System Design`; one reread
-each is enough.
+controls, and a Codex answer is a ChatGPT answer with an async job in the middle. But the hearts
+data moves one Family 3 prompt up: **the rate limiter has more hearts than the next three combined
+and is a screen prompt**, so it gets a design rep of its own (`§12 C`). The rest of Family 3 is
+covered by the pages named above; one reread each is enough.
 
 ### D. THE FUNDAMENTALS SUB-BANK
 
@@ -441,9 +457,14 @@ Useful because it tells you where *not* to spend September.
 | **Streaming into an editable document (Canvas)** | ❌ **New** | `§08 J`, `§09 F`, `§06 C` here. Design-only unless time allows |
 | Conversational AI service, end to end | ❌ **New** | `§06 A` here |
 | Resumable streams, server side | ❌ **New** | `§05 E` here |
+| **Distributed rate limiter** (915 hearts, screen) | ✅ **Built 9/11** | `Designs → Distributed rate limiter` · the storage half in `Data Modeling §06 G` |
+| **Sandboxed cloud IDE / hosted notebooks** (396 + 294 hearts) | ✅ **Built 9/11** | `Designs → Hosted notebooks` · the Codex shape in `§06 D` here |
+| **GPU credit allocator** (367 hearts, screen) | ⚠️ **Partly** | `§06 E` here, on top of `Designs → LLM API billing §8–§9` and `Designs → ChatGPT §9–§10` |
+| **Payments with holds and batching** (102 hearts, screen) | ✅ **Covered** | `Designs → Payment processor §7, §9` — batch capture added 9/11 |
 
-**The honest summary:** four new coding drills, one new design, and a lot of rereading. That is the
-whole delta, and it fits in the four weeks with the other three screens still in them.
+**The honest summary:** four new coding drills, one new design in this guide, two design pages
+built from the hearts data, and a lot of rereading. That is the whole delta, and it fits in the
+four weeks with the other three screens still in them.
 
 ## 04 — Round 1 (Wed 9/16): the architecture hour
 
@@ -735,7 +756,7 @@ backpressure a non-problem**, which is another reason to volunteer it.
 `requestAnimationFrame` buffer and its two footguns (background tabs don't fire rAF; flush the tail
 on unmount). `§08 E` here is the same code in its OpenAI-shaped context.
 
-## 06 — Four architectures, worked
+## 06 — Five architectures, worked
 
 Each is compressed to what fits in sixty minutes: the frame, requirements, the wireframe, the
 contract, the flows, the two or three dives that earn, and the traps. `Designs → LLM knowledge
@@ -962,13 +983,141 @@ call, file read, patch, test run, log line) to a durable log → clients read th
    container. Queue depth, per-user concurrency caps, and preemption of free-tier tasks are the
    scale answers.
 
-### E. IF YOU GET A PROMPT THAT ISN'T ONE OF THESE
+### E. DESIGN A GPU CREDIT ALLOCATOR
 
-The four above cover the reported Families 1 and 2. If you draw from Family 3 — Slack, a job
-scheduler, webhook delivery, payments — you already have those pages. The mapping:
+**Why it is a different problem from billing.** The billing page meters tokens whose cost is
+unknown until the request finishes and settles them to money once an hour. A GPU credit allocator
+meters **GPU-seconds whose cost accrues continuously while the job runs**, across `10^5` jobs on
+`10^5`–`10^6` GPUs, with an **account hierarchy** (org → project → user), **transfers** between
+scopes, and a **scheduler** that has to be told, per job, whether it may keep running. The metering
+and ledger halves are the billing page; what is new is the hierarchy, the lease contract with the
+scheduler, and keeping **four controls distinct** — budget, quota, rate limit, fair-share — that
+candidates collapse into one counter.
+
+**The 60-second frame.** *"This is the billing page's reserve-then-settle applied to a resource
+that accrues per second, with a scheduler in the loop. Three things dominate. First, granularity:
+deducting per GPU-second across a hundred thousand jobs is a hundred thousand ledger writes a
+second on hot balance rows, so I'll **reserve a hold up front and stream-settle per heartbeat**
+— fifteen to sixty seconds — which is the write rate that makes the ledger boring. Second,
+**budget, quota, rate limit, and fair-share answer four different questions** — do you have
+credits, are you within your cap, are you spending too fast, and is it your turn when GPUs are
+scarce — and I'll keep them as four mechanisms checked in four places. Third, the **scheduler
+contract**: admission returns a signed lease with a rate and an expiry, and the node agent drains
+the job when an extension is denied. I'll go deep on the reservation lifecycle and on the
+hierarchy with transfers; fairness I'll hand to the scheduler and say why."*
+
+**Functional requirements** (three, then stop):
+1. **Meter and deduct in real time**: a job on `g` GPUs of type `t` consumes credits as it runs,
+   across many nodes, without charging twice or losing a second.
+2. **Credit APIs**: grant, transfer between scopes, top up, query balance, and the
+   reserve → extend → settle → cancel lifecycle — all idempotent.
+3. **Admit, throttle, or reject** each workload against budget, quota, and rate limit, and enforce
+   fair-share when GPUs are scarce, with prepaid and postpaid both supported.
+
+Out of scope: pricing strategy, the GPU scheduler's placement algorithm itself (the ChatGPT page's
+§9), invoicing and payment collection (the billing page's §10), and the job runtime.
+
+**Numbers worth deriving.** `10^5` concurrent jobs × 1 heartbeat / 30 s ≈ **3,300 settlements/s**
+— trivial for a ledger, and the reason the heartbeat interval exists. Naive per-second deduction is
+**100 k writes/s on balance rows**, and the largest org's balance row takes thousands of them:
+the hot row that the reservation model is designed to avoid. A hold sized at the job's worst case
+for one heartbeat window bounds **crash exposure to one window's worth of credits per job** —
+say that number; it is the honest answer to "how much can we lose."
+
+**Core entities:** `Account(scope: org | project | user, parent, balance_floor)` ·
+`Balance(account, available, held, version)` · `Ledger entry(from, to, amount, reason, source_id)`
+— append-only, double-entry, `UNIQUE (source_type, source_id)` · `Reservation(job, account, hold,
+rate, expires_at, settled_so_far, price_version)` · `Price(gpu_type, region, per_second,
+effective_from)` · `Quota(account, gpu_type, max_concurrent, period_cap)` · `RateLimit(account,
+token_bucket)` · `Usage(job, heartbeat_ts, gpu_seconds)`.
+
+**API:**
+
+| Endpoint | Notes |
+|---|---|
+| `POST /accounts/{id}/grants` · `/topups` | `Idempotency-Key`. Each is a ledger entry from a system account |
+| `POST /transfers` `{from, to, amount}` | Same-shard: one transaction. Cross-shard: **a saga through an escrow account** — debit to escrow commits first, credit from escrow second, a sweeper reverses orphans. Not 2PC on the money path |
+| `POST /reservations` `{job, account, gpus, gpu_type, window_s}` | Walks org → project → user, checks quota and rate limit, **`UPDATE balance SET held = held + $h WHERE id = $a AND available − held ≥ $h AND version = $v`** — one row, one guard predicate, the loser retries. Returns a **signed lease** `{reservation_id, rate, expires_at, price_version}` |
+| `POST /reservations/{id}/extend` | On each heartbeat: settle the elapsed slice (a ledger entry keyed `(reservation_id, heartbeat_seq)`), top the hold back up. **Denied** → the lease is not renewed |
+| `POST /reservations/{id}/settle` · `/cancel` | Final slice; release the leftover hold. Idempotent on the reservation |
+| `GET /accounts/{id}/balance` | `{available, held, pending_settlements}` — **may be stale by one heartbeat**, and says so |
+
+**The decisions to say unprompted.** *The ledger is authoritative and balances are a materialised
+sum* — every charge is replayable and drift is detectable by re-summing. *The price is pinned at
+reservation* (`price_version` in the lease), so a mid-job price change cannot re-charge a running
+job; it applies to the next reservation. *Prepaid and postpaid are one equation with one
+parameter*: admit if `available − held ≥ hold` where `available` may go down to `balance_floor` —
+zero for prepaid, a negative credit limit for postpaid — and the postpaid path adds credit-risk
+controls (a smaller floor for new orgs, alerts at 80 % of the floor, a kill switch). *The cache is
+not a correctness mechanism*: a Redis copy of balances serves the dashboard and the scheduler's
+"can I even try," never the reservation's guard predicate.
+
+**Flow A — a job runs.** Scheduler → `POST /reservations` → hold for one window at worst case →
+signed lease to the node agent → job starts → every heartbeat the agent reports GPU-seconds →
+`extend` settles the slice and refreshes the hold → job ends → `settle` books the last slice and
+releases the hold. **Flow B — the extension is denied** (budget exhausted, quota hit, or the org's
+kill switch): the agent has the lease's `expires_at`; it **drains the job within that window** —
+checkpoint if the framework supports it, then stop — and the reservation settles what ran. The
+scheduler learns from the same denial and stops admitting that account. **Flow C — a node crashes
+mid-job**: no heartbeats arrive; the reservation's hold **expires** (a sweeper releases it at
+`expires_at + grace`) and the last settled slice stands. Exposure: one window of unsettled usage,
+bounded and disclosed.
+
+**Dive 1 — four controls, four questions, four places.** *Budget* — "do you have credits" — is the
+ledger and the guard predicate, checked at reservation and every extension. *Quota* — "are you
+within your cap" — is a per-account, per-GPU-type concurrency and period cap, checked at
+reservation, enforced by the scheduler. *Rate limit* — "are you spending too fast" — is a token
+bucket on reservation *rate* (the rate limiter page, applied to credits per minute), checked at
+reservation, fail-open. *Fair-share* — "is it your turn" — is **orthogonal to credits**: weighted
+max-min across orgs, or DRF when jobs contend on GPUs and memory, enforced by the scheduler's queue
+and preemption. **A credit-rich tenant can still wait.** The trap is one counter doing all four,
+which then has to be exact, fast, fair, and global at once — and cannot be.
+
+**Dive 2 — the hierarchy, and a transfer across shards.** Shard by `org_id` so a reservation's
+walk (org → project → user) is single-shard and the guard predicate is one row. A transfer
+between two orgs on different shards is **a saga with an escrow account**: entry 1 debits the
+source to `escrow:{transfer_id}`; entry 2 credits the destination from escrow; a sweeper finds
+escrow entries older than a minute with no second leg and reverses them. Both legs are idempotent
+on `transfer_id`. The alternative — 2PC across shards — holds locks on balance rows across a
+network round trip, and the row it locks is the one every reservation on that org needs.
+
+**Dive 3 — audit, and the invariant to test.** Double-entry: every movement is two legs summing to
+zero, including grants (from a system `issuance` account) and settlements (to a `revenue` account).
+The invariant a property-based test asserts after every operation: **sum of all balances plus
+escrow plus revenue equals total issuance** — no credit created or destroyed. Alert on any
+re-summed balance that differs from the materialised one, on holds older than two windows, and on
+escrow entries with one leg.
+
+**Traps, ranked:**
+1. Deducting per GPU-second on the balance row. The hot row the reservation exists to avoid.
+2. One counter for budget, quota, rate limit, and fair-share. Four questions, one wrong answer.
+3. The price read at settlement instead of pinned at reservation. Every price change becomes a
+   billing incident for running jobs.
+4. A cache of balances used as the guard. Two reservations both read `available = 100` and both
+   hold 100.
+5. No lease expiry, so a crashed node's hold is held forever — or, worse, no hold, so a crashed
+   node's usage is free.
+6. Reconciling "fair" as "has credits." The org with the most credits starves everyone else the
+   day GPUs are scarce.
+7. 2PC for a cross-shard transfer, locking the busiest row in the system across a network hop.
+8. Claiming zero overspend. The bound is one heartbeat window per job; say it.
+
+**Where the long form is:** `Designs → LLM API billing §8` (the lease and the overshoot bound),
+`§9` (the ledger), `§12` (the store debate); `Designs → ChatGPT §9–§10` (the GPU pool and
+fairness); `Designs → Distributed rate limiter` (the rate-limit control on its own).
+
+### F. IF YOU GET A PROMPT THAT ISN'T ONE OF THESE
+
+The five above cover the reported Families 1 and 2 and the top Family 3 screen prompt. If you draw
+another Family 3 prompt you already have its page. The mapping, hearts-ranked rows first:
 
 | Prompt | Read |
 |---|---|
+| Design a distributed rate limiter | `Designs → Distributed rate limiter` — the arithmetic, the lease bound, and the multi-region spectrum, in that order |
+| Design a sandboxed cloud IDE / a hosted notebook platform | `Designs → Hosted notebooks` — the session state machine first, then the substrate ranked by the kernel it shares; `§06 D` here for the Codex shape on top |
+| Design a GPU credit allocator | `§06 E` above, then `Designs → LLM API billing §8` |
+| Design a payment system with holds and batching | `Designs → Payment processor §9` — three money events, and batch capture with a failure inside the batch |
+| Design a CI/CD pipeline with a scheduler | `Designs → Demand response §4` for the per-job state machine, `Designs → Hosted notebooks §15` for ephemeral runners, `Designs → ChatGPT §9` for the queue under overload |
 | Design Slack, with 100×/1000× follow-ups | `Designs → Discord` — it *is* this problem, one write becoming fifty thousand socket writes |
 | Design a chat/messaging system with delivery guarantees | `Designs → WhatsApp` |
 | A job scheduler / GPU scheduler under overload | `Designs → Cursor Tab §9`, plus `§04 D` here for the ladder |
@@ -2092,6 +2241,7 @@ Sixty minutes each, whiteboard, out loud, recorded, self-graded against `§04 F`
 | 2 | Design the OpenAI Playground (`§06 B`) | Sun 9/6 | Immutable preset versions and why a share link must snapshot |
 | 3 | Design Canvas (`§06 C`) | Fri 9/11 | Position transform, and when a CRDT is and isn't warranted |
 | 4 | Design a Codex agent task run (`§06 D`) | Tue 9/15 | Persist-then-stream, and sandbox isolation |
+| 5 | Design a distributed rate limiter (`Designs → Distributed rate limiter`) | Sun 9/13 — use it as the architecture mock | The counter-op arithmetic said first, and the lease's overshoot bound said unprompted before the multi-region follow-up |
 
 ### D. THE TWO FULL MOCKS
 
