@@ -215,12 +215,14 @@ label from this table — the index groups by it.
 |---|---|---|
 | **Geospatial marketplace** | Huge write throughput, near-zero contention | Uber |
 | **High-contention inventory** | Trivial throughput, catastrophic contention | Ticketmaster |
+| **Admission control & global limits** | A decision on every request's hot path against a limit that is global, when a cross-region hop is off the table — approximate by design, with the overshoot stated | Distributed rate limiter |
 | **Interval inventory & search** | Conflict is range overlap rather than row identity; contention ~1, so search dominates | Airbnb |
 | **Real-time messaging & delivery** | Ordering and delivery semantics vs fanout cost | WhatsApp |
 | **Real-time collaborative editing** | Convergence on a shared mutable document; the data model picks the algorithm | Figma |
 | **Layered configuration & sync** | Precedence between layers is a product decision, not a merge algorithm; delivery is a hint and versions are the truth | IDE settings sync |
 | **Read-heavy content & fanout** | Fanout-on-write vs fanout-on-read | Twitter feed |
 | **LLM application** | A slow, expensive, capacity-bounded generation that outlives the request that started it | ChatGPT |
+| **Sandboxed compute sessions** | Untrusted code needs a kernel boundary, interactivity needs a warm start, and the idle tail needs to cost nothing — every substrate choice buys two | Hosted notebooks |
 | **Low-latency inference in a loop** | Latency budget forbids the standard pipeline | Cursor Tab |
 | **Usage metering & billing** | Lossy, high-volume telemetry must converge on an exact amount of money, settled through a third party you don't control | LLM API billing |
 | **Write-heavy telemetry / analytics** | Ingest volume vs query flexibility; event time is not arrival time, and the lateness number you pick is the state you pay for | Smart-meter telemetry |

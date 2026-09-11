@@ -71,6 +71,13 @@ const META: Record<string, Meta> = {
     tension: 'Trivial throughput, catastrophic contention. The inverse of Uber.',
     accent: 'rose',
   },
+  'rate-limiter': {
+    label: 'Distributed rate limiter',
+    archetype: 'Admission control & global limits',
+    tension:
+      'A decision on every request\'s hot path against a limit that is global, when a cross-region hop is off the table — so the limit is approximate by design and the overshoot is the number you state. The inverse of Ticketmaster: millions of independent counters with no contention, where exactness is the thing you give up.',
+    accent: 'teal',
+  },
   airbnb: {
     label: 'Airbnb',
     archetype: 'Interval inventory & search',
@@ -115,6 +122,13 @@ const META: Record<string, Meta> = {
     archetype: 'LLM application',
     tension:
       'The generation is a resource with a lifecycle, not an HTTP response — it outlives the request, costs real money, and runs on a pool you cannot autoscale.',
+    accent: 'violet',
+  },
+  sandbox: {
+    label: 'Hosted notebooks',
+    archetype: 'Sandboxed compute sessions',
+    tension:
+      'Untrusted code needs a kernel boundary, interactivity needs a warm start, and the idle tail needs to cost nothing — every substrate choice buys two, and the design is what you do about the third. The ChatGPT page one level down: a session outlives the tab, but a session has a kernel and an adversary inside it.',
     accent: 'violet',
   },
   billing: {
