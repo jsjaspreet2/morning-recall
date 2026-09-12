@@ -39,7 +39,7 @@
 
 1. **An operator creates an immutable campaign** — a predicate over device attributes, an instruction with a start time and duration, a deadline, and a staged rollout — and **every matching device that is connected before the deadline receives it exactly once in effect**, including devices that were offline at creation and connect later.
 2. **The system knows the state of every `(campaign, device)` pair** and, at the deadline, **reconciles the ones that never reported** into terminal states — including inferring from the meter that a silent device actually complied — so the funnel is exact when the regulator reads it.
-3. **An operator can cancel, and the system enforces safety**: a cap on the load a campaign may move, staged rollout with abort thresholds, a second approver above a threshold, and a guard against sending a fleet the opposite instruction inside its settle window.
+3. **An operator can cancel, and the system enforces safety**: a cap on the load a campaign may move, staged rollout with abort thresholds, and a guard against sending a fleet the opposite instruction inside its settle window.
 
 **Out of scope (say them):** the telemetry ingest pipeline and the measurement query (the Smart-meter telemetry page — this page calls its `/delta`), load forecasting and choosing *which* homes to target, device firmware beyond the three rules it must follow, customer enrolment and settlement credits, multi-utility tenancy, the operator UI.
 
@@ -59,8 +59,8 @@
 | **Delivery vs effect** | **At-least-once delivery; exactly-once effect**, via a `last_seen_campaign_id` persisted on the device | Duplicates are free by construction, which is what makes every retry on this page a plain resend (§7) |
 | **Ordering** | A device **never applies an older campaign after a newer one**; a cancel is a campaign with a higher id | Campaign ids are monotonic; the device keeps the highest it applied. Persisted, or a reboot reintroduces the bug (§7) |
 | **Funnel** | **≤ 30 s stale during the campaign; exact within 10 min of the deadline** | The operator watches it live and reacts in minutes; the regulator reads it after close and needs it to add up. Two consumers, two consistency levels, one table (§10) |
-| **Cancel** | Reaches every connected device **≤ 10 s**; the cancel path is **99.99 %** available and **has no approval gate** | The kill switch must be faster and more available than the thing it stops. It uses the same fanout path with a higher id — nothing special, which is why it is fast |
-| **Safety** | Max delta per campaign (**e.g. 400 MW, a product number**); staged 1/10/100 % with abort on **reject rate > 2 %** or **measured delta < 50 % of expected** at any stage; **two-person approval above 100 MW**; **oscillation guard: no opposite-sign command to an overlapping target set within 15 min** | §11. Each is a mechanism with a number; the numbers are product decisions and should be said as such |
+| **Cancel** | Reaches every connected device **≤ 10 s**; the cancel path is **99.99 %** available and is never gated | The kill switch must be faster and more available than the thing it stops. It uses the same fanout path with a higher id — nothing special, which is why it is fast |
+| **Safety** | Max delta per campaign (**e.g. 400 MW, a product number**); staged 1/10/100 % with abort on **reject rate > 2 %** or **measured delta < 50 % of expected** at any stage; **oscillation guard: no opposite-sign command to an overlapping target set within 15 min** | §11. Each is a mechanism with a number; the numbers are product decisions and should be said as such |
 | **Fault tolerance** | Survives: **any gateway** (its 60 s timers are lost; the deadline sweeper closes the gap), **any stage worker** (its lease expires, another takes the stage; the duplicate stage message is a no-op at every gateway), **ClickHouse lagging** (Kafka buffers seven days). **Does not survive: loss of the control-plane Postgres primary without failover** — no new campaigns and no stage advances; stages already published keep running at the gateways; devices keep the instruction they have until its deadline, which bounds the blast radius | Name what dies. The bounded case — "in-flight stages finish, nothing new starts, and the deadline is the ceiling" — is a better answer than pretending Postgres is immortal |
 | **Scale** | 10 M devices · 200 gateways · ~10 campaigns/day · **1 M telemetry readings/s** (the telemetry page) | §3 |
 
@@ -133,9 +133,8 @@ pending ──▶ delivered ────┼──▶ acked ──▶ executed �
 
 ### The entities
 
-- **Campaign** — `(campaign_id, predicate, command, start_at, duration_s, deadline, stages[], hold_s, max_delta_mw, approval, cancels?, created_by, created_at)`. **Immutable. `campaign_id` is a monotonic integer** issued by Postgres. A cancel is a new row whose `cancels` points at the old one.
+- **Campaign** — `(campaign_id, predicate, command, start_at, duration_s, deadline, stages[], hold_s, max_delta_mw, cancels?, created_by, created_at)`. **Immutable. `campaign_id` is a monotonic integer** issued by Postgres. A cancel is a new row whose `cancels` points at the old one.
 - **Stage** — `(campaign_id, pct, seed, state, leased_until, published_at)`. The unit of work the stage worker leases with `FOR UPDATE SKIP LOCKED`.
-- **Approval** — `(campaign_id, approver, at)`. Two rows required above the threshold; the second approver may not equal the first.
 - **CampaignTarget** — `(campaign_id, device_id)`. The predicate evaluated once against the device dimension at creation and written in bulk — **the denominator of the funnel and the left side of the reconciliation set difference.**
 - **DeviceEvent** — `(campaign_id, device_id, event, event_ts, gateway_id, detail)`. Append-only. **The only per-pair state in the system.**
 - **Device** — the dimension: `device_id, region, type, program_tier, fw, attrs…` in Postgres, shared with the telemetry page, cached on each gateway per connection at `HELLO`.
@@ -162,12 +161,10 @@ POST /v1/campaigns                                        Idempotency-Key: <oper
        start_at, duration_s: 1800, deadline,              deadline ≤ start_at + duration_s
        stages: [1, 10, 100], hold_s: 300,
        max_delta_mw: 400, dry_run: false }
-     → 201 { campaign_id: 9871, targeted: 1_042_311, expected_delta_mw: 380,
-             approval: "required" }                       ← monotonic id; above 100 MW needs a second approver
+     → 201 { campaign_id: 9871, targeted: 1_042_311, expected_delta_mw: 380 }   ← monotonic id
      → 409 oscillation_guard { conflicts_with: 9868, settle_until }
      → 422 max_delta_exceeded
 
-POST /v1/campaigns/{id}/approve                           → 200 | 409 same_principal
 POST /v1/campaigns/{id}/cancel                            → 201 { campaign_id: 9872, cancels: 9871 }   a NEW campaign
 POST /v1/campaigns/{id}/abort                             → 200   stop advancing stages; what is delivered stays delivered
 GET  /v1/campaigns/{id}/funnel
@@ -201,19 +198,19 @@ REPORT { campaign_id, executed_at, setpoint_applied }                   sent at 
 ## 6 · High-level design — flows
 
 <div class="diagram" data-board="architecture">
-<svg viewBox="0 0 1000 640" role="img" aria-label="Demand response architecture. Control plane: a campaign API with the safety checks, Postgres holding campaigns, stages and approvals, and a stage worker that leases a stage and publishes it once. Fanout: a tiny Kafka commands topic consumed by two hundred gateways that evaluate the predicate locally against cached device attributes and hold a sixty-second ack timer per delivery. Device edge: devices that persist the last campaign id in flash and apply only higher ids, and the meter whose readings go to the telemetry page. Receive side: device events keyed by device into Kafka, then ClickHouse partitioned by campaign, with the funnel as a materialized view; a deadline sweeper that runs once per campaign and reads the meter delta for silent devices.">
+<svg viewBox="0 0 1000 640" role="img" aria-label="Demand response architecture. Control plane: a campaign API with the safety checks, Postgres holding campaigns and stages, and a stage worker that leases a stage and publishes it once. Fanout: a tiny Kafka commands topic consumed by two hundred gateways that evaluate the predicate locally against cached device attributes and hold a sixty-second ack timer per delivery. Device edge: devices that persist the last campaign id in flash and apply only higher ids, and the meter whose readings go to the telemetry page. Receive side: device events keyed by device into Kafka, then ClickHouse partitioned by campaign, with the funnel as a materialized view; a deadline sweeper that runs once per campaign and reads the meter delta for silent devices.">
   <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
   <text class="dg-banner-t dg-c" x="500" y="33.5">Idempotency lives on the device, so there is no outbox; the predicate is evaluated at the edge, so there is no registry lookup.</text>
   <rect class="dg-group" x="20" y="86" width="300" height="250" rx="12"></rect>
   <text class="dg-group-t" x="36" y="108">CONTROL PLANE — 3 MB, THREE MINUTES</text>
   <rect class="dg-box" x="36" y="118" width="268" height="56" rx="8"></rect>
   <text class="dg-t dg-c" x="170" y="134.5">Campaign API</text>
-  <text class="dg-s dg-c" x="170" y="150.5">dry run · max delta · oscillation guard</text>
-  <text class="dg-s dg-c" x="170" y="166.5">two-person approval above 100 MW</text>
+  <text class="dg-s dg-c" x="170" y="150.5">dry run · max delta · rate limit</text>
+  <text class="dg-s dg-c" x="170" y="166.5">oscillation guard</text>
   <path class="dg-box" d="M 36,197 L 36,239 A 134,7 0 0 0 304,239 L 304,197 A 134,7 0 0 0 36,197 Z"></path>
   <path class="dg-box" d="M 36,197 A 134,7 0 0 0 304,197" style="fill:none"></path>
   <text class="dg-t dg-c" x="170" y="210">Postgres</text>
-  <text class="dg-s dg-c" x="170" y="226">campaigns · stages · approvals</text>
+  <text class="dg-s dg-c" x="170" y="226">campaigns · stages</text>
   <text class="dg-s dg-c" x="170" y="242">monotonic id · deadline index</text>
   <rect class="dg-box" x="36" y="262" width="268" height="56" rx="8"></rect>
   <text class="dg-t dg-c" x="170" y="278.5">Stage worker</text>
@@ -310,8 +307,8 @@ REPORT { campaign_id, executed_at, setpoint_applied }                   sent at 
   <text class="dg-s dg-c" x="140" y="126.5">predicate · command · deadline</text>
   <text class="dg-s dg-c" x="140" y="142.5">stages 1/10/100 · hold 5 min</text>
   <rect class="dg-warn" x="280" y="90" width="240" height="64" rx="8"></rect>
-  <text class="dg-warn-t dg-c" x="400" y="118.5">max delta · oscillation · approval</text>
-  <text class="dg-s dg-c" x="400" y="134.5">422 · 409 · wait for a 2nd approver</text>
+  <text class="dg-warn-t dg-c" x="400" y="118.5">max delta · oscillation guard</text>
+  <text class="dg-s dg-c" x="400" y="134.5">422 · 409 — refused at creation</text>
   <path class="dg-line" d="M 250,122 L 272,122"></path>
   <path class="dg-head" d="M 272,127 L 272,117 L 280,122 Z"></path>
   <rect class="dg-good" x="550" y="90" width="200" height="64" rx="8"></rect>
@@ -374,7 +371,7 @@ REPORT { campaign_id, executed_at, setpoint_applied }                   sent at 
   <path class="dg-line" d="M 760,492 L 782,492"></path>
   <path class="dg-head" d="M 782,497 L 782,487 L 790,492 Z"></path>
   <rect class="dg-warn" x="30" y="546" width="930" height="44" rx="8"></rect>
-  <text class="dg-warn-t dg-c" x="495" y="572.5">CANCEL = a new campaign with a higher id, same path, no approval gate, ≤ 10 s — the device applies it because newer wins</text>
+  <text class="dg-warn-t dg-c" x="495" y="572.5">CANCEL = a new campaign with a higher id, same path, nothing gating it, ≤ 10 s — the device applies it because newer wins</text>
   <text class="dg-note" x="30" y="610">A late ACK after the sweep is recorded as acked_late; the terminal state and the filed funnel do not change.</text>
 </svg>
 </div>
@@ -385,7 +382,7 @@ REPORT { campaign_id, executed_at, setpoint_applied }                   sent at 
 
 1. `POST /v1/campaigns`. The API evaluates the predicate against the device dimension for a count and an expected delta, checks `max_delta_mw`, checks the oscillation guard against recent campaigns on overlapping predicates (§11), and inserts the campaign and its three stage rows in one Postgres transaction. `campaign_id = 9871`.
 2. In the same transaction's wake, one **bulk insert** of the 1.04 M matching device ids into `campaign_targets` in ClickHouse — a single columnar write, seconds. Not 1.04 M queue rows.
-3. Above the approval threshold the campaign waits for a second approver; otherwise the first stage row is `ready` at `start_at − lead`.
+3. The first stage row is `ready` at `start_at − lead`.
 4. The **stage worker** leases the stage row (`FOR UPDATE SKIP LOCKED`), publishes **one message** to Kafka `commands`: `{campaign_id: 9871, pct: 1, seed, predicate, command, start_at, duration_s, deadline}`, marks the row `published`.
 5. **Every one of the 200 gateways** consumes the message, evaluates the predicate against its cached attributes for its ~50 k connected devices, applies the stage bucket `hash(device_id, seed) % 100 < 1`, pushes `CMD` to the ~500 matches, **starts a 60 s timer per delivery**, and emits `delivered` events to `device_events`, keyed by `device_id`.
 6. Devices answer `ACK`; the gateway stops the timer and emits `acked`. At `start_at` they `REPORT`; the gateway emits `executed`.
@@ -411,7 +408,7 @@ REPORT { campaign_id, executed_at, setpoint_applied }                   sent at 
 
 ### Flow D — cancel, mid-campaign
 
-1. At 14:20 the grid operator says stop. `POST /v1/campaigns/9871/cancel` inserts campaign **9872** with `cancels: 9871`, the same predicate, `command: restore`, `stages: [100]`, `hold_s: 0`, and **no approval gate**.
+1. At 14:20 the grid operator says stop. `POST /v1/campaigns/9871/cancel` inserts campaign **9872** with `cancels: 9871`, the same predicate, `command: restore`, `stages: [100]`, `hold_s: 0`, and nothing gating it.
 2. The stage worker publishes it — one message — and 200 gateways push `CMD 9872` to every connected device matching the predicate, ~10 s end to end. Devices with `last_seen 9871` apply 9872 (it is higher), restore their setpoint, ack.
 3. The sweeper for 9871 runs at its deadline as usual, but pairs whose latest event is `cancelled` — appended by the gateways as 9872 was acked — are excluded from `unreachable` and `timed_out`. The funnel for 9871 shows how far it got before it was stopped.
 4. **The oscillation guard is not involved** — a cancel restores baseline and is always allowed. What the guard blocks is the operator creating a *new* shed campaign on the same region at 14:25 because the frequency dipped again: `409 oscillation_guard, settle_until 14:35`.
@@ -564,24 +561,22 @@ A retry loop: push `CMD`, wait for the ack, on timeout push again with backoff, 
 
 ### What replaces it
 
-**Seven mechanisms, each with a number, recited as a checklist. When "safety" is in the prompt, the interviewer will ask; have the list.**
+**Six mechanisms, each with a number, recited as a checklist. When "safety" is in the prompt, the interviewer will ask; have the list.**
 
 1. **Max delta per campaign** — `expected_delta_mw ≤ max_delta_mw` (a product number; say 400 MW) computed at creation from the target count and per-device shed; `422` otherwise. The cap is a property of the program, not of the operator.
 2. **Staged rollout with abort thresholds** — 1 % → 10 % → 100 %, a 5-minute hold after each; the stage worker advances only if the **reject rate < 2 %** and the **measured delta ≥ 50 % of expected** for the stage (read from the telemetry page's `/delta` for the stage's cohort). Below either: `abort`, automatically, and page a human. The 1 % stage is the canary and the 5 minutes is the time it takes the meter to show a delta.
-3. **`CANCEL` as a new campaign with a higher id** — the same path, ≤ 10 s to connected devices, no approval gate, restores baseline. Not a flag.
-4. **Dry run** — `dry_run: true` returns `targeted` and `expected_delta_mw` and publishes nothing. Required before any campaign above the approval threshold; cheap enough to require for all.
+3. **`CANCEL` as a new campaign with a higher id** — the same path, ≤ 10 s to connected devices, nothing gating it, restores baseline. Not a flag.
+4. **Dry run** — `dry_run: true` returns `targeted` and `expected_delta_mw` and publishes nothing. Cheap enough to require for every campaign.
 5. **Rate limit on campaign creation** — per operator and per program, say 10 per hour, so a scripted mistake cannot fan out faster than a human can notice.
-6. **Two-person approval above a threshold** — 100 MW; the second approver must differ from the creator; the check runs inside the approval transaction, not at request admission. **Cancel is exempt** — a kill switch behind an approval is not a kill switch.
-7. **Oscillation guard** — no campaign whose command has the opposite sign of a campaign on an overlapping target set within its **settle window** (15 minutes after `start_at + duration_s`). Evaluated at creation from the campaign table; `409 oscillation_guard` with the conflicting id and `settle_until`. A cancel restores baseline and is exempt.
+6. **Oscillation guard** — no campaign whose command has the opposite sign of a campaign on an overlapping target set within its **settle window** (15 minutes after `start_at + duration_s`). Evaluated at creation from the campaign table; `409 oscillation_guard` with the conflicting id and `settle_until`. A cancel restores baseline and is exempt.
 
-Plus the two that are not controls but make the controls checkable: **every campaign, approval, abort, and cancel is an immutable row with actor and time**, and **the funnel snapshot is written to the campaign at close** — so the regulator's question "what did you send, who approved it, and what happened" is a `SELECT`.
+Plus the two that are not controls but make the controls checkable: **every campaign, abort, and cancel is an immutable row with actor and time**, and **the funnel snapshot is written to the campaign at close** — so the regulator's question "what did you send, who sent it, and what happened" is a `SELECT`.
 
 **Cost, volunteered:**
 
-- **Staging stretches the campaign.** Fifteen minutes to full fanout instead of thirty seconds. **Restate the NFR per stage** and say safety bought it: a demand response event is planned an hour ahead, and fifteen minutes is inside the plan. A campaign that genuinely needs 100 % in thirty seconds is a different product — emergency load shed — with a different approval model.
+- **Staging stretches the campaign.** Fifteen minutes to full fanout instead of thirty seconds. **Restate the NFR per stage** and say safety bought it: a demand response event is planned an hour ahead, and fifteen minutes is inside the plan. A campaign that genuinely needs 100 % in thirty seconds is a different product — emergency load shed — with its own safety model.
 - **Abort thresholds need a measured delta, which needs the meter, which needs five minutes.** The hold time is the measurement latency; you cannot make it shorter than the telemetry page's rollup freshness plus the window.
-- **The oscillation guard blocks legitimate corrections.** An operator who genuinely needs to reverse inside the window uses `cancel` (allowed) and then waits, or escalates to an override with a second approver — which is a ninth mechanism and worth naming as the escape hatch.
-- **Approval turns a ten-second action into a two-person one.** Below the threshold it is not required; the threshold is where the product decides speed stops mattering more than a second pair of eyes.
+- **The oscillation guard blocks legitimate corrections.** An operator who genuinely needs to reverse inside the window uses `cancel` (allowed) and then waits, or escalates to an operator override — a seventh mechanism, and worth naming as the escape hatch rather than building.
 
 **→ ties to the safety and cancel NFRs.**
 
@@ -599,7 +594,7 @@ Plus the two that are not controls but make the controls checkable: **every camp
 
 | Component | Access pattern | Durability | Choice | What you say |
 |---|---|---|---|---|
-| **Campaigns, stages, approvals** | ~10 inserts/day; one lease per stage; read by id and by `deadline` | **System of record**, 7 years | **Postgres**, `FOR UPDATE SKIP LOCKED` on the stage row, monotonic `campaign_id` from a sequence | "It's three megabytes. A workflow engine — Temporal — is the right call at a hundred campaigns a minute; at ten a day a table and a lease *is* the scheduler, and I'm not adding a runtime to hold ten rows" |
+| **Campaigns, stages** | ~10 inserts/day; one lease per stage; read by id and by `deadline` | **System of record**, 7 years | **Postgres**, `FOR UPDATE SKIP LOCKED` on the stage row, monotonic `campaign_id` from a sequence | "It's three megabytes. A workflow engine — Temporal — is the right call at a hundred campaigns a minute; at ten a day a table and a lease *is* the scheduler, and I'm not adding a runtime to hold ten rows" |
 | **Campaign target snapshot** | One bulk write of 10 M ids per campaign; read once at the sweep | Until 90 days after the deadline | **ClickHouse** `campaign_targets`, `ORDER BY (campaign_id, device_id)` | "Ten million rows in one insert, seconds. The same rows as ten million Postgres inserts would be the outbox I said I wasn't building" |
 | **Device events** | 300 k/s peak append; point read by pair; set difference and `argMax` per campaign | Zero acknowledged loss; 90 days hot | **Kafka** `device_events` (key `device_id`, 200 partitions, RF 3, 7 d) → **ClickHouse** `ReplacingMergeTree`, `ORDER BY (campaign_id, device_id, event_ts)`, `PARTITION BY campaign_id` | "Cassandra ingests this fine — partition per campaign, cluster by device — and then the sweep is a set difference over ten million rows, which is a columnar query, not a partition read. The reads decide it, and every read here is per campaign across devices" |
 | **Per-pair state** | "What state is device X in for campaign Y" | Derived | **Not stored.** `argMax(event, event_ts)` on the events table, a point query on the sort key | "A Redis hash per campaign is a ten-million-field key on one shard taking the ack storm. A state table is a second source of truth. The log is the state; I'd rather pay a point query than a reconciliation between two copies" |
@@ -620,7 +615,7 @@ Plus the two that are not controls but make the controls checkable: **every camp
 |---|---|---|---|---|---|
 | **Device events** | 30–50 GB/day | 90 days in ClickHouse — the regulatory reporting and customer-credit dispute window | — | **7 years** as Parquet in S3, one object per campaign; a regulated utility's retention | Minutes per campaign; a dispute older than 90 days is a stated support SLA, not a surprise |
 | **Campaign targets** | ~1 GB/day | Until `deadline + 90 d`, then the partition is dropped | — | Recoverable from the campaign's predicate and the dimension's history if ever needed | n/a — the funnel snapshot on the campaign row is the durable summary |
-| **Campaigns, approvals** | Tiny | 7 years, live | — | — | Never needed |
+| **Campaigns** | Tiny | 7 years, live | — | — | Never needed |
 | **Kafka topics** | 30–50 GB/day | 7 days | — | — | Not an archive; day 8 is in ClickHouse or nowhere |
 
 **The 90-day number is a product and regulatory decision, not a derivation.** If the regulator's window is 180 days, the TTL moves and nothing else does — say that, rather than presenting it as a storage constraint.
@@ -720,7 +715,7 @@ Throughput is not the signal — 300 k events a second looks the same whether th
   <text class="dg-num-t" x="30" y="287.4">8</text>
   <rect class="dg-good" x="510" y="284" width="450" height="56" rx="8"></rect>
   <text class="dg-good-t dg-c" x="735" y="308.5">Safety strip</text>
-  <text class="dg-s dg-c" x="735" y="324.5">max Δ · staged+abort · cancel=new id · dry run · rate limit · 2-person · settle</text>
+  <text class="dg-s dg-c" x="735" y="324.5">max Δ · staged+abort · cancel=new id · dry run · rate limit · settle window</text>
   <circle class="dg-num" cx="510" cy="284" r="9"></circle>
   <text class="dg-num-t" x="510" y="287.4">9</text>
   <text class="dg-lane" x="30" y="370">IN THE MARGIN — SAID, NOT DRAWN</text>
@@ -751,7 +746,7 @@ Throughput is not the signal — 300 k events a second looks the same whether th
 6. **`HELLO {attrs, last_seen}` → the gateway computes what the device missed.** Label it **"retries are a reconnect hook; the deadline is the TTL."**
 7. **`device_events` → Kafka keyed by device → ClickHouse partitioned by campaign.** The only per-pair state, and it is a log. The funnel is a materialized view over it.
 8. **Deadline sweeper:** targets minus reported → `unreachable`; delivered with no successor → `timed_out`; then **an arrow from the telemetry box** → `executed_silently`. One run per campaign.
-9. **The safety strip**, seven items in a row: max delta · staged with abort thresholds · cancel as a higher id · dry run · creation rate limit · two-person approval · oscillation guard.
+9. **The safety strip**, six items in a row: max delta · staged with abort thresholds · cancel as a higher id · dry run · creation rate limit · oscillation guard.
 10. **In the margin:** the funnel as ratios, delivery lag p99, gateway connection counts, sweeper backlog — and the honest NFR: *"first device < 1 s, a stage ≤ 30 s, per-device timeout 60 s after delivery."*
 
 ---
@@ -765,7 +760,7 @@ Throughput is not the signal — 300 k events a second looks the same whether th
 | **Bulk notification send** (push, email, SMS to millions) | **Delivered.** Nobody executes anything | Not applicable | The state machine collapses to `pending → delivered` or `failed`, and `unreachable` is the whole reconciliation. §9's timer and §10's inference vanish; §8 survives entirely (broadcast by segment, evaluated at the edge or by a fanout worker); the deadline is still the TTL — a "flash sale ends at noon" push at 12:05 is the same bug as a shed command after the window. Safety shrinks to a rate limit and a send cap |
 | **Feature-flag rollout** (LaunchDarkly, Statsig) | **Applied**, but the target *pulls* | Yes — flip it back | The IDE settings sync page. The push becomes a hint and the truth becomes a version; per-target state collapses to "which config version does this client have," reported on heartbeat. **§7's ordering rule survives verbatim** — a client must never apply an older config after a newer one — and staged rollout by `hash(id) % 100` is the same mechanism. No deadline, because there is nothing time-bound to actuate |
 | **Configuration push** to devices or agents | **Acknowledged and applied**, not measured | Yes — push the previous config, as a newer version | This page minus §10's inference: there is no meter, so `executed_silently` does not exist and `timed_out` is terminal. Store-and-forward via `HELLO`, the deadline (usually "until superseded"), the gateway timer, and the sweeper all stay. Safety keeps staging and the kill switch, drops the oscillation guard |
-| **OTA firmware rollout** | **Executed and self-verified** — the device reboots into the new image and reports | **Partially** — a rollback is another rollout, and a bricked device is unreachable forever | Add a `verifying` state between `executed` and a new terminal `healthy`, with the device's post-reboot heartbeat as the transition, and add `bricked` as the terminal nobody wants. **§11 dominates the page**: the 1 % canary stage holds for hours, the abort threshold is "any device that fails to come back," and two-person approval is universal. The bandwidth is on the device-side download, which becomes its own §7 (chunked, resumable, content-addressed) |
+| **OTA firmware rollout** | **Executed and self-verified** — the device reboots into the new image and reports | **Partially** — a rollback is another rollout, and a bricked device is unreachable forever | Add a `verifying` state between `executed` and a new terminal `healthy`, with the device's post-reboot heartbeat as the transition, and add `bricked` as the terminal nobody wants. **§11 dominates the page**: the 1 % canary stage holds for hours, the abort threshold is "any device that fails to come back," and every rollout is a canary first. The bandwidth is on the device-side download, which becomes its own §7 (chunked, resumable, content-addressed) |
 | **Payment retry orchestration** (dunning) | **Executed by a third party**, and the answer arrives by webhook | **No** — a successful charge is money moved | The "device" is a PSP behind an API you do not control (the payment-processor page); `HELLO` becomes a webhook; store-and-forward becomes a retry ladder driven by decline codes; and **§7's question is identical** — the idempotency key is derived from `(invoice, attempt)` and lives at the PSP, which is what makes retries safe. Safety becomes "never retry a `card_stolen`," and the oscillation guard becomes "no charge and refund inside the same settlement window" |
 | **Grid demand response** — this page | **Executed and measured** through a side channel | Yes — a restore is a newer command | As written. The meter is what makes `executed_silently` possible and what makes the abort threshold a measurement instead of an assumption. The oscillation guard exists because the effect is physical and the physics has a settle time |
 

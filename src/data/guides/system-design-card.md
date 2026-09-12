@@ -113,11 +113,10 @@ will ask.
 - Max delta per action, computed at creation, with a number.
 - Staged rollout — 1 % → 10 % → 100 % — with a hold after each and **abort thresholds checked
   before the next stage**, not after 100 %.
-- Cancel as a **new command with a higher id** on the same path, no approval gate, faster than the
-  thing it stops. Never a flag on the row.
+- Cancel as a **new command with a higher id** on the same path, nothing gating it, faster than
+  the thing it stops. Never a flag on the row.
 - Dry run: the count and the expected effect, publishing nothing.
 - Rate limit on creation, per operator.
-- Two-person approval above a threshold; the second approver must differ from the first.
 - Oscillation guard: no opposite-sign command to an overlapping target set inside the settle
   window. Cancel is exempt.
 

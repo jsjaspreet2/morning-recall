@@ -6,12 +6,12 @@ from dgl import Board          # noqa: E402
 from splice import place       # noqa: E402
 
 # ---------------------------------------------------------------- architecture
-a = Board(640, "Demand response architecture. Control plane: a campaign API with the safety checks, Postgres holding campaigns, stages and approvals, and a stage worker that leases a stage and publishes it once. Fanout: a tiny Kafka commands topic consumed by two hundred gateways that evaluate the predicate locally against cached device attributes and hold a sixty-second ack timer per delivery. Device edge: devices that persist the last campaign id in flash and apply only higher ids, and the meter whose readings go to the telemetry page. Receive side: device events keyed by device into Kafka, then ClickHouse partitioned by campaign, with the funnel as a materialized view; a deadline sweeper that runs once per campaign and reads the meter delta for silent devices.")
+a = Board(640, "Demand response architecture. Control plane: a campaign API with the safety checks, Postgres holding campaigns and stages, and a stage worker that leases a stage and publishes it once. Fanout: a tiny Kafka commands topic consumed by two hundred gateways that evaluate the predicate locally against cached device attributes and hold a sixty-second ack timer per delivery. Device edge: devices that persist the last campaign id in flash and apply only higher ids, and the meter whose readings go to the telemetry page. Receive side: device events keyed by device into Kafka, then ClickHouse partitioned by campaign, with the funnel as a materialized view; a deadline sweeper that runs once per campaign and reads the meter delta for silent devices.")
 a.banner("Idempotency lives on the device, so there is no outbox; the predicate is evaluated at the edge, so there is no registry lookup.")
 
 a.group(20, 86, 300, 250, "CONTROL PLANE — 3 MB, THREE MINUTES")
-a.box(36, 118, 268, 56, "Campaign API", ["dry run · max delta · oscillation guard", "two-person approval above 100 MW"])
-a.cyl(36, 190, 268, 56, "Postgres", ["campaigns · stages · approvals", "monotonic id · deadline index"])
+a.box(36, 118, 268, 56, "Campaign API", ["dry run · max delta · rate limit", "oscillation guard"])
+a.cyl(36, 190, 268, 56, "Postgres", ["campaigns · stages", "monotonic id · deadline index"])
 a.box(36, 262, 268, 56, "Stage worker", ["FOR UPDATE SKIP LOCKED · 1 → 10 → 100 %", "hold 5 min · abort on thresholds"])
 a.arrow((170, 174), (170, 190)); a.arrow((170, 246), (170, 262))
 
@@ -63,7 +63,7 @@ b.banner("Every box owns a transition or it is deleted: the device decides idemp
 
 b.lane(30, 76, "CREATE — SAFETY BEFORE FANOUT")
 b.box(30, 90, 220, 64, "POST /campaigns", ["predicate · command · deadline", "stages 1/10/100 · hold 5 min"])
-b.box(280, 90, 240, 64, "max delta · oscillation · approval", ["422 · 409 · wait for a 2nd approver"],
+b.box(280, 90, 240, 64, "max delta · oscillation guard", ["422 · 409 — refused at creation"],
       cls='dg-warn', tcls='dg-warn-t')
 b.arrow((250, 122), (280, 122))
 b.box(550, 90, 200, 64, "campaign_id = 9871", ["monotonic · immutable", "targets → one bulk insert"],
@@ -96,7 +96,7 @@ b.box(530, 460, 230, 64, "timed_out + meter ≥ 70 %", ["→ executed_silently"]
 b.box(790, 460, 170, 64, "funnel exact: true", ["snapshot → campaign row"],
       cls='dg-good', tcls='dg-good-t')
 b.arrow((250, 492), (280, 492)); b.arrow((500, 492), (530, 492)); b.arrow((760, 492), (790, 492))
-b.box(30, 546, 930, 44, "CANCEL = a new campaign with a higher id, same path, no approval gate, ≤ 10 s — the device applies it because newer wins",
+b.box(30, 546, 930, 44, "CANCEL = a new campaign with a higher id, same path, nothing gating it, ≤ 10 s — the device applies it because newer wins",
       cls='dg-warn', tcls='dg-warn-t')
 b.text(30, 610, "A late ACK after the sweep is recorded as acked_late; the terminal state and the filed funnel do not change.", 'dg-note')
 
@@ -117,7 +117,7 @@ s.box(30, 208, 300, 56, "Device", ["flash last_seen_campaign_id → no outbox"],
 s.box(350, 208, 300, 56, "HELLO {attrs, last_seen}", ["retries are a reconnect hook · deadline = TTL"], badge=6)
 s.box(670, 208, 290, 56, "device_events → ClickHouse", ["keyed device, partitioned campaign · funnel = MV"], badge=7)
 s.box(30, 284, 460, 56, "Deadline sweeper, once", ["targets − reported → unreachable · timed_out → meter → executed_silently"], badge=8)
-s.box(510, 284, 450, 56, "Safety strip", ["max Δ · staged+abort · cancel=new id · dry run · rate limit · 2-person · settle"],
+s.box(510, 284, 450, 56, "Safety strip", ["max Δ · staged+abort · cancel=new id · dry run · rate limit · settle window"],
       cls='dg-good', tcls='dg-good-t', badge=9)
 s.lane(30, 370, "IN THE MARGIN — SAID, NOT DRAWN")
 s.box(30, 382, 220, 44, "funnel as ratios", ["delivered/targeted · acked/delivered …"], badge=10)
