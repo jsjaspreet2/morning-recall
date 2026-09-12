@@ -31,7 +31,7 @@
 15. Push Notifications — the only channel that reaches a closed app; best-effort by construction
 16. Decision matrix — workload → pick, at a glance
 
-*After the matrix: Declaring a table — the words for keys, indexes, and constraints in each store, with the DDL, and the sentence to say.*
+*After the matrix: Declaring a table — the words for keys, indexes, and constraints in each store, with the DDL, and the sentence to say. Postgres, DynamoDB, Cassandra, Redis, and then the three sidecars: ClickHouse, Flink, etcd.*
 
 *The client side — the browser as a runtime you deploy to but do not control.*
 
@@ -907,10 +907,28 @@ Most systems are **Postgres + one or two specialists**: Postgres as the transact
 | **Uniqueness beyond the key** | `UNIQUE` constraint or unique index, on anything | None. `attribute_not_exists` condition on the key only; anything else unique is a second item in a transaction | None. `IF NOT EXISTS` (LWT) on the key only | `SET NX` on the key only |
 | **Referential integrity, value rules** | `FOREIGN KEY`, `CHECK`, `NOT NULL`, enums | None — the application | None — the application | None |
 | **Several rows atomically** | A transaction, any rows | `TransactWriteItems`, ≤ 100 items | A logged `BATCH`, one partition in practice | `MULTI`/`EXEC` or a Lua script, one slot |
-| **Expiry** | None built in — a job, or drop a partition | A TTL attribute, deleted within ~48h of the timestamp | `USING TTL` per write | `EXPIRE` per key |
+| **Expiry** | None built in — a job, or drop a partition | A TTL attribute, deleted within a few days of the timestamp — a read can still see an expired item, so filter on it | `USING TTL` per write | `EXPIRE` per key |
 | **Lifecycle split** | `PARTITION BY RANGE` on the time-ordered id | Not needed | A bucket inside the partition key | Not needed |
 
 The cells that say **None** are where interviewers press. In DynamoDB and Cassandra, every rule the database is not enforcing is one you enforce with a conditional write, a second item, or a reconciliation job, and you should say which.
+
+### The same idea in the three sidecars
+
+The stores above hold truth. These three hold something derived from it — an analytics copy, a running computation, a few kilobytes of coordination — and each still has a key, a placement, an order, and a rule, under different names again.
+
+| Idea | ClickHouse | Flink | etcd |
+|---|---|---|---|
+| **Identity of a row** | There isn't one. The **sorting key** (`ORDER BY`) is also the **primary key** — a *sparse* index with one mark per ~8,192-row granule — and two rows with the same key are two rows. Uniqueness is not a concept; a `ReplacingMergeTree` collapses duplicates eventually, on merge | The **key** you `keyBy` / `GROUP BY`. A table is a connector plus a schema; nothing is stored, so "identity" means "which key's state this event updates." `PRIMARY KEY … NOT ENFORCED` on a sink means upsert semantics, and the words `NOT ENFORCED` are in the DDL for a reason | The key string, in one flat space. `/a/b/c` is a naming convention; there are no directories |
+| **Which node holds it** | The **sharding key** of a `Distributed` table, hashed — a separate declaration from `ORDER BY`. Within a node, `PARTITION BY` is lifecycle, not placement | The key, hashed to a parallel subtask; **keyed state** lives with the key, on that subtask's local RocksDB | Every node holds everything. A 3- or 5-node Raft ensemble; no sharding, by design |
+| **Order within a group** | `ORDER BY` — the physical sort inside each part, and the reason a range on its leading columns skips whole granules | **Event time** — `WATERMARK FOR ts AS ts - INTERVAL '10' SECOND` declares that events older than the watermark are late. Processing time is the simpler, wrong-under-lateness default | Byte order of keys (a prefix range is the only "query"), and **revision** — one global MVCC counter that every write bumps, which is what a watch resumes from |
+| **A second read path** | A **materialized view** (an insert trigger that folds rows into a rollup, `SummingMergeTree` / `AggregatingMergeTree`), a **projection** (a second sort order the engine keeps for you), or a **skip index** (`minmax` / `bloom_filter` — prunes granules, never a point lookup) | None. A second key is a **shuffle** — a re-partition of the stream. Enrichment is a **temporal join** (`FOR SYSTEM_TIME AS OF`) against a versioned or lookup table | None. `Get --prefix` is the whole index, which is why the key layout *is* the schema |
+| **Uniqueness beyond the key** | None. `insert_deduplicate` drops an exactly-repeated insert block (Kafka redelivery); anything else is `ReplacingMergeTree` plus `FINAL` at read, or dedupe upstream | None — `NOT ENFORCED`. Dedupe is a keyed state lookup you write | The key. `Txn If(CreateRevision(k) = 0) Then Put` is `NX` |
+| **Referential integrity, value rules** | None — types and codecs, nothing relational | None | None |
+| **Several rows atomically** | One insert block is atomic per partition; nothing across statements | A **checkpoint**: barriers snapshot every operator's state consistently; a **two-phase-commit sink** extends that to Kafka | A **`Txn`** — `If / Then / Else` over compares on version, value, or revision, any keys, one request. That is the only multi-key atomic write, and it is a consensus round |
+| **Expiry** | `TTL ts + INTERVAL 90 DAY` on the table; rows go on the next merge | **State TTL** — `table.exec.state.ttl` — or the window closing; without one, keyed state grows forever | A **lease**: a TTL the client keeps alive; every key attached to it vanishes when it lapses. That is the ephemeral-node primitive |
+| **Lifecycle split** | `PARTITION BY toYYYYMMDD(ts)` — drop a day in one statement. Dozens of partitions, not thousands | **Savepoint** — the deliberate checkpoint you redeploy from | **Compaction** of old revisions, then **defrag** — the history is what grows |
+
+The tell in each column: ClickHouse has no primary key in the row-store sense and no updates worth the name (`ALTER TABLE … DELETE` is a mutation that rewrites parts); Flink stores nothing and the watermark is the load-bearing line of DDL; etcd is a few kilobytes where every write is a Raft round.
 
 ### PostgreSQL — the key is whatever you say it is
 
@@ -1006,7 +1024,7 @@ CREATE TABLE messages_by_sender (
 INSERT INTO conversations (conversation_id, created_at) VALUES (?, ?) IF NOT EXISTS;
 ```
 
-The words: **partition key** (the inner parentheses; one column, or a **composite partition key** of several — `((conversation_id, bucket), seq)` places by both columns together, and every query must supply all of them; with a single-column partition key the inner parentheses are optional, `PRIMARY KEY (conversation_id, seq)`), **clustering columns** (everything after the partition key — zero, one, or several, `((conversation_id, bucket), seq, message_id)` orders by `seq` then `message_id`), (order within the partition; a range predicate is allowed only on them, in declared order), **primary key** (both together — say "partition key" when you mean placement, "primary key" only when you mean the whole identity), **one table per query** (the second table is the "index"; you write both, and you own their consistency), **SAI** (a real secondary index in Cassandra 5, `CREATE CUSTOM INDEX … USING 'StorageAttachedIndex'`, but a query on it fans out to every replica set — fine for a rare read, wrong for a hot one), **LWT** (`IF NOT EXISTS`, `IF version = ?` — Paxos, single partition, several times the latency of a plain write), **TTL** (per write, or a table default). An `INSERT` with the same full primary key is an upsert with no error, which is the footgun to name.
+The words: **partition key** (the inner parentheses; one column, or a **composite partition key** of several — `((conversation_id, bucket), seq)` places by both columns together, and every query must supply all of them; with a single-column partition key the inner parentheses are optional, `PRIMARY KEY (conversation_id, seq)`), **clustering columns** (everything after the partition key — zero, one, or several; `((conversation_id, bucket), seq, message_id)` orders by `seq` then `message_id`; they are the order within the partition, and a range predicate is allowed only on them, in declared order), **primary key** (both together — say "partition key" when you mean placement, "primary key" only when you mean the whole identity), **one table per query** (the second table is the "index"; you write both, and you own their consistency), **SAI** (a real secondary index in Cassandra 5, `CREATE CUSTOM INDEX … USING 'StorageAttachedIndex'`, but a query on it fans out to every replica set — fine for a rare read, wrong for a hot one), **LWT** (`IF NOT EXISTS`, `IF version = ?` — Paxos, single partition, several times the latency of a plain write), **TTL** (per write, or a table default). An `INSERT` with the same full primary key is an upsert with no error, which is the footgun to name.
 
 **The sentence:** *"Messages, partition key conversation id plus a day bucket so no partition passes a hundred megabytes, clustering by sequence descending, so the read is one partition slice, newest first. The by-sender read is its own table, written on every send. Sequence numbers come from Postgres, because an LWT counter here would be too slow."*
 
@@ -1022,10 +1040,101 @@ The words: **key naming convention** (`entity:{id}[:facet]`; the braces are the 
 
 **The sentence:** *"A sorted set per user keyed by user id, members are post ids, score is the snowflake. Written on fanout, read as the top fifty, capped at four hundred. It's a cache of the author index, so a lost node costs one slow read."*
 
+### ClickHouse — the sort order is the index, and the table is append-only
+
+```sql
+CREATE TABLE clicks (
+  ts          DateTime,
+  short_code  LowCardinality(String),        -- dictionary-encoded: a few thousand distinct values
+  referrer    String,
+  country     LowCardinality(FixedString(2)),
+  ua_hash     UInt64
+) ENGINE = ReplicatedMergeTree             -- MergeTree family: every insert is a part; parts merge in the background
+PARTITION BY toYYYYMMDD(ts)                -- lifecycle: one day is one directory, dropped in one statement
+ORDER BY (short_code, ts)                  -- the sorting key IS the primary key: sparse, one mark per 8,192-row granule
+TTL ts + INTERVAL 90 DAY;                  -- raw rows expire on merge; the rollup below keeps forever
+
+-- the second read path: a materialized view is an INSERT trigger that folds rows into a rollup as they land
+CREATE MATERIALIZED VIEW clicks_daily
+ENGINE = SummingMergeTree ORDER BY (short_code, day)
+AS SELECT short_code, toDate(ts) AS day, count() AS clicks
+   FROM clicks GROUP BY short_code, day;
+
+-- a column the sort key does not cover: a skip index prunes granules, it does not find rows
+ALTER TABLE clicks ADD INDEX by_referrer referrer TYPE bloom_filter GRANULARITY 4;
+
+-- placement is a separate table over the shards, with its own key
+CREATE TABLE clicks_all AS clicks
+ENGINE = Distributed(analytics, default, clicks, cityHash64(short_code));
+```
+
+The words: **engine** (the MergeTree family — plain `MergeTree` for facts, `Replicated…` when Keeper replicates it, `ReplacingMergeTree` when the source can redeliver and you want last-write-wins *eventually*, `SummingMergeTree` / `AggregatingMergeTree` for rollups), **sorting key** (`ORDER BY`; it is also the **primary key** unless you declare a `PRIMARY KEY` that is a prefix of it, and it is *sparse* — it finds granules, not rows, so a point lookup is a scan of ~8,192 rows and that is fine), **partition key** (`PARTITION BY`; a lifecycle unit and a pruning unit, never placement, and keep it coarse — a partition per user is the classic mistake), **sharding key** (the `Distributed` table's hash; placement lives here), **materialized view** (fires on insert, not on read, so it costs a second write per row like a GSI does), **projection** (a second `ORDER BY` the engine maintains inside the same table), **skip index** (`minmax`, `set`, `bloom_filter` — "can this granule contain the value," nothing more), **parts** (each insert is one; insert in batches of thousands or turn on `async_insert`, because ten thousand single-row inserts is ten thousand parts and a merge storm), **mutation** (`ALTER TABLE … UPDATE / DELETE` rewrites whole parts asynchronously — say "no row updates; I'd write a correction row or use a Replacing engine"), **`FINAL`** (force the merge at read time, and pay for it), **TTL** (rows or whole partitions; also `TTL … TO VOLUME` for tiering), **codecs** (`CODEC(Delta, ZSTD)` on a timestamp is the difference between 10× and 30× compression).
+
+**The sentence:** *"Clicks, in ClickHouse, MergeTree ordered by short code then timestamp, so one code's history is a contiguous range and the sparse index skips everything else. Partitioned by day, ninety-day TTL on the raw rows. A materialized view folds every insert into a daily rollup that lives forever. Fed from Kafka in batches of ten thousand; no uniqueness — a redelivered block is dropped by insert dedup, and anything finer I'd dedupe in the consumer, not here."*
+
+### Flink — the table is a stream with a schema, and the watermark is the DDL that matters
+
+```sql
+-- a source table: a connector and a schema. Nothing is stored here.
+CREATE TABLE clicks (
+  short_code STRING,
+  ts         TIMESTAMP(3),
+  country    STRING,
+  WATERMARK FOR ts AS ts - INTERVAL '10' SECOND   -- event time: "nothing older than ts − 10s is still coming"
+) WITH ('connector' = 'kafka', 'topic' = 'clicks', 'format' = 'json',
+        'scan.startup.mode' = 'group-offsets');
+
+-- a sink table with upsert semantics. NOT ENFORCED is the honest word: the store checks nothing.
+CREATE TABLE clicks_per_minute (
+  short_code   STRING,
+  window_start TIMESTAMP(3),
+  clicks       BIGINT,
+  PRIMARY KEY (short_code, window_start) NOT ENFORCED
+) WITH ('connector' = 'upsert-kafka', 'topic' = 'clicks-per-minute',
+        'key.format' = 'json', 'value.format' = 'json');
+
+-- the job: keyed by short_code (placement), tumbling one-minute windows (order), state per key
+INSERT INTO clicks_per_minute
+SELECT short_code, window_start, count(*) AS clicks
+FROM TABLE(TUMBLE(TABLE clicks, DESCRIPTOR(ts), INTERVAL '1' MINUTE))
+GROUP BY short_code, window_start;
+
+-- enrichment: a temporal join against a versioned table, "as of the event's time"
+SELECT c.*, t.plan
+FROM clicks c JOIN tenants FOR SYSTEM_TIME AS OF c.ts AS t ON c.short_code = t.short_code;
+```
+
+The words: **source table** and **sink table** (a connector plus a schema; the DataStream equivalent is a `KafkaSource` and a `KafkaSink`), **watermark** (the one declaration that makes event time real — it bounds lateness, closes windows, and decides what "late" means; a window with no watermark is processing time whether you meant it or not), **keyed state** (`keyBy` in DataStream, `GROUP BY` in SQL; the key is placement — hashed to a parallel subtask — and state lives on that subtask's RocksDB; changing the key is a **shuffle**), **window** (`TUMBLE` / `HOP` / `CUMULATE` / `SESSION`; say the size and the allowed lateness), **`PRIMARY KEY … NOT ENFORCED`** (upsert versus append: a sink with a key emits a changelog — insert, update, delete per key; without one it appends), **temporal join** (`FOR SYSTEM_TIME AS OF` — the enrichment answer; a **lookup join** is the same idea against an external store, with a cache), **state TTL** (`table.exec.state.ttl`, or `StateTtlConfig` — without it keyed state grows for every key ever seen), **checkpoint** (the atomicity unit; interval and backend are the two numbers), **savepoint** (the lifecycle unit — the one you redeploy from), **exactly-once sink** (two-phase commit; the Kafka sink uses transactional producers, and the tradeoff is that downstream sees a commit only at checkpoint interval), **side output** (where late events go so you can count them instead of losing them), **parallelism** (the number of subtasks a key space is spread over, and the ceiling is the source's partition count).
+
+**The sentence:** *"Clicks per minute, in Flink: a Kafka source table with a ten-second watermark on event time, keyed by short code so each code's state lives on one subtask, a one-minute tumbling window, into an upsert-Kafka sink keyed by code and window start. State TTL of an hour, checkpoints every minute, and late events past the watermark go to a side output I count. Exactly-once to Kafka via the transactional sink; the dashboard sees a window a checkpoint after it closes."*
+
+### etcd — the key layout is the schema, the lease is the expiry, and every write is a consensus round
+
+```text
+/election/scheduler/<lease-id>          value=<holder>     Put with lease (TTL 10s, KeepAlive)   ← lowest create_revision leads
+/leases/gpu/{pool_id}/{holder_id}       value={json}       Put with lease                        ← ephemeral: vanishes with the holder
+/config/limits/{tenant_id}              value={json}       Put; Watch --prefix /config/limits/ from revision N
+/locks/seat/{seat_id}                   value=<token>      Txn If(CreateRevision = 0) Then Put with lease Else Get   ← NX with a TTL
+```
+
+```go
+// compare-and-swap, the only atomic multi-key write: compares, then puts, in one request
+resp, _ := cli.Txn(ctx).
+    If(clientv3.Compare(clientv3.CreateRevision(key), "=", 0)).
+    Then(clientv3.OpPut(key, token, clientv3.WithLease(lease.ID))).
+    Else(clientv3.OpGet(key)).
+    Commit()
+// resp.Succeeded tells you which branch ran; the loser reads the holder in the same round trip
+```
+
+The words: **flat key space** (no directories; `/a/b/` is a convention and `Get --prefix` is the range read — design the prefix for the read the way you design a Redis key), **revision** (one global MVCC counter; every write bumps it; each key carries `create_revision`, `mod_revision`, and `version`, and those are the compare targets), **lease** (a TTL object the client keeps alive with a heartbeat; keys are *attached* to it, and when it lapses they all vanish — this is the ephemeral-node primitive, and it is how liveness, election, and locks are built), **watch** (from a revision, so a reconnecting client misses nothing — as long as that revision has not been compacted), **Txn** (`If / Then / Else` over compares; any keys in one request; the whole thing commits through Raft), **compaction** and **defrag** (revisions accumulate; compact on a schedule and the watch window is what you are choosing), **quota** (backend default 2 GB, hard ceiling 8 GB, request limit 1.5 MB — say "kilobytes of coordination, never data"), **`concurrency` recipes** (the client library's `Election` and `Mutex` are exactly the key-plus-lease-plus-watch patterns above; name them so nobody thinks you would hand-roll it in production), **linearizable read** (the default; `--consistency=s` for a serializable read from a follower when you can tolerate staleness).
+
+**The sentence:** *"Leader for the scheduler, in etcd: a key under `/election/scheduler/` attached to a ten-second lease the process keeps alive; the lowest create-revision holds it and everyone else watches from that revision. When the holder dies the lease lapses, the key vanishes, the watch fires, and the next candidate is already the lowest. Kilobytes, not data — every write is a Raft round, so the real work keys off the leader elsewhere. I'd use the client's Election recipe, not my own."*
+
 ### How to say any table in ten seconds
 
 1. **Name and store.** "Orders, in Postgres."
-2. **The key, in that store's word.** Primary key / partition key and sort key / partition key and clustering columns / key pattern and structure.
+2. **The key, in that store's word.** Primary key / partition key and sort key / partition key and clustering columns / key pattern and structure — and for the sidecars: sorting key and partition, keyed-by and watermark, key prefix and lease.
 3. **The read it serves.** "One query by customer, newest first."
 4. **The second read path and what it costs.** An index, a GSI, a second table, a second key.
 5. **The rule the store enforces, and the one it does not.** A unique index / a condition expression / an LWT / `NX`; and where the rest of the rules live.
