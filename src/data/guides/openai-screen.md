@@ -1,7 +1,7 @@
 # OpenAI Screen — Wed 9/16 (Architecture) & Thu 9/17 (Coding)
 
 > Two sixty-minute rounds on consecutive days. **9/16 is architecture**, on a whiteboard.
-> **9/17 is coding**, in CoderPad. This guide is the twenty-eight-day plan, both round scripts,
+> **9/17 is coding**, in CoderPad. This guide is the four-day plan, both round scripts,
 > a researched question bank ranked by probability, and the two chapters that decide the coding
 > hour: **text streaming** and **text-editor concepts**.
 
@@ -218,46 +218,44 @@ If you read nothing else in this guide, read this.
 10. **Mission questions are real.** OpenAI weights "why here, and where could this go wrong"
     heavily, and it is asked in technical rounds too. `§11 D` is your draft.
 
-## 02 — The twenty-eight-day schedule
+## 02 — The four-day schedule
 
-Today is Wed 8/19. Architecture is Wed 9/16, coding is Thu 9/17. That is four clean weeks, but they
-are not empty weeks: **Discord is 8/26, Cursor is 8/28, Figma is 9/9.** The plan below assumes
-those three screens own their surrounding days and takes what is left.
+Today is Fri 9/11. Discord, Cursor and Figma are behind you; architecture is Wed 9/16 and coding
+is Thu 9/17. The five remaining coding drills (`§12 B`) shipped today, so every rep below is
+runnable now. Four days, Sat 9/12 through Tue 9/15, ~2.5 h each.
 
-The good news is that the overlap is enormous. Cursor prep *is* OpenAI streaming prep. Figma prep
-*is* OpenAI editor prep. Weeks 1 and 2 below are mostly labeled "borrowed" for that reason — you
-are not adding four weeks of work, you are adding about six focused sessions plus two mocks.
+Every day is **one timed rep, one short fluency re-type, and a read**. The rep is what moves the
+number — and the rep that matters most is `openai-03-transcript`, because it *is* the reported
+round: one problem, five parts, on one clock. It runs twice, first as the mock and last as the
+final rep, and the delta between the two grade sheets is the whole point of the week.
 
-| Window | Days | Focus | Session |
+| Day | Rep (timed, AI off, recorded) | Fluency (15–30 min) | Read |
 |---|---|---|---|
-| **Week 1 — borrowed** | Thu 8/20 – Wed 8/26 | Discord screen owns this week | — |
-| | Thu 8/20 | 45 min | Read `§01`, `§03`, `§08` of this guide. No coding. Just load the shape |
-| | Sat 8/22 | 60 min | Type the `§08 F` streaming skeleton from blank. Twice. Time it |
-| | Wed 8/26 | — | **Discord screen** |
-| **Week 2 — borrowed** | Thu 8/27 – Wed 9/2 | Cursor screen owns this week | — |
-| | Thu 8/27 | — | Cursor prep — `Client-Side System Design §01` is OpenAI `§05` material. Read it as both |
-| | Fri 8/28 | — | **Cursor screen.** Write down the design round's questions the same evening |
-| | Sat 8/29 | 90 min | Drill 1: **Streaming chat, core** (`§12 B`). Target: working stream + stop in 30 min |
-| | Sun 8/30 | 60 min | Drill 2: **The composer** (`§09 B`). Enter/Shift+Enter, auto-resize, IME |
-| | Tue 9/1 | 60 min | Design rep 1: **Design a ChatGPT-style assistant** (`§06 A`), full hour, out loud |
-| **Week 3 — Figma week, split** | Thu 9/3 – Wed 9/9 | Figma owns Mon–Wed | — |
-| | Thu 9/3 | 90 min | Drill 3: **Streaming, part 2 — multi-turn + cancellation + stale guards** |
-| | Sat 9/5 | 90 min | Drill 4: **`@`-mention autocomplete in a textarea** (`§09 C`). The caret-anchored popup |
-| | Sun 9/6 | 60 min | Design rep 2: **Design the OpenAI Playground** (`§06 B`) |
-| | Tue 9/8 | 30 min | Light. Reread `§08 D` (the reader loop) and `§17 F` of `UIE Components` |
-| | Wed 9/9 | — | **Figma screen.** Its document-model work is `§09 E` here — note what transferred |
-| **Week 4 — OpenAI week** | Thu 9/10 – Thu 9/17 | This is the only week that is fully yours | |
-| | Thu 9/10 | 90 min | Drill 5: **Edit-and-resubmit a transcript message** (`§09 D`). The controlled-swap problem |
-| | Fri 9/11 | 90 min | Design rep 3: **Design Canvas / artifact co-editing** (`§06 C`). The hardest of the five |
-| | Sat 9/12 | 2 hr | **Full mock, coding.** One 60-min timed problem from `§03 B` picked blind, then a 30-min self-grade against `§07 F` |
-| | Sun 9/13 | 2 hr | **Full mock, architecture.** 60 min on a prompt picked blind from `§03 C`, whiteboard, out loud, recorded. Self-grade against `§04 F` |
-| | Mon 9/14 | 90 min | Drill 6: **Streaming markdown** (`§08 I`) + **scroll pinning** (`§08 H`). The two extensions people fumble |
-| | Tue 9/15 | 60 min | Design rep 4: **Codex-style agent task run** (`§06 D`). Then `§11`: products, story, questions |
-| | Wed 9/16 | — | **Architecture round.** `§13 A` is the runbook. That evening: `§13 C`, twenty minutes |
-| | Thu 9/17 | — | **Coding round.** `§13 D` |
+| **Sat 9/12 · D-5** | **Full coding mock = `openai-03-transcript`, 60 min, all five parts, blind.** Then 30 min self-grade against `§07 F`, watching the recording at 1.5× | `openai-02-composer` cold, 12 min, *before* the rep | After, not before: `§07`, `§10`, `§13 C/D`, `UIE Components §14 C` |
+| Sun 9/13 · D-4 | **Architecture mock, 2 hr — unchanged** (`§12 C` row 5, `§12 D`). Then `openai-06-streaming-markdown`, 45 min | — (the day is full) | `§08 I`, `§08 E` |
+| Mon 9/14 · D-3 | `openai-04-mention-autocomplete`, 60 min; then `openai-05-edit-resubmit`, 45 min | `cursor-02-typeahead` re-type, 20 min, before drill 4 — it primes the stale guard | `§09 C/D`, `UIE Components §06 C`, `The Component Round` one-pager |
+| Tue 9/15 · D-2 | **`openai-03-transcript` again, 60 min, blind. Grade against Saturday's sheet; the delta is the point.** Then `openai-07-iterators`, 30 min | `cursor-14-use-chat` re-type, 15 min — the hook shape you name at minute 55 | `§08 F/G/H`, `§13 C/D`; evening: `§11`, then `§13 A` for Wednesday |
+| Wed 9/16 · D-1 | **Architecture round.** `§13 A`. Evening: the twenty-minute bridge, `§13 B` | — | `§13 B` only |
+| **Thu 9/17 · D-0** | **Coding round.** `§13 C` | Type the `§08 F` skeleton once, the hour before | `§13 D` |
 
-**If the schedule slips**, drop in this order: design rep 4, drill 6, design rep 2. **Never drop**
-the two Week-4 mocks or drills 1 and 2 — they are the load-bearing reps.
+**Why these days.** The gate drill first, so the two weakest parts are known with four days left,
+and last, so the final rep has the shape of the round. Drill 6 on Sunday because it is the
+lightest UI drill and the first to drop if the architecture mock runs long. Drills 4 and 5
+together on Monday because both are composer/transcript extensions and 5 reuses 3's transcript.
+Drill 7 on Tuesday as a texture change after the re-run, and because it is a thirty-minute
+fundamentals check rather than the round's substance.
+
+**Rules for the four days.**
+
+1. **Grade every rep the same day, against `§07 F`, before you open a solution.** An ungraded rep
+   teaches you your existing habits. Write the one sentence about what cost the most time.
+2. **Reps are narrated out loud, alone, recorded.** Watch the first ten minutes back. That is
+   where you find out you said nothing for eleven of them.
+3. **The parts are the point.** When part N goes green, start part N+1 on the same clock. Do not
+   stop the timer to admire part 1.
+4. **Drop order if a day slips:** drill 7, then drill 6, then drill 5. Never drop either run of
+   drill 3, the Sunday architecture mock, or drill 4.
+5. **If a day slips, drop the fluency re-type, not the rep.**
 
 **The standing daily commitment** is `§08` and `§09` read back out loud, from memory, five minutes
 a day. It is what makes them retrievable under clock pressure rather than merely read.
@@ -430,10 +428,10 @@ Useful because it tells you where *not* to spend September.
 |---|---|---|
 | Streaming chat, core | ✅ **Fully** | `uie-practice/openai-01-streaming-chat` ← **the drill** · `UIE Components §14` · `uie-practice/streaming-message-reference` · `uie-practice/cursor-01-streaming-message` · `uie-practice/streaming-practice-8-17` |
 | Stop / abort / generation counter | ✅ **Fully** | `UIE Components §14 D` and `§17 F` |
-| Multi-turn transcript | ⚠️ **Partly** | `§14` is single-message. The transcript model is new — `§08 G` here |
+| Multi-turn transcript | ✅ **Built 9/11** | `uie-practice/openai-03-transcript` Parts 2–3 · `§08 G` here |
 | Autocomplete with cancellation | ✅ **Fully** | `UIE Components §06 Combobox` · `uie-practice/combobox-reference`, `combobox-interview`, `cursor-02-typeahead` |
 | Virtualized transcript | ✅ **Fully** | `UIE Components §13` |
-| Accessible stream announcements | ✅ **Fully** | `UIE Components §14 C` — the counter-intuitive one. Reread it |
+| Accessible stream announcements | ✅ **Fully** | `UIE Components §14 C` — the counter-intuitive one. Reread it · `openai-03-transcript` Part 5 |
 | Live regions generally | ✅ **Fully** | `UIE Components §17 E` |
 | Debounce/throttle in React | ✅ **Fully** | `UIE Components §17 K` |
 | Key handler placement | ✅ **Fully** | `UIE Components §17 M` |
@@ -448,12 +446,12 @@ Useful because it tells you where *not* to spend September.
 | GPU serving, cancellation to the GPU | ✅ **Fully** | `Designs → Cursor Tab §9–§10` |
 | Fanout / connection scale (the Slack prompt) | ✅ **Fully** | `Designs → Discord` |
 | Refactor nested code, keep tests green | ⚠️ **Partly** | No dedicated drill. `Client-Side System Design §04` covers reading tests. Low priority |
-| Iterator → 2D → async | ⚠️ **Partly** | `JavaScript` covers iterators; no async-iterator drill. `§12 B` drill 7 |
+| Iterator → 2D → async | ✅ **Built 9/11** | `uie-practice/openai-07-iterators` · `JavaScript` for the protocol |
 | **The composer: caret, selection, Enter/Shift+Enter, IME, auto-resize** | ✅ **Built** | `§09 B` here · `uie-practice/openai-02-composer` |
-| **`@`-mention / `/`-command autocomplete anchored to the caret** | ❌ **New** | `§09 C` here. **Build it — drill 4** |
-| **Edit-and-resubmit a transcript message** | ❌ **New** | `§09 D` here. **Build it — drill 5** |
-| **Streaming markdown, incremental** | ❌ **New** | `§08 I` here. **Build it — drill 6** |
-| **Scroll pinning against a live stream** | ❌ **New** | `§08 H` here. Ships with drill 6 |
+| **`@`-mention / `/`-command autocomplete anchored to the caret** | ✅ **Built 9/11** | `uie-practice/openai-04-mention-autocomplete` · `§09 C` here |
+| **Edit-and-resubmit a transcript message** | ✅ **Built 9/11** | `uie-practice/openai-05-edit-resubmit` · `§09 D` here |
+| **Streaming markdown, incremental** | ✅ **Built 9/11** | `uie-practice/openai-06-streaming-markdown` · `§08 I` here, with the `marked` correction in `§12 B` |
+| **Scroll pinning against a live stream** | ✅ **Built 9/11** | `uie-practice/openai-03-transcript` Part 4 (moved from drill 6) · `§08 H` here |
 | **Streaming into an editable document (Canvas)** | ❌ **New** | `§08 J`, `§09 F`, `§06 C` here. Design-only unless time allows |
 | Conversational AI service, end to end | ❌ **New** | `§06 A` here |
 | Resumable streams, server side | ❌ **New** | `§05 E` here |
@@ -463,9 +461,8 @@ Useful because it tells you where *not* to spend September.
 | **Payments with holds and batching** (102 hearts, screen) | ✅ **Covered** | `Designs → Payment processor §7, §9` — batch capture added 9/11 |
 | **Job scheduler / CI pipeline / GPU job scheduler** (101 + 68 hearts, plus reported) | ✅ **Built 9/11** | `Designs → Job scheduler` |
 
-**The honest summary:** four new coding drills, one new design in this guide, two design pages
-built from the hearts data, and a lot of rereading. That is the whole delta, and it fits in the
-four weeks with the other three screens still in them.
+**The honest summary, as of 9/11:** all seven coding drills are built, the design pages from the
+hearts data are built, and what is left is reps. `§02` is the four days of them.
 
 ## 04 — Round 1 (Wed 9/16): the architecture hour
 
@@ -1639,6 +1636,12 @@ Real assistant output is markdown, and markdown arrives cut in half. The naive
    a reported Cursor prompt in its own right. Say: *"I'd speculatively close, because I don't want
    to own a Markdown parser in a 60-minute round — but if we already had a streaming tokenizer the
    problem wouldn't exist, and at ChatGPT's volume that's the version I'd expect to ship."*
+
+   **Correction, 9/11, from building drill 6 against `marked` 18:** CommonMark closes an
+   unterminated fence at end of input, so `marked` already renders a half-arrived fence as code —
+   the fence is *not* where the flicker is. The flicker is inline (`**bo`, a lone backtick, a half
+   link), and the real bug in the naive version is a "cut at every blank line" block splitter
+   that is not fence-aware and slices a code block in half. See the `§12 B` note.
 2. **Reparse cost.** Parsing the whole accumulated string per delta is O(n²) over the response. Two
    fixes, and it is worth naming both: **debounce the reparse to ~50–100 ms** (kills flicker and
    cost together, at an imperceptible latency price), and/or **parse block-by-block** — everything
@@ -2195,24 +2198,39 @@ worth more than another drill.
 
 ### B. THE SEVEN CODING DRILLS
 
-Live in `uie-practice` as new exercises. The first two are the load-bearing ones, and both are
-**built** — the folders, briefs and specs are on disk, red by default. Drills 3–7 are still
-prospective; build each on its `§02` date rather than up front, so what you learn in the Discord,
-Cursor and Figma screens can shape them.
+Live in `uie-practice` as exercises under **OpenAI Drills**. All seven are **built** — folders,
+briefs, specs and reference solutions on disk, red under `npm test` and green under
+`npm run solutions`. Drills 1–2 landed 8/29; drills 3–7 landed 9/11. Drill 3 is the gate: it
+mirrors the reported five-part round and is the rep `§02` runs twice.
 
 | # | Drill | Folder | Timebox | Ships when |
 |---|---|---|---|---|
 | 1 | **Streaming chat, core** — mock stream, status enum, stop, abort, generation guard | ✅ `openai-01-streaming-chat` | 45 min | Stream visible ≤20 min; all five `§08 L` cases 1–5 handled |
 | 2 | **The composer** — auto-resize, Enter/Shift+Enter, IME guard, state-guarded submit | ✅ `openai-02-composer` | 30 min | Typed cold in 12 min; IME guard present without prompting |
-| 3 | **Multi-turn + supersede** — transcript model, one in-flight generation, stale suppression | `openai-03-transcript` | 45 min | Submitting during a stream never interleaves output |
-| 4 | **`@`-mention autocomplete** — trigger detection, `setRangeText`, anchored popup, combobox keys | `openai-04-mention-autocomplete` | 60 min | Arrows don't move the caret; Enter selects without sending |
-| 5 | **Edit and resubmit** — edit mode, focus/caret restore, truncate below, abort in-flight | `openai-05-edit-resubmit` | 45 min | Cancel restores the pre-image; no orphaned generation |
-| 6 | **Streaming markdown + scroll pinning** — speculative fence closing, debounced reparse, pin threshold | `openai-06-streaming-markdown` | 60 min | No flicker on code fences; scrolling up is respected |
-| 7 | **Iterator → 2D → async** — the reported OpenAI fundamentals prompt | `openai-07-iterators` | 30 min | `Symbol.asyncIterator`, laziness, early-exit cleanup |
+| 3 | **The gate** — single turn + Stop, multi-turn, supersede with request ids, scroll pinning, batched `role="status"` announcements, then two tests | ✅ `openai-03-transcript` | **60 min** | All five parts land and `§10 B` #3–#4 are written by minute 58 |
+| 4 | **`@`-mention autocomplete** — trigger before the caret, `setRangeText`, combobox keys in a textarea | ✅ `openai-04-mention-autocomplete` | 60 min | Arrows are `preventDefault`ed; Enter selects without sending; a stale response loses |
+| 5 | **Edit and resubmit** — edit mode, caret at end, Cancel restores the pre-image, truncate below, abort in flight | ✅ `openai-05-edit-resubmit` | 45 min | Cancel restores focus to Edit; no orphaned generation |
+| 6 | **Streaming markdown** — fence-aware block split, tail completion, memoized stable blocks, tokens → elements | ✅ `openai-06-streaming-markdown` | **45 min** | A fence with a blank line stays one `<pre>`; stable blocks are lexed once; no HTML string ever exists |
+| 7 | **Iterator → 2D → async** — the reported OpenAI fundamentals prompt | ✅ `openai-07-iterators` | 30 min | Laziness proven by a pull counter; `return()` closes the source; `for await … break` runs `finally` |
 
-**Reuse before you build.** Drills 1 and 3 start from
-`uie-practice/streaming-message-reference`; drill 4 starts from `combobox-reference`. Only drills
-2, 4, 5, and 6 contain genuinely new code.
+**What each one starts from.** Drill 3 is drill 1's component plus `cursor-14-use-chat`'s
+append-by-id; drill 4 is `combobox-reference` plus drill 2; drill 5 is drill 3's Parts 1–3 plus
+edit mode; drill 6 is `cursor-13`'s `streamApi.ts` plus `marked`; drill 7 follows the `figma-07`
+pure-TypeScript shape. In the room you would type each from blank — the reuse is for building the
+drill, not for running it.
+
+**Drills 3 and 6, revised 9/11.** Scroll pinning moved from drill 6 into drill 3 as Part 4, so
+the gate drill matches the progression every report describes (stream → multi-turn → cancel with
+request ids → pinning → announcements). Drill 6 is now markdown only, and it uses `marked` rather
+than the `cursor-11` tokenizer, because the in-room answer is an off-the-shelf parser plus an
+incremental strategy — the strategy is what the drill grades. Three facts about `marked` 18 that
+reshape `§08 I`, verified while building it: an unterminated fence at end of input already lexes
+as a `code` token, so the flicker `§08 I` #1 describes is inline, not the fence; a blank line
+inside an open fence stays inside the `code` token, so a blank-line block splitter needs one bit
+of fence state or it cuts a code block in half; and `text`/`codespan` tokens hold raw text while
+raw HTML becomes `html` tokens and a `javascript:` href stays on the `link` token — so rendering
+tokens to React elements, with `html` as literal text and hrefs allow-listed, *is* the sanitizer.
+Accepted imperfection to name out loud: a loose list is split in two by the blank-line rule.
 
 **Drill 6, revised 8/23.** Its old reuse pointer was `UIE Components §13`, which has no exercise on
 disk — ignore it. The better starting point is `cursor-11-streaming-markdown`, built for the Cursor
@@ -2246,8 +2264,9 @@ Sixty minutes each, whiteboard, out loud, recorded, self-graded against `§04 F`
 
 ### D. THE TWO FULL MOCKS
 
-**Sat 9/12 — coding.** Pick a Tier-1 prompt from `§03 B` blind (write them on cards; draw one).
-Sixty minutes, CoderPad or an equivalent bare editor, no AI, recorded. Then thirty minutes
+**Sat 9/12 — coding.** Run `openai-03-transcript`, all five parts — it is the reported round, so
+there is nothing to draw blind. Sixty minutes, the drill's own clock or a bare editor, no AI,
+recorded. Then thirty minutes
 self-grading against `§07 F`, watching the recording at 1.5×. The recording is where you find out
 that you narrated nothing for eleven minutes.
 
