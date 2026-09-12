@@ -1294,6 +1294,7 @@ the pressure lands lets you steer there yourself.
 | Command / rollout to a fleet (demand response, OTA, flags, config push, bulk send) | The per-target state machine first, broadcast vs unicast fanout, where idempotency lives, store-and-forward retries, sweeper reconciliation, the safety checklist — the Demand response design page |
 | Rate limiting / quotas / admission control | Counter-op arithmetic, one atomic script per key, the gateway lease and its overshoot bound, multi-region as local shares plus gossip, fail-open with a local bucket — the Distributed rate limiter design page |
 | Sandboxed execution / notebooks / agent sandboxes | The session state machine under CAS, the substrate ranked by the kernel it shares, the itemised resume budget, egress and the metadata endpoint, three durability classes — the Hosted notebooks design page |
+| Job scheduler / CI pipeline / GPU jobs | The per-job state machine, the lease with a fencing token, at-least-once plus an idempotent body, priority and fair-share with bounds, preemption as a checkpoint question, DAGs as counters, cron as a unique row — the Job scheduler design page |
 | Collaboration | Sequencing, OT vs CRDT, offline reconnect, compaction |
 | LLM assistant | Streaming, context assembly, tools, RAG, evals, budgets (§11–12) |
 

@@ -1378,11 +1378,11 @@ Search and booking with date ranges (the Airbnb page) · IDE settings sync with 
 page) · usage metering that converges on an invoice (the billing page) · a notification system with
 per-channel preferences and an inbox · a leaderboard with per-region and all-time views · ad-click
 aggregation with dedupe and hourly rollups · video metadata and view counts at YouTube scale · a
-job scheduler with retries, leases, and exactly-once execution · a document collaboration backend
-with an op log (the Figma page, §12).
+job scheduler with retries, leases, and exactly-once execution (the Job scheduler page, §12) · a
+document collaboration backend with an op log (the Figma page, §12).
 
-For each: ten minutes, the six artifacts, then the ten questions. The last four have no page on this
-site and no key here; they are the honest test.
+For each: ten minutes, the six artifacts, then the ten questions. Three of the last five have no page
+on this site and no key here; they are the honest test.
 
 ### D. THE OUT-LOUD VERSION
 

@@ -367,9 +367,9 @@ rows follow.
 | **Design a GPU credit allocator** | **367 · screen, hard** | Reserve-then-stream-settle, the scheduler's lease contract, four controls kept distinct, prepaid vs postpaid as one floor. `§06 E` here, on top of `Designs → LLM API billing` |
 | **Design a hosted notebook platform** | **294 · screen** | Session state machine under CAS, the itemised resume budget, suspend-to-snapshot, three durability classes. `Designs → Hosted notebooks` |
 | **Design a payment system with holds and batching** | **102 · screen, hard** | Authorize / capture / settle as three money events, batch capture with a failure inside the batch, hold expiry. `Designs → Payment processor §9` |
-| **Design a CI/CD pipeline with a scheduler** | 101 | The per-job state machine first (`Designs → Demand response §4`), queues and leases, ephemeral runners (`Designs → Hosted notebooks §15`) |
+| **Design a CI/CD pipeline with a scheduler** | 101 | The per-job state machine, the lease and its fencing token, DAGs as counters, fair-share at 09:00. `Designs → Job scheduler` is this page; ephemeral runners are `Designs → Hosted notebooks §15` |
 | **Design a scalable payment system** | 94 | Idempotency keys, sagas, reconciliation. `Designs → Payment processor`, `Designs → Amazon checkout` |
-| **Design the GPU job scheduler** for text-to-video | 68 | Queues, priority, preemption, fairness under sustained overload. `Designs → ChatGPT §9–§10`, `Designs → Cursor Tab §9` |
+| **Design the GPU job scheduler** for text-to-video | 68 | Preemption as a checkpoint question, gang scheduling, DRF fair-share, the overload bounds. `Designs → Job scheduler §9`, with the batching economics from `Designs → ChatGPT §9` |
 | **Design an Instagram-like feed** | 66 | Fanout hybrid, the celebrity threshold, pagination. `Designs → Twitter feed` |
 | **Design Slack**, with 100× and 1000× follow-ups | 64 | Fanout, presence, ordering, connection count. `Designs → Discord` is this page |
 | **Design a distributed webhook delivery system** | reported | Retries, idempotency, ordering, poison messages. `Designs → Payment processor §10` is the sender's side |
@@ -461,6 +461,7 @@ Useful because it tells you where *not* to spend September.
 | **Sandboxed cloud IDE / hosted notebooks** (396 + 294 hearts) | ✅ **Built 9/11** | `Designs → Hosted notebooks` · the Codex shape in `§06 D` here |
 | **GPU credit allocator** (367 hearts, screen) | ⚠️ **Partly** | `§06 E` here, on top of `Designs → LLM API billing §8–§9` and `Designs → ChatGPT §9–§10` |
 | **Payments with holds and batching** (102 hearts, screen) | ✅ **Covered** | `Designs → Payment processor §7, §9` — batch capture added 9/11 |
+| **Job scheduler / CI pipeline / GPU job scheduler** (101 + 68 hearts, plus reported) | ✅ **Built 9/11** | `Designs → Job scheduler` |
 
 **The honest summary:** four new coding drills, one new design in this guide, two design pages
 built from the hearts data, and a lot of rereading. That is the whole delta, and it fits in the
@@ -1117,10 +1118,10 @@ another Family 3 prompt you already have its page. The mapping, hearts-ranked ro
 | Design a sandboxed cloud IDE / a hosted notebook platform | `Designs → Hosted notebooks` — the session state machine first, then the substrate ranked by the kernel it shares; `§06 D` here for the Codex shape on top |
 | Design a GPU credit allocator | `§06 E` above, then `Designs → LLM API billing §8` |
 | Design a payment system with holds and batching | `Designs → Payment processor §9` — three money events, and batch capture with a failure inside the batch |
-| Design a CI/CD pipeline with a scheduler | `Designs → Demand response §4` for the per-job state machine, `Designs → Hosted notebooks §15` for ephemeral runners, `Designs → ChatGPT §9` for the queue under overload |
+| Design a CI/CD pipeline with a scheduler · a job scheduler · the text-to-video GPU scheduler | `Designs → Job scheduler` — the state machine, the lease, the honest exactly-once split, and who waits at 09:00; `Designs → Hosted notebooks §15` for ephemeral runners |
 | Design Slack, with 100×/1000× follow-ups | `Designs → Discord` — it *is* this problem, one write becoming fifty thousand socket writes |
 | Design a chat/messaging system with delivery guarantees | `Designs → WhatsApp` |
-| A job scheduler / GPU scheduler under overload | `Designs → Cursor Tab §9`, plus `§04 D` here for the ladder |
+| A job scheduler / GPU scheduler under overload | `Designs → Job scheduler`, then `Designs → ChatGPT §9` for the batching economics, plus `§04 D` here for the ladder |
 | Anything with exactly-once / idempotency / contention | `Designs → Ticketmaster` |
 | A read-heavy feed | `Designs → Twitter feed` |
 | A chat product at consumer scale | `Designs → ChatGPT` |

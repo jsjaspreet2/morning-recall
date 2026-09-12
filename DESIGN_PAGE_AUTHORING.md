@@ -223,6 +223,7 @@ label from this table — the index groups by it.
 | **Read-heavy content & fanout** | Fanout-on-write vs fanout-on-read | Twitter feed |
 | **LLM application** | A slow, expensive, capacity-bounded generation that outlives the request that started it | ChatGPT |
 | **Sandboxed compute sessions** | Untrusted code needs a kernel boundary, interactivity needs a warm start, and the idle tail needs to cost nothing — every substrate choice buys two | Hosted notebooks |
+| **Durable work queues & scheduling** | Work that can run anywhere and fail anywhere must execute exactly once in effect, and under sustained overload someone has to decide who waits | Job scheduler |
 | **Low-latency inference in a loop** | Latency budget forbids the standard pipeline | Cursor Tab |
 | **Usage metering & billing** | Lossy, high-volume telemetry must converge on an exact amount of money, settled through a third party you don't control | LLM API billing |
 | **Write-heavy telemetry / analytics** | Ingest volume vs query flexibility; event time is not arrival time, and the lateness number you pick is the state you pay for | Smart-meter telemetry |

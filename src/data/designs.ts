@@ -131,6 +131,13 @@ const META: Record<string, Meta> = {
       'Untrusted code needs a kernel boundary, interactivity needs a warm start, and the idle tail needs to cost nothing — every substrate choice buys two, and the design is what you do about the third. The ChatGPT page one level down: a session outlives the tab, but a session has a kernel and an adversary inside it.',
     accent: 'violet',
   },
+  scheduler: {
+    label: 'Job scheduler',
+    archetype: 'Durable work queues & scheduling',
+    tension:
+      'Work that can run anywhere and fail anywhere must execute exactly once in effect, and under sustained overload someone has to decide who waits. The inverse of ChatGPT §9: nobody is waiting on a socket, so a job is a row that survives everything and the page trades latency for correctness wherever it can.',
+    accent: 'amber',
+  },
   billing: {
     label: 'LLM API billing',
     archetype: 'Usage metering & billing',
