@@ -1755,7 +1755,6 @@ The whole component, with every decision that matters marked.
 export function Composer({ onSend, disabled }: { onSend: (t: string) => void; disabled: boolean }) {
   const [value, setValue] = useState('')
   const ref = useRef<HTMLTextAreaElement>(null)
-  const composing = useRef(false)          // (1) IME guard
 
   // (2) Auto-resize: measure, don't compute.
   useLayoutEffect(() => {
@@ -1766,7 +1765,7 @@ export function Composer({ onSend, disabled }: { onSend: (t: string) => void; di
   }, [value])
 
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (composing.current) return                  // (1) never intercept during composition
+    if (e.nativeEvent.isComposing) return          // (1) the one-line IME guard
     if (e.key === 'Enter' && !e.shiftKey) {        // (3) Enter sends, Shift+Enter newlines
       e.preventDefault()
       submit()
@@ -1789,25 +1788,18 @@ export function Composer({ onSend, disabled }: { onSend: (t: string) => void; di
       aria-label="Message"
       onChange={(e) => setValue(e.target.value)}
       onKeyDown={onKeyDown}
-      onCompositionStart={() => { composing.current = true }}
-      onCompositionEnd={() => { composing.current = false }}
     />
   )
 }
 ```
 
-**(1) IME composition is the point that separates people who have shipped this.** On Japanese,
-Korean, or Chinese input — and on some Android keyboards' predictive text — pressing Enter
-*commits the candidate*, it does not mean "send". Intercepting it sends a half-typed word and looks
-broken to a large fraction of users. Two mechanisms, know both:
-
-- `compositionstart` / `compositionend` events with a ref flag, as above.
-- `e.nativeEvent.isComposing` on the keydown, which is the modern one-liner. Chrome and Safari also
-  dispatch `keyCode 229` during composition, which is the legacy check you may see in old code.
-
-Say it out loud even if you only write one of them: *"Enter during IME composition means commit the
-candidate, not send. I'm guarding on composition state so we don't send half a word."* This is a
-high-signal sentence in a round at a company with global users.
+**(1) IME composition, in one line.** On Japanese, Korean, or Chinese input, pressing Enter
+*commits the candidate*, it does not mean "send". Intercepting it sends half a word. The guard is
+`if (e.nativeEvent.isComposing) return` at the top of the keydown handler — type it, say one
+sentence (*"Enter during IME composition commits the candidate, not the message"*), and move on.
+This is a 45-minute room: reasonable code you can explain beats complete code you cannot. If asked
+what covers browsers that don't set `isComposing`, the answer is `compositionstart`/`compositionend`
+with a ref flag, and you would add it in a product, not here.
 
 **(2) Auto-resize by measurement.** Set `height: auto` first, then read `scrollHeight`. Skipping the
 collapse means the box grows and never shrinks, because `scrollHeight` of an already-tall element
@@ -2206,7 +2198,7 @@ mirrors the reported five-part round and is the rep `§02` runs twice.
 | # | Drill | Folder | Timebox | Ships when |
 |---|---|---|---|---|
 | 1 | **Streaming chat, core** — mock stream, status enum, stop, abort, generation guard | ✅ `openai-01-streaming-chat` | 45 min | Stream visible ≤20 min; all five `§08 L` cases 1–5 handled |
-| 2 | **The composer** — auto-resize, Enter/Shift+Enter, IME guard, state-guarded submit | ✅ `openai-02-composer` | 30 min | Typed cold in 12 min; IME guard present without prompting |
+| 2 | **The composer** — auto-resize, Enter/Shift+Enter, one-line IME guard, state-guarded submit | ✅ `openai-02-composer` | 30 min | Typed cold in 12 min; the four decisions said out loud |
 | 3 | **The gate** — single turn + Stop, multi-turn, supersede with request ids, scroll pinning, batched `role="status"` announcements, then two tests | ✅ `openai-03-transcript` | **60 min** | All five parts land and `§10 B` #3–#4 are written by minute 58 |
 | 4 | **`@`-mention autocomplete** — trigger before the caret, `setRangeText`, combobox keys in a textarea | ✅ `openai-04-mention-autocomplete` | 60 min | Arrows are `preventDefault`ed; Enter selects without sending; a stale response loses |
 | 5 | **Edit and resubmit** — edit mode, caret at end, Cancel restores the pre-image, truncate below, abort in flight | ✅ `openai-05-edit-resubmit` | 45 min | Cancel restores focus to Edit; no orphaned generation |
