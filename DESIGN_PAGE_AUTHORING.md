@@ -228,6 +228,7 @@ label from this table — the index groups by it.
 | **Usage metering & billing** | Lossy, high-volume telemetry must converge on an exact amount of money, settled through a third party you don't control | LLM API billing |
 | **Write-heavy telemetry / analytics** | Ingest volume vs query flexibility; event time is not arrival time, and the lateness number you pick is the state you pay for | Smart-meter telemetry |
 | **Coordination / command workflow** | One operator action fans out to millions of intermittently connected targets that each have to be driven through a state machine and reconciled — the fanout is cheap, the closure is the work | Demand response |
+| **Fleet reconciliation & staged rollout** | Desired state is a spec and observed state is 150 k heartbeats; the system makes them equal forever, and a rollout is one more gap walked through stages with a health gate at each | Deployment system |
 | **Multi-service order orchestration** | One user action must commit across services that share no transaction, and the last step is physical and cannot be undone | Amazon checkout |
 | **Money movement & settlement** | Exactly-once movement of real funds through rails you don't own, where the books must balance and every retry is a potential double charge | Payment processor |
 

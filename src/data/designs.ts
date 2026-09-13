@@ -159,6 +159,13 @@ const META: Record<string, Meta> = {
       'One operator action becomes ten million per-device state machines that have to reach a terminal state and be reconciled — the fanout is cheap, the closure is the work. The inverse of IDE settings sync: the push is not a hint, it is an actuation with a deadline, and the product is knowing which targets did it.',
     accent: 'rose',
   },
+  deployment: {
+    label: 'Deployment system',
+    archetype: 'Fleet reconciliation & staged rollout',
+    tension:
+      'Desired state is a spec and observed state is 150 k heartbeats; the system makes them equal forever, and a rollout is one more gap walked through stages with a health gate at each. The inverse of Demand response: the same per-target state machine, but the command has no deadline and never closes — a host that dies at 3 am and a release at 3 pm are the same gap, closed by the same loop.',
+    accent: 'indigo',
+  },
   checkout: {
     label: 'Amazon checkout',
     archetype: 'Multi-service order orchestration',
