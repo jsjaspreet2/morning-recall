@@ -232,8 +232,8 @@ final rep, and the delta between the two grade sheets is the whole point of the 
 | Day | Rep (timed, AI off, recorded) | Fluency (15–30 min) | Read |
 |---|---|---|---|
 | **Sat 9/12 · D-5** | **Full coding mock = `openai-03-transcript`, 60 min, all five parts, blind.** Then 30 min self-grade against `§07 F`, watching the recording at 1.5× | `openai-02-composer` cold, 12 min, *before* the rep | After, not before: `§07`, `§10`, `§13 C/D`, `UIE Components §14 C` |
-| Sun 9/13 · D-4 | **Architecture mock, 2 hr — unchanged** (`§12 C` row 5, `§12 D`). Then `openai-06-streaming-markdown`, 45 min | — (the day is full) | `§08 I`, `§08 E` |
-| Mon 9/14 · D-3 | `openai-04-mention-autocomplete`, 60 min; then `openai-05-edit-resubmit`, 45 min | `cursor-02-typeahead` re-type, 20 min, before drill 4 — it primes the stale guard | `§09 C/D`, `UIE Components §06 C`, `The Component Round` one-pager |
+| Sun 9/13 · D-4 | **Architecture mock, 2 hr** — ran on interviewing.io as *design a deployment system*; graded ≈ 6/20 on the card's rubric. Then `openai-06-streaming-markdown`, 45 min | — (the day is full) | `§08 I`, `§08 E`; then `Designs → Deployment system` §0, §4, §14 — the mock's page |
+| Mon 9/14 · D-3 | `openai-04-mention-autocomplete`, 60 min; then `openai-05-edit-resubmit`, 45 min | `cursor-02-typeahead` re-type, 20 min, before drill 4 — it primes the stale guard; **20-min cold draw of the Deployment system §14 skeleton**, out loud, both state machines first | `§09 C/D`, `UIE Components §06 C`, `The Component Round` one-pager |
 | Tue 9/15 · D-2 | **`openai-03-transcript` again, 60 min, blind. Grade against Saturday's sheet; the delta is the point.** Then `openai-07-iterators`, 30 min | `cursor-14-use-chat` re-type, 15 min — the hook shape you name at minute 55 | `§08 F/G/H`, `§13 C/D`; evening: `§11`, then `§13 A` for Wednesday |
 | Wed 9/16 · D-1 | **Architecture round.** `§13 A`. Evening: the twenty-minute bridge, `§13 B` | — | `§13 B` only |
 | **Thu 9/17 · D-0** | **Coding round.** `§13 C` | Type the `§08 F` skeleton once, the hour before | `§13 D` |
@@ -370,6 +370,7 @@ rows follow.
 | **Design the GPU job scheduler** for text-to-video | 68 | Preemption as a checkpoint question, gang scheduling, DRF fair-share, the overload bounds. `Designs → Job scheduler §9`, with the batching economics from `Designs → ChatGPT §9` |
 | **Design an Instagram-like feed** | 66 | Fanout hybrid, the celebrity threshold, pagination. `Designs → Twitter feed` |
 | **Design Slack**, with 100× and 1000× follow-ups | 64 | Fanout, presence, ordering, connection count. `Designs → Discord` is this page |
+| **Design a deployment system** — deploy 2 000 services safely to 150 k hosts and keep them running until redeployed | reported (interviewing.io, 9/13; the interviewer named it as the family AI companies ask, alongside "a metrics system" and "an inference system") | The reconciliation loop, replicas + resources as the request, placement by conditional claim per stage, staged rollout with health gates, the 150 k-host health plane. `Designs → Deployment system` is this page |
 | **Design a distributed webhook delivery system** | reported | Retries, idempotency, ordering, poison messages. `Designs → Payment processor §10` is the sender's side |
 | **Design a token-usage / quota monitoring system** across millions of users | reported | Metering accuracy vs cost, aggregation windows, late events. `Designs → LLM API billing`, `Designs → Smart-meter telemetry` |
 
@@ -460,6 +461,7 @@ Useful because it tells you where *not* to spend September.
 | **GPU credit allocator** (367 hearts, screen) | ⚠️ **Partly** | `§06 E` here, on top of `Designs → LLM API billing §8–§9` and `Designs → ChatGPT §9–§10` |
 | **Payments with holds and batching** (102 hearts, screen) | ✅ **Covered** | `Designs → Payment processor §7, §9` — batch capture added 9/11 |
 | **Job scheduler / CI pipeline / GPU job scheduler** (101 + 68 hearts, plus reported) | ✅ **Built 9/11** | `Designs → Job scheduler` |
+| **Deployment system** (interviewing.io mock, 9/13) | ✅ **Built 9/13** | `Designs → Deployment system` — the two state machines, the loop, the health gate; the mock's six failures are its §13 traps 1–6 |
 
 **The honest summary, as of 9/11:** all seven coding drills are built, the design pages from the
 hearts data are built, and what is left is reps. `§02` is the four days of them.
@@ -1116,6 +1118,7 @@ another Family 3 prompt you already have its page. The mapping, hearts-ranked ro
 | Design a GPU credit allocator | `§06 E` above, then `Designs → LLM API billing §8` |
 | Design a payment system with holds and batching | `Designs → Payment processor §9` — three money events, and batch capture with a failure inside the batch |
 | Design a CI/CD pipeline with a scheduler · a job scheduler · the text-to-video GPU scheduler | `Designs → Job scheduler` — the state machine, the lease, the honest exactly-once split, and who waits at 09:00; `Designs → Hosted notebooks §15` for ephemeral runners |
+| Design a deployment / rollout / release system | `Designs → Deployment system` — the two state machines first, then the reconciler, then the health gate; say "150 k hosts, not 15 a day" in the first minute |
 | Design Slack, with 100×/1000× follow-ups | `Designs → Discord` — it *is* this problem, one write becoming fifty thousand socket writes |
 | Design a chat/messaging system with delivery guarantees | `Designs → WhatsApp` |
 | A job scheduler / GPU scheduler under overload | `Designs → Job scheduler`, then `Designs → ChatGPT §9` for the batching economics, plus `§04 D` here for the ladder |

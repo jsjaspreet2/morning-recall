@@ -93,6 +93,12 @@ The two reliable ways to lose the round are starting to draw at minute three, an
 shallowly until the clock runs out. Watch the 35-minute mark: if you are not deep in something
 specific by then, cut breadth yourself and go deep without being asked.
 
+**Infra prompts collapse the Contract phase into the flow.** When the users are engineers and the
+interesting part is a loop — a deployment system, a metrics pipeline, a scheduler — nobody grades
+the endpoints. Write the data flow, derive the entities from it beside the store, and say out loud
+that you are skipping the API. Frame through entities is under twenty minutes; a reviewed mock that
+spent forty there never drew the system it was being graded on.
+
 ### B. REQUIREMENTS THAT CHANGE THE ARCHITECTURE
 
 Most clarifying questions are decoration. These change the drawing, which is what makes them worth
@@ -163,6 +169,13 @@ the two hops that matter is what depth sounds like.
 Steering is almost always signal rather than interruption: they are either testing whether you can
 hold a design in your head while it changes, or moving you toward the part they actually want to
 score. Defending a decision they have just constrained away is the expensive mistake.
+
+**The repeat-hint rule.** If the interviewer comes back to the same point a second time, you have the
+wrong *model*, not the wrong word — renaming the thing ("deployment group" for "tier") does not
+help. Stop and ask: *"You've come back to this twice — could you say it in different words? I think
+I'm missing something."* It is polite, it costs ten seconds, and it is not a down-level; ten minutes
+of not understanding is. Steering that uses a word you did not treat as a constraint — *"resources,
+not tiers"* — is the interviewer handing you the model. Repeat the word back and rebuild from it.
 
 ## 03 — Estimate and set SLOs
 

@@ -78,16 +78,18 @@ Ranked by how often they sink otherwise-strong candidates.
 
 1. **Drawing before scoping.** Ten minutes of boxes, then "we're low on time," and no deep dive ever happens.
 2. **Waiting to be asked for depth.** See §3.
-3. **Naming services as a substitute for reasoning.** See §4.
+3. **Naming services — or placing patterns — as a substitute for reasoning.** See §4. The pattern version: an outbox, a queue, `SKIP LOCKED`, placed before a number is on the box. The 9/13 deployment mock drew a queue for fifteen events a day and was asked whether it needed one.
 4. **Designing for the final scale before one correct path exists.** Get the request working end to end for a thousand users, *then* scale it. Interviewers will follow you down; they rarely pull you back up.
 5. **Estimating for its own sake.** Every number should change a decision. If it doesn't, skip it and say you're skipping it.
 6. **Answering the question you prepped instead of the one asked.** Listen for the constraint that makes this variant different, and repeat it back.
-7. **Not stating the core invariant out loud.** "No double-booking." "Exactly one driver." "At-least-once, deduped downstream." If the whole design serves an invariant, leaving it implicit reads as not knowing it.
-8. **Silently correcting yourself.** Say "I want to revise that — here's why the first version breaks." Visible self-correction scores *higher* than never being wrong.
-9. **Defaulting to AP reflexively.** Availability is usually right, which is exactly why picking CP correctly on the rare problem that needs it stands out so much.
-10. **Going quiet while thinking.** Narrate the search, not just the result: "I'm deciding between partitioning ownership and taking a lock — the question is whether I can guarantee a single writer."
-11. **Treating the interviewer's question as a correction.** It's usually a probe. Answer it, don't capitulate to it. If you were right, defend it once.
-12. **Skipping the failure paths.** Every flow should end with at least one abandonment, timeout, or partition case.
+7. **Not taking the hint.** Two nudges on the same point means you have the wrong model, not the wrong word. Stop and ask for a rephrase — *"can you say that in different words?"* — instead of defending or renaming. The 9/13 mock lost ten minutes to a term the interviewer corrected five times.
+8. **Reading the request rate as the load.** For fleets, devices, hosts, tenants: the per-target count is the load and the request rate is a decoy. Fifteen deployments a day was 150 000 hosts heartbeating.
+9. **Not stating the core invariant out loud.** "No double-booking." "Exactly one driver." "At-least-once, deduped downstream." If the whole design serves an invariant, leaving it implicit reads as not knowing it.
+10. **Silently correcting yourself.** Say "I want to revise that — here's why the first version breaks." Visible self-correction scores *higher* than never being wrong.
+11. **Defaulting to AP reflexively.** Availability is usually right, which is exactly why picking CP correctly on the rare problem that needs it stands out so much.
+12. **Going quiet while thinking.** Narrate the search, not just the result: "I'm deciding between partitioning ownership and taking a lock — the question is whether I can guarantee a single writer."
+13. **Treating the interviewer's question as a correction.** It's usually a probe. Answer it, don't capitulate to it. If you were right, defend it once. A probe is asked once; a hint is repeated — the second time, it is #7.
+14. **Skipping the failure paths.** Every flow should end with at least one abandonment, timeout, or partition case.
 
 ---
 

@@ -1,9 +1,11 @@
 # The system design round — one page
 
 Read this at T-30. Everything here exists in longer form elsewhere; this is the operational
-version, built from one reviewed mock that scored 6 out of 20 with every component named
-correctly. The gap was not knowledge. It was **allocation and closure** — where the minutes went,
-and whether anything was finished. Pointers to the deep sections are at the bottom.
+version, built from two reviewed mocks — demand response on 9/11 and a deployment system on
+9/13 — that each scored about 6 out of 20 with every component named correctly. The gap was
+not knowledge. It was **allocation and closure** — where the minutes went, and whether anything
+was finished — and, the second time, **not hearing the hint**. Pointers to the deep sections are
+at the bottom.
 
 ---
 
@@ -12,6 +14,8 @@ and whether anything was finished. Pointers to the deep sections are at the bott
 | When | Do | Say |
 |---|---|---|
 | **0–2** | **Rubric echo.** If the prompt lists topics, write them on the canvas as a checklist before anything else. Tick each as it is covered. Revisit at 25 and at 40. | *"The prompt names eleven things. I'm listing them so I can tick them."* |
+| **0–2** (infra prompts) | **Data flow first, API last or never.** If the users are engineers and the interesting part is a loop rather than a request, write the flow, derive the entities beside the store, and skip the REST surface. Requirements through entities is **under twenty minutes**, total. | *"This is an infra system, so I'll write the data flow and put the entities next to the database rather than design endpoints."* |
+| **Whenever steered twice** | **Take the hint on the second nudge.** If the interviewer returns to the same point twice, you have the wrong *model*, not the wrong word. Stop, ask them to rephrase, and do not defend or rename the thing. | *"You've come back to this twice — can you say it in different words? I think I'm missing the model."* |
 | **After back-of-envelope** | **Load-proportional budget.** Annotate every box with its QPS or storage. Allocate deep-dive minutes in proportion. **Anything under ~1 MB/day or ~10 QPS gets at most three minutes, total.** | *"This table is three megabytes over ten years. It gets one box and three minutes."* |
 | **Before any service** (workflow prompts) | **State machine first.** Draw the per-entity states and transitions. Then every service you draw must own a transition. One that owns none is deleted. | *"Here's where each target can be. Every box I draw has to move something on this."* |
 | **After the diagram** | **Kill a box.** Pick one component and ask which requirement breaks without it. If nothing breaks, delete it and say why out loud. Repeat once. | *"If I remove the outbox — the device dedupes on the id, so nothing breaks. It's gone."* |
@@ -41,6 +45,13 @@ which two those are before you start either.
 A reflex worth naming: **complexity feels like competence**, and a small table is where it is
 safest to build a lot. That is exactly why the number has to be on the box before the boxes
 multiply.
+
+**The request rate is a decoy.** The 9/13 mock heard "fifteen deployments a day" and said
+"Postgres, nothing fancy." The load was 150 000 hosts heartbeating — the interviewer's own
+number, offered in the feedback — and the work per deployment was proportional to hosts, not to
+requests. Before writing a number on any box, **ask what unit of work scales with the numbers in
+the prompt.** For fleets, devices, hosts, and tenants, the per-target count is the load and the
+request rate is the thing that makes it look small.
 
 ---
 
@@ -85,6 +96,14 @@ attributes of the fifty thousand devices connected to it and can evaluate the pr
 Two hundred messages, not ten million lookups. The registry survives — for unicast, where there is
 no predicate — and the broadcast path never reads it. The hottest-key question, asked once, deleted
 the hottest key.
+
+**The queue for fifteen events a day.** From the 9/13 mock: a deployment row is written, so an
+outbox and a message queue carry it to the deployment service — and the interviewer asked, "for
+fifteen a day, do we need a queue?" *Which requirement breaks if it goes?* None. The scheduler
+rebuilds its state from the table on restart, the deploy command is idempotent, and the agents
+pull their desired state on every heartbeat. The row is the message. Deleted, along with the
+four minutes spent explaining a dual write that did not exist. The general rule: **a pattern
+placed before a number is on the box is a pattern placed by reflex.**
 
 **The stream processor, placed, retracted, placed again.** Three retractions on one box, and it
 was never asked what the box was for. The question would have settled it in ten seconds: the
@@ -180,6 +199,16 @@ out on the canvas before reading it. Then the other half of the reviewed prompt:
 telemetry archetype, using the Smart-meter telemetry page's §15 rows (fleet GPS, industrial
 sensors, app analytics, metrics pipelines) the same way.
 
+The 9/13 mock's archetype is the third list — **fleet reconciliation**, where the command never
+closes and something has to keep watching after 100 %. Five reps from the Deployment system
+page's §15, each started by drawing the two state machines before any box:
+
+1. A Kubernetes-style Deployment controller.
+2. A feature-flag rollout to a client fleet.
+3. A configuration push to agents.
+4. A serverless deploy with traffic-weighted revisions.
+5. Upgrading the agent itself.
+
 ---
 
 ## If you need more
@@ -187,6 +216,10 @@ sensors, app analytics, metrics pipelines) the same way.
 | Need | Go to |
 |---|---|
 | The state machine, drawn and with its transition table | **Demand response** design page, §4 |
+| Two state machines — per release and per instance — for anything that stays deployed | **Deployment system** design page, §4 |
+| The reconciliation loop, and why it deletes the queue | **Deployment system** §7 |
+| Health gates with numbers, and a rollback that is a deployment | **Deployment system** §9 |
+| The request-rate decoy, in arithmetic | **Deployment system** §3 |
 | Where idempotency lives, and the four boxes it deletes | **Demand response** §7 |
 | Broadcast vs unicast, and Pub/Sub vs a registry | **Demand response** §8 |
 | The safety checklist, each item with its number | **Demand response** §11 |
