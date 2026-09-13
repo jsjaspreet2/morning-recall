@@ -30,7 +30,7 @@ The constraint that shapes everything: **the thing producing those words is a fi
 
 ## 0 · The 60-second frame (say this before you draw anything)
 
-> "The chat product itself is CRUD — conversations, messages, a sidebar — and I'll build that in about five minutes and not linger. What makes this hard is that the answer is produced by a fixed pool of GPUs, takes ten seconds, and costs real money, which gives me three problems. **First, the generation outlives the request that started it** — so I'm going to make a `Run` a first-class entity, split submit from stream, and make the stream resumable, because a refresh or a deploy must not cost a generation we're already paying for. **Second, capacity is fixed** — 20-odd thousand prompts a second against GPUs I can't buy more of today, so I need a queue and admission control, not autoscaling. **Third, cost is per token and conversations grow forever**, so context management is a real design problem rather than a footnote. I'd like to spend most of my time on the run lifecycle and on scheduling — roughly five minutes each — and I'll tie every choice back to the non-functional requirements as I go."
+> "The chat product itself is CRUD — conversations, messages, a sidebar — and I'll build that in about five minutes and not linger. What makes this hard is that the answer is produced by a fixed pool of GPUs, takes ten seconds, and costs real money, which gives me three problems. **First, the generation outlives the request that started it** — so I'm going to make a `Run` a first-class entity, split submit from stream, and make the stream resumable, because a refresh or a deploy must not cost a generation we're already paying for. **Second, capacity is fixed** — call it fifty-odd thousand prompts a second against GPUs I can't buy more of today, so I need a queue and admission control, not autoscaling. **Third, cost is per token and conversations grow forever**, so context management is a real design problem rather than a footnote. I'd like to spend most of my time on the run lifecycle and on scheduling — roughly five minutes each — and I'll tie every choice back to the non-functional requirements as I go."
 
 **Why open this way:** it does three things at once — it *deprioritizes* the CRUD out loud, which buys you the clock; it names the seam that makes the problem interesting; and it pre-commits two dives, so you choose the ground you fight on. Anyone who opens by designing the message table has spent their best minutes on the least interesting part of the system.
 
@@ -59,13 +59,13 @@ Every row is a number and the decision it forces. Where a row says "eventually",
 | Total completion | 5–30 s, acceptable | **Only because it streams.** Without streaming this product does not exist |
 | **A run survives losing the client** | **100% of runs.** Reconnect resumes with **zero tokens lost**, within 2 s | Forces the token log in §8. A dropped connection is not a cancel |
 | **A run survives losing our streaming server** | 100%. Streaming tier drains in ≤ 30 s and a deploy costs zero runs | Forces splitting the streaming tier from the API tier as its own deploy unit (§7) |
-| A run survives losing its GPU worker | **Best-effort, and say so:** restart from scratch if < 50 tokens were emitted; otherwise finalize what we have and emit `error` | The one place we accept a partial failure, because restarting a 900-token generation costs more than it saves |
+| A run survives losing its GPU worker | **Best-effort, and say so:** detected by log silence within ~10 s; restart from scratch if < 50 tokens were emitted, otherwise finalize what we have and emit `error` | The one place we accept a partial failure, because restarting a 900-token generation costs more than it saves. Who detects it and who writes the partial is §8 |
 | Chat state consistency | **Read-your-writes for the author. ≤ 1 s staleness for everything else** | The sidebar may be a second stale on a second device; the tab you typed in may never be. Forces a stronger read (`LOCAL_QUORUM`) on exactly one query and the cheap read everywhere else |
 | Chat title freshness | Generated async, visible **≤ 2 s**, "New chat" until then | An extra model call must never sit in the send path |
 | Message durability | The assistant message is durable **≤ 1 s after `done`**, asynchronously. **Individual tokens are not durable** | Deliberate twice over: the token log is a replay buffer with a TTL, and persistence is buffered so a GPU never waits on the store (§8). The gap is covered by the client's own buffer |
 | Availability | 99.9% for send and stream; **99.99% for reading history** | Reading yesterday's chat must survive a bad day in the inference tier entirely. Forces the read path to share nothing with the generation path |
 | Capacity | Fixed GPU pool. Under overload, **queue the free tier; never kill an in-flight run** | Forces admission control (§9) and tier-weighted scheduling (§10) |
-| Cost | Measured in **GPU-seconds per run**, ~$1M+/day (§3) | Forces token-based quotas (§10) and context pruning (§11) |
+| Cost | Measured in **GPU-seconds per run**, ~$3.5M/day (§3) | Forces token-based quotas (§10) and context pruning (§11) |
 | Scale | ~57k generations/sec average; **~570k concurrent open streams** | Forces a separate, stateless streaming tier (§7) |
 
 **The sentence that earns the point:** *"Almost everything here is a latency or a capacity target and degrades gracefully. Exactly one thing doesn't: a generation we are already paying for must never be lost by anything on our side — not a refresh, not a tunnel, not our own deploy. That's the only place I'll spend real correctness machinery, and everything in the run lifecycle follows from it."*
@@ -99,7 +99,7 @@ Every row is a number and the decision it forces. Where a row says "eventually",
 
 **Storage**
 
-- ~5B messages/day × ~1 KB ≈ **5 TB/day, ~1.8 PB/year**, append-only, never deleted, and growing. §12 has the lifecycle, because "unbounded growth with no plan" is a real finding at this scale.
+- Every generation is two rows: a ~300-byte prompt and a ~2 KB reply (500 tokens at ~4 bytes each). 5B generations/day ≈ **10B rows and ~11 TB/day, ~4 PB/year**, append-only, never deleted, and growing. §12 has the lifecycle, because "unbounded growth with no plan" is a real finding at this scale.
 
 ---
 
@@ -157,9 +157,9 @@ GET  /v1/runs/{runId}                            → Run          (status, for a
 ## 6 · High-level design — flows
 
 <div class="diagram" data-board="architecture">
-<svg viewBox="0 0 1000 640" role="img" aria-label="ChatGPT architecture. A request row: clients, a stateless API tier of gateway and chat service, a scheduler, and a fixed GPU pool. Each GPU makes two independent writes: token-by-token into Redis Streams for the live view, and one finished message into Kafka for durability. Redis Streams feeds a streaming tier of stateless SSE instances; Kafka feeds a persister that batch-writes to ScyllaDB. Redis also holds quota counters and the priority queues; S3 holds cold chats.">
+<svg viewBox="0 0 1000 590" role="img" aria-label="ChatGPT architecture. A request row: clients, a stateless API tier of gateway and chat service, a scheduler, and a fixed GPU pool. Each GPU makes two independent writes: token-by-token into Redis Streams for the live view, and one finished message into Kafka for durability. Redis Streams feeds a streaming tier of stateless SSE instances; Kafka feeds a persister that batch-writes to ScyllaDB. Redis also holds quota counters and the priority queues; S3 holds cold chats.">
   <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
-  <text class="dg-banner-t dg-c" x="500" y="33.5">Three tiers, ~50 machines against ~9,000 — and two independent writes out of every GPU, one lossy, one durable.</text>
+  <text class="dg-banner-t dg-c" x="500" y="33.5">Three tiers, ~50 machines against ~9,000. Every GPU makes two writes: one lossy for the live view, one durable for the record.</text>
   <rect class="dg-box" x="20" y="118" width="140" height="64" rx="8"></rect>
   <text class="dg-t dg-c" x="90" y="154.5">Clients</text>
   <rect class="dg-group" x="190" y="86" width="360" height="130" rx="12"></rect>
@@ -176,8 +176,9 @@ GET  /v1/runs/{runId}                            → Run          (status, for a
   <rect class="dg-group" x="580" y="86" width="180" height="130" rx="12"></rect>
   <text class="dg-group-t" x="596" y="108">SCHEDULER</text>
   <rect class="dg-box" x="596" y="118" width="148" height="64" rx="8"></rect>
-  <text class="dg-t dg-c" x="670" y="146.5">Scheduler</text>
-  <text class="dg-s dg-c" x="670" y="162.5">weights + aging</text>
+  <text class="dg-t dg-c" x="670" y="138.5">Scheduler</text>
+  <text class="dg-s dg-c" x="670" y="154.5">sorted sets by tier</text>
+  <text class="dg-s dg-c" x="670" y="170.5">workers pull</text>
   <rect class="dg-group" x="790" y="86" width="190" height="130" rx="12"></rect>
   <text class="dg-group-t" x="806" y="108">INFERENCE</text>
   <rect class="dg-box" x="806" y="118" width="158" height="64" rx="8"></rect>
@@ -241,7 +242,7 @@ GET  /v1/runs/{runId}                            → Run          (status, for a
   <path class="dg-head" d="M 850,502 L 860,502 L 855,510 Z"></path>
   <path class="dg-line" d="M 670,182 L 670,206 L 490,206 L 490,478 L 330,478 L 330,502"></path>
   <path class="dg-head" d="M 325,502 L 335,502 L 330,510 Z"></path>
-  <text class="dg-lbl" x="500" y="455">dequeue</text>
+  <text class="dg-lbl" x="500" y="455">pull</text>
   <path class="dg-line" d="M 455,182 L 455,232 L 178,232 L 178,542 L 182,542"></path>
   <path class="dg-head" d="M 182,547 L 182,537 L 190,542 Z"></path>
   <path class="dg-line" d="M 534,150 L 560,150 L 560,486 L 790,486 L 790,502"></path>
@@ -250,136 +251,138 @@ GET  /v1/runs/{runId}                            → Run          (status, for a
   <path class="dg-line" d="M 190,432 L 170,432 L 170,164 L 168,164"></path>
   <path class="dg-head" d="M 168,159 L 168,169 L 160,164 Z"></path>
   <text class="dg-lbl dg-c" x="183" y="180">SSE</text>
-  <text class="dg-note" x="20" y="610">Redis carries tokens for the live view and is allowed to lose them; Kafka carries one finished message and is not. Different failure, different blast radius.</text>
 </svg>
 </div>
 
-<p class="diagram-cap">The fork under the GPU is the whole board. Two arrows leave every worker, to two different systems, for two different reasons — and neither is a backup for the other. Lose Redis and the animation breaks while the answer is still stored; lose Kafka and the user watches a perfect answer you then fail to keep.</p>
+<p class="diagram-cap">The fork under the GPU is the whole board. Redis carries tokens for the live view and is allowed to lose them; Kafka carries one finished message and is not. Lose Redis and the animation breaks while the answer is still stored; lose Kafka and the user watches a perfect answer you then fail to keep.</p>
 
 <div class="diagram" data-board="flows">
-<svg viewBox="0 0 1000 872" role="img" aria-label="ChatGPT high-level design. Write path: client, API gateway, chat service, ScyllaDB, with a quota check at the door before enqueue. The chat service enqueues to a scheduler, priority queues by tier, and a fixed pool of inference workers. Each worker makes two independent writes that never meet: token-by-token XADD into Redis Streams for the lossy live view, which the streaming tier tails and forwards over SSE, and one finished message into Kafka keyed by chat id for durability, which a persister batch-writes to ScyllaDB. Read path: client to gateway to chat service to ScyllaDB.">
+<svg viewBox="0 0 1000 750" role="img" aria-label="ChatGPT run lifecycle. A run in flight: the GPU worker appends tokens to a Redis Stream keyed by run id, any streaming instance tails it and forwards over SSE with the entry id as the event id. Five branches. The client closes the tab: nothing happens, the run keeps generating. The client reconnects with Last-Event-ID: any instance replays from that offset. A streaming instance redeploys: it drains, clients reconnect elsewhere, no run is touched. The stop button: an explicit cancel POST removes a queued run from the tier queue for free, or sets a cancel key that the worker checks between decode steps. The worker dies: a reaper notices the log has gone silent and either requeues the run if under fifty tokens or finalizes the partial answer to Kafka and emits a retryable error.">
   <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
-  <text class="dg-banner-t dg-c" x="500" y="33.5">Two independent writes out of the GPU — different systems, different reasons, and neither is a backup for the other.</text>
-  <text class="dg-lane" x="30" y="76">WRITE / GENERATE</text>
-  <rect class="dg-box" x="30" y="90" width="110" height="56" rx="8"></rect>
-  <text class="dg-t dg-c" x="85" y="122.5">Client</text>
-  <rect class="dg-box" x="170" y="90" width="140" height="56" rx="8"></rect>
-  <text class="dg-t dg-c" x="240" y="122.5">API Gateway</text>
-  <rect class="dg-box" x="340" y="90" width="180" height="56" rx="8"></rect>
-  <text class="dg-t dg-c" x="430" y="114.5">Chat Service</text>
-  <text class="dg-s dg-c" x="430" y="130.5">CRUD + enqueue</text>
-  <rect class="dg-box" x="550" y="90" width="200" height="56" rx="8"></rect>
-  <text class="dg-t dg-c" x="650" y="114.5">ScyllaDB</text>
-  <text class="dg-s dg-c" x="650" y="130.5">chats, messages, runs</text>
-  <rect class="dg-good" x="780" y="90" width="180" height="56" rx="8"></rect>
-  <text class="dg-good-t dg-c" x="870" y="114.5">Quota at the door</text>
-  <text class="dg-s dg-c" x="870" y="130.5">rejection costs 0 GPU-seconds</text>
-  <path class="dg-line" d="M 140,118 L 162,118"></path>
-  <path class="dg-head" d="M 162,123 L 162,113 L 170,118 Z"></path>
-  <path class="dg-line" d="M 310,118 L 332,118"></path>
-  <path class="dg-head" d="M 332,123 L 332,113 L 340,118 Z"></path>
-  <path class="dg-line" d="M 520,118 L 542,118"></path>
-  <path class="dg-head" d="M 542,123 L 542,113 L 550,118 Z"></path>
-  <path class="dg-line" d="M 430,146 L 430,172"></path>
-  <path class="dg-head" d="M 425,172 L 435,172 L 430,180 Z"></path>
-  <text class="dg-lbl" x="445" y="168">enqueue</text>
-  <rect class="dg-box" x="340" y="180" width="180" height="52" rx="8"></rect>
-  <text class="dg-t dg-c" x="430" y="202.5">Scheduler</text>
-  <text class="dg-s dg-c" x="430" y="218.5">tier weight + aging</text>
-  <path class="dg-line" d="M 430,232 L 430,258"></path>
-  <path class="dg-head" d="M 425,258 L 435,258 L 430,266 Z"></path>
-  <rect class="dg-box" x="300" y="266" width="260" height="52" rx="8"></rect>
-  <text class="dg-t dg-c" x="430" y="288.5">Priority queues</text>
-  <text class="dg-s dg-c" x="430" y="304.5">free / plus / pro</text>
-  <path class="dg-line" d="M 430,318 L 430,344"></path>
-  <path class="dg-head" d="M 425,344 L 435,344 L 430,352 Z"></path>
-  <rect class="dg-box" x="280" y="352" width="300" height="64" rx="8"></rect>
-  <text class="dg-t dg-c" x="430" y="380.5">Inference workers</text>
-  <text class="dg-s dg-c" x="430" y="396.5">fixed GPU pool · continuous batching</text>
-  <path class="dg-line" d="M 430,416 L 430,450"></path>
-  <path class="dg-line" d="M 200,450 L 720,450"></path>
-  <path class="dg-line" d="M 200,450 L 200,478"></path>
-  <path class="dg-head" d="M 195,478 L 205,478 L 200,486 Z"></path>
-  <path class="dg-line" d="M 720,450 L 720,478"></path>
-  <path class="dg-head" d="M 715,478 L 725,478 L 720,486 Z"></path>
-  <text class="dg-lbl dg-c" x="460" y="470">two independent writes — neither is a backup for the other</text>
-  <rect class="dg-box" x="80" y="486" width="240" height="64" rx="8"></rect>
-  <text class="dg-t dg-c" x="200" y="506.5">Redis Streams</text>
-  <text class="dg-s dg-c" x="200" y="522.5">key run:{runId} · XADD per token</text>
-  <text class="dg-s dg-c" x="200" y="538.5">lossy and TTL'd — costs the animation</text>
-  <path class="dg-line" d="M 200,550 L 200,576"></path>
-  <path class="dg-head" d="M 195,576 L 205,576 L 200,584 Z"></path>
-  <rect class="dg-box" x="60" y="584" width="310" height="64" rx="8"></rect>
-  <text class="dg-t dg-c" x="215" y="604.5">Streaming Tier</text>
-  <text class="dg-s dg-c" x="215" y="620.5">~570 k SSE connections, no run state</text>
-  <text class="dg-s dg-c" x="215" y="636.5">XREAD from last-seen id → SSE</text>
-  <path class="dg-line" d="M 200,648 L 200,668"></path>
-  <path class="dg-head" d="M 195,668 L 205,668 L 200,676 Z"></path>
-  <rect class="dg-box" x="60" y="676" width="310" height="40" rx="8"></rect>
-  <text class="dg-t dg-c" x="215" y="700.5">Client — SSE, Last-Event-ID replays</text>
-  <rect class="dg-box" x="600" y="486" width="240" height="64" rx="8"></rect>
-  <text class="dg-t dg-c" x="720" y="506.5">Kafka</text>
-  <text class="dg-s dg-c" x="720" y="522.5">topic messages, key = chatId</text>
-  <text class="dg-s dg-c" x="720" y="538.5">exactly one finished message</text>
-  <path class="dg-line" d="M 720,550 L 720,576"></path>
-  <path class="dg-head" d="M 715,576 L 725,576 L 720,584 Z"></path>
-  <rect class="dg-box" x="600" y="584" width="240" height="52" rx="8"></rect>
-  <text class="dg-t dg-c" x="720" y="606.5">Persister</text>
-  <text class="dg-s dg-c" x="720" y="622.5">batches writes</text>
-  <path class="dg-line" d="M 720,636 L 720,660"></path>
-  <path class="dg-head" d="M 715,660 L 725,660 L 720,668 Z"></path>
-  <rect class="dg-box" x="600" y="668" width="240" height="40" rx="8"></rect>
-  <text class="dg-t dg-c" x="720" y="692.5">ScyllaDB</text>
-  <rect class="dg-ghost" x="395" y="560" width="180" height="110" rx="8"></rect>
-  <text class="dg-lane dg-c" x="485" y="584">THEY NEVER MEET</text>
-  <text class="dg-s dg-c" x="485" y="605">the streaming tier reads</text>
-  <text class="dg-s dg-c" x="485" y="622">Redis and only Redis</text>
-  <text class="dg-s dg-c" x="485" y="639">Kafka never feeds a stream</text>
-  <path class="dg-div" d="M 20,740 L 980,740"></path>
-  <text class="dg-lane" x="30" y="766">READ / HISTORY</text>
-  <rect class="dg-box" x="30" y="780" width="110" height="64" rx="8"></rect>
-  <text class="dg-t dg-c" x="85" y="816.5">Client</text>
-  <rect class="dg-box" x="170" y="780" width="150" height="64" rx="8"></rect>
-  <text class="dg-t dg-c" x="245" y="816.5">API Gateway</text>
-  <rect class="dg-box" x="350" y="780" width="180" height="64" rx="8"></rect>
-  <text class="dg-t dg-c" x="440" y="816.5">Chat Service</text>
-  <rect class="dg-box" x="560" y="780" width="260" height="64" rx="8"></rect>
-  <text class="dg-t dg-c" x="690" y="800.5">ScyllaDB</text>
-  <text class="dg-s dg-c" x="690" y="816.5">LOCAL_ONE for the sidebar</text>
-  <text class="dg-s dg-c" x="690" y="832.5">your own chat: LOCAL_QUORUM</text>
-  <path class="dg-line" d="M 140,812 L 162,812"></path>
-  <path class="dg-head" d="M 162,817 L 162,807 L 170,812 Z"></path>
-  <path class="dg-line" d="M 320,812 L 342,812"></path>
-  <path class="dg-head" d="M 342,817 L 342,807 L 350,812 Z"></path>
-  <path class="dg-line" d="M 530,812 L 552,812"></path>
-  <path class="dg-head" d="M 552,817 L 552,807 L 560,812 Z"></path>
+  <text class="dg-banner-t dg-c" x="500" y="33.5">Five things happen to a run in flight, and one mechanism covers them all: the run lives in the log, not on the socket.</text>
+  <text class="dg-lane" x="30" y="76">A RUN IN FLIGHT</text>
+  <rect class="dg-box" x="30" y="90" width="170" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="115" y="114.5">GPU worker</text>
+  <text class="dg-s dg-c" x="115" y="130.5">XADD per token</text>
+  <rect class="dg-box" x="240" y="90" width="230" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="355" y="114.5">Redis Stream run:{runId}</text>
+  <text class="dg-s dg-c" x="355" y="130.5">monotonic entry ids</text>
+  <rect class="dg-box" x="510" y="90" width="220" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="620" y="114.5">Any streaming instance</text>
+  <text class="dg-s dg-c" x="620" y="130.5">blocking XREAD from last id</text>
+  <rect class="dg-box" x="770" y="90" width="190" height="56" rx="8"></rect>
+  <text class="dg-t dg-c" x="865" y="114.5">Client — SSE</text>
+  <text class="dg-s dg-c" x="865" y="130.5">event id = entry id</text>
+  <path class="dg-line" d="M 200,118 L 232,118"></path>
+  <path class="dg-head" d="M 232,123 L 232,113 L 240,118 Z"></path>
+  <path class="dg-line" d="M 470,118 L 502,118"></path>
+  <path class="dg-head" d="M 502,123 L 502,113 L 510,118 Z"></path>
+  <path class="dg-line" d="M 730,118 L 762,118"></path>
+  <path class="dg-head" d="M 762,123 L 762,113 L 770,118 Z"></path>
+  <path class="dg-div" d="M 20,170 L 980,170"></path>
+  <text class="dg-lane" x="30" y="196">CLIENT CLOSES THE TAB</text>
+  <rect class="dg-box" x="30" y="206" width="200" height="50" rx="8"></rect>
+  <text class="dg-t dg-c" x="130" y="235.5">Socket drops</text>
+  <path class="dg-line" d="M 230,231 L 262,231"></path>
+  <path class="dg-head" d="M 262,236 L 262,226 L 270,231 Z"></path>
+  <rect class="dg-good" x="270" y="206" width="200" height="50" rx="8"></rect>
+  <text class="dg-good-t dg-c" x="370" y="235.5">Nothing happens</text>
+  <path class="dg-line" d="M 470,231 L 502,231"></path>
+  <path class="dg-head" d="M 502,236 L 502,226 L 510,231 Z"></path>
+  <rect class="dg-box" x="510" y="206" width="450" height="50" rx="8"></rect>
+  <text class="dg-t dg-c" x="735" y="227.5">A closed socket is not a cancel</text>
+  <text class="dg-s dg-c" x="735" y="243.5">run keeps generating; the message still lands</text>
+  <text class="dg-lane" x="30" y="282">CLIENT RECONNECTS</text>
+  <rect class="dg-box" x="30" y="292" width="200" height="50" rx="8"></rect>
+  <text class="dg-t dg-c" x="130" y="313.5">Browser resends</text>
+  <text class="dg-s dg-c" x="130" y="329.5">Last-Event-ID: 41</text>
+  <path class="dg-line" d="M 230,317 L 262,317"></path>
+  <path class="dg-head" d="M 262,322 L 262,312 L 270,317 Z"></path>
+  <rect class="dg-box" x="270" y="292" width="200" height="50" rx="8"></rect>
+  <text class="dg-t dg-c" x="370" y="313.5">Any instance</text>
+  <text class="dg-s dg-c" x="370" y="329.5">none is special</text>
+  <path class="dg-line" d="M 470,317 L 502,317"></path>
+  <path class="dg-head" d="M 502,322 L 502,312 L 510,317 Z"></path>
+  <rect class="dg-box" x="510" y="292" width="450" height="50" rx="8"></rect>
+  <text class="dg-t dg-c" x="735" y="313.5">XREAD from 41 — replay the gap, then live</text>
+  <text class="dg-s dg-c" x="735" y="329.5">resuming a chat later is this path with an empty cursor</text>
+  <text class="dg-lane" x="30" y="368">A STREAMING INSTANCE REDEPLOYS</text>
+  <rect class="dg-box" x="30" y="378" width="200" height="50" rx="8"></rect>
+  <text class="dg-t dg-c" x="130" y="407.5">Instance drains</text>
+  <path class="dg-line" d="M 230,403 L 262,403"></path>
+  <path class="dg-head" d="M 262,408 L 262,398 L 270,403 Z"></path>
+  <rect class="dg-box" x="270" y="378" width="200" height="50" rx="8"></rect>
+  <text class="dg-t dg-c" x="370" y="407.5">Sockets close</text>
+  <path class="dg-line" d="M 470,403 L 502,403"></path>
+  <path class="dg-head" d="M 502,408 L 502,398 L 510,403 Z"></path>
+  <rect class="dg-box" x="510" y="378" width="450" height="50" rx="8"></rect>
+  <text class="dg-t dg-c" x="735" y="399.5">Clients reconnect elsewhere — no run is touched</text>
+  <text class="dg-s dg-c" x="735" y="415.5">no run state ever lived on the instance</text>
+  <text class="dg-lane" x="30" y="454">THE STOP BUTTON</text>
+  <rect class="dg-box" x="30" y="464" width="200" height="50" rx="8"></rect>
+  <text class="dg-t dg-c" x="130" y="485.5">POST /runs/{id}/cancel</text>
+  <text class="dg-s dg-c" x="130" y="501.5">explicit — the only stop</text>
+  <path class="dg-line" d="M 230,489 L 292,489"></path>
+  <path class="dg-head" d="M 292,494 L 292,484 L 300,489 Z"></path>
+  <rect class="dg-box" x="300" y="464" width="260" height="50" rx="8"></rect>
+  <text class="dg-t dg-c" x="430" y="485.5">running: SET cancel:{runId}</text>
+  <text class="dg-s dg-c" x="430" y="501.5">short TTL — no pub/sub per run</text>
+  <path class="dg-line" d="M 560,489 L 592,489"></path>
+  <path class="dg-head" d="M 592,494 L 592,484 L 600,489 Z"></path>
+  <rect class="dg-box" x="600" y="464" width="360" height="50" rx="8"></rect>
+  <text class="dg-t dg-c" x="780" y="485.5">Worker checks it between decode steps</text>
+  <text class="dg-s dg-c" x="780" y="501.5">drops the sequence, frees the batch slot now</text>
+  <path class="dg-line" d="M 250,489 L 250,549 L 292,549"></path>
+  <path class="dg-head" d="M 292,554 L 292,544 L 300,549 Z"></path>
+  <rect class="dg-good" x="300" y="524" width="260" height="50" rx="8"></rect>
+  <text class="dg-good-t dg-c" x="430" y="545.5">queued: ZREM from the tier queue</text>
+  <text class="dg-s dg-c" x="430" y="561.5">costs 0 GPU-seconds</text>
+  <text class="dg-lane" x="30" y="604">THE WORKER DIES MID-GENERATION</text>
+  <rect class="dg-box" x="30" y="614" width="200" height="50" rx="8"></rect>
+  <text class="dg-t dg-c" x="130" y="635.5">Log silent &gt; 10 s</text>
+  <text class="dg-s dg-c" x="130" y="651.5">inter-token p95 is 80 ms</text>
+  <path class="dg-line" d="M 230,639 L 262,639"></path>
+  <path class="dg-head" d="M 262,644 L 262,634 L 270,639 Z"></path>
+  <rect class="dg-box" x="270" y="614" width="160" height="50" rx="8"></rect>
+  <text class="dg-t dg-c" x="350" y="635.5">Reaper</text>
+  <text class="dg-s dg-c" x="350" y="651.5">scans running runs</text>
+  <path class="dg-line" d="M 430,639 L 462,639"></path>
+  <path class="dg-head" d="M 462,644 L 462,634 L 470,639 Z"></path>
+  <rect class="dg-box" x="470" y="614" width="490" height="50" rx="8"></rect>
+  <text class="dg-t dg-c" x="715" y="635.5">&lt; 50 tokens emitted: delete the stream, requeue</text>
+  <text class="dg-s dg-c" x="715" y="651.5">the client sees a stall, then the answer restarts</text>
+  <path class="dg-line" d="M 450,639 L 450,699 L 462,699"></path>
+  <path class="dg-head" d="M 462,704 L 462,694 L 470,699 Z"></path>
+  <rect class="dg-warn" x="470" y="674" width="490" height="50" rx="8"></rect>
+  <text class="dg-warn-t dg-c" x="715" y="695.5">≥ 50: read the partial from the log → Kafka, then error{retryable}</text>
+  <text class="dg-s dg-c" x="715" y="711.5">best-effort — the partial lives only in Redis</text>
 </svg>
 </div>
 
-<p class="diagram-cap">Draw the fork under the GPU first. Redis carries tokens for the live view and is allowed to lose them; Kafka carries one finished message and is not. Lose Redis and the animation breaks while the answer still gets stored — lose Kafka and the user watches a perfect answer you then fail to keep.</p>
+<p class="diagram-cap">Draw the top row, then say the five branches out loud without drawing them. Four are free because the run lives in the log. The fifth is the one place a partial answer can be lost, and saying so is better than hiding it.</p>
 
 Three tiers, and the split is the design:
 
 - **Chat Service** — stateless CRUD plus enqueue. Cheap, scales on request rate.
 - **Streaming Tier** — holds ~570k SSE connections, owns no run state, tails the token log. Scales on *connection count* and deploys on its own schedule (§7).
-- **Inference Workers** — the GPU pool. Fixed size, scheduled rather than autoscaled (§9).
+- **Inference Workers** — the GPU pool. Fixed size, and **workers pull** from the tier queues when a batch slot frees; nothing tracks slot state across 9,000 servers (§9).
 
-**The two write paths out of the worker are independent, and neither is a backup for the other.** Redis carries tokens for the *live view* and is deliberately lossy; Kafka carries one finished message for *durability* and must not drop it. **The streaming tier reads Redis and only Redis** — it never touches Kafka, and Kafka never feeds a stream. Lose Redis and the live view breaks while the answer still gets stored (§8); lose Kafka and the user watches a perfectly good answer that we then fail to persist. **Different failure, different blast radius, which is exactly why they aren't the same system.**
+**The two write paths out of the worker are independent.** Redis carries tokens for the *live view* and is deliberately lossy; Kafka carries one finished message for *durability* and must not drop it. **The streaming tier reads Redis and only Redis** — Kafka never feeds a stream. Different failure, different blast radius, which is why they aren't the same system (§8).
 
 ### Flow A — a turn
 
 1. Client **optimistically renders** the user's bubble and an empty assistant bubble in `pending`. Nothing has been confirmed yet; this is what hides the extra round trip from §5.
-2. `POST /chats/{id}/messages` with an `Idempotency-Key`. Chat Service dedupes on it, writes the user message, bumps `lastMessageAt`, creates a `Run` in `queued`, returns `{ userMessageId, runId }`.
-3. **Quota check happens here, before enqueue** — token budget for this user and tier (§10). A rejection at this point costs zero GPU-seconds, which is the entire point of checking at the door.
+2. `POST /chats/{id}/messages` with an `Idempotency-Key`. Chat Service dedupes on it, then **checks the token quota before it writes anything** (§10). A rejection here costs zero GPU-seconds and zero rows, which is the entire point of checking at the door.
+3. It writes the user message, bumps `lastMessageAt`, creates a `Run` in `queued`, and returns `{ userMessageId, runId }`.
 4. Client opens `GET /runs/{runId}/stream`. The load balancer routes it to *any* streaming instance; none of them is special.
-5. Scheduler dequeues by tier weight, assigns the run to an **inference worker** — a GPU node — with a free batch slot, and flips the status to `running`. **"Worker" on this page always means a GPU node; the streaming tier has no workers, only connection holders.**
+5. An **inference worker** — a GPU node — with a free batch slot **pulls** the next run from the tier queues by weight (§9) and flips the status to `running`. **"Worker" on this page always means a GPU node; the streaming tier has no workers, only connection holders.**
 6. The inference worker builds the prompt — stable prefix first (§11) — and generates. Each token is `XADD`ed to `run:{runId}` in Redis Streams.
 7. The streaming instance holding this client `XREAD`s from the last id it sent and forwards each entry as an SSE event. The browser appends.
-8. On completion the inference worker does **two cheap writes and no database call**: it appends a terminal `done` entry to the token log carrying the `messageId`, and it produces the finished message to **Kafka**, partitioned by `chatId`. It then frees its batch slot immediately. A separate **persister** consumer batch-writes those messages into ScyllaDB. The streaming instance forwards the terminal entry, closes the SSE stream, and the client swaps its live buffer for the canonical message. **Neither of those two writes is redundant, and the GPU is not on the hook for either** — §8 says why.
+8. On completion the inference worker does **two cheap writes and no database call**: it appends a terminal `done` entry to the token log carrying the `messageId`, and it produces the finished message to **Kafka**, partitioned by `chatId`. It then frees its batch slot immediately. A separate **persister** consumer batch-writes those messages into ScyllaDB. The streaming instance forwards the terminal entry, closes the SSE stream, and the client swaps its live buffer for the canonical message. §8 says why the GPU is on the hook for neither write.
 9. **Failure path — client disconnects.** Nothing happens to the run. It keeps generating, tokens keep landing in the log, the message gets persisted. **A closed socket is not a cancel** (§8).
 10. **Failure path — client reconnects.** The browser resends `Last-Event-ID`; whichever instance it lands on replays from that offset and continues live. The user sees a brief pause, not a truncated answer.
 11. **Failure path — a streaming instance is redeployed.** It drains, its clients reconnect elsewhere, and no run is affected — because no run state ever lived there (§7).
-12. **Failure path — an inference worker dies mid-generation.** Under 50 tokens emitted, requeue the run from scratch. Past that, finalize the partial message and emit `error` with `retryable: true` so the UI can offer regenerate. **Say which side of that line you're on and why** — it's an explicit cost trade, not an oversight.
+12. **Failure path — an inference worker dies mid-generation.** The stream goes silent; a reaper notices within ~10 s (§8). Under 50 tokens emitted, requeue the run from scratch. Past that, the reaper finalizes the partial message and emits `error` with `retryable: true` so the UI can offer regenerate. **Say which side of that line you're on and why** — it's an explicit cost trade, not an oversight.
 13. **Failure path — the queue is over capacity.** Free tier gets `429` with a `Retry-After` and a visible "at capacity" state; paid tiers keep going. **We shed at the door and never kill work in flight** (§9).
 
 ### Flow B — resuming a conversation
@@ -473,17 +476,7 @@ The inference worker writes tokens **into a log keyed by run id** and never lear
 
 ### Why the log carries a terminal entry, when the message is already persisted
 
-The obvious objection: we just wrote the assistant message durably, so why append a `done` entry to a buffer we're about to expire?
-
-**Because the streaming tier cannot see that write.** It is sitting in a blocking `XREAD` on `run:{runId}` and knows nothing about the run except what arrives on the log — that's the whole point of §8, and it's what lets any instance serve any run. Without an in-band terminator it has exactly two options, and both are bad: block until a timeout fires, so every successful answer ends in a spurious hang; or **poll the run's status, which is 570k polls in flight against the message store forever.** One extra log entry replaces both.
-
-Three things ride on that entry:
-
-- **It makes success distinguishable from failure.** A stream that just stops looks identical to a crashed worker, a severed connection, and a completed answer. The client must be able to tell them apart — an unterminated stream should be retried, a terminated one must not be. *(This is the "treating a closed connection as success" trap, #3 in §13.)*
-- **It carries the `messageId`**, which is the handle the client needs to swap its live token buffer for the canonical row. Without it the client has assembled the right text and has no idea what to reconcile it against.
-- **It's the signal to close cleanly**, so the streaming instance releases the socket instead of holding it until a read timeout. At 570k concurrent connections, reclaiming them promptly is the difference between ~50 machines and considerably more.
-
-The general shape, worth naming because it recurs: **a log-based fanout needs an explicit end-of-stream marker, because "no more data" and "not yet" are the same observation to a reader.** The durable write is for the *next* request; the log entry is for the request that's still open.
+**Because the streaming tier cannot see that write.** It is sitting in a blocking `XREAD` on `run:{runId}` and knows nothing about the run except what arrives on the log; to a reader, "no more data" and "not yet" are the same observation. Without an in-band end marker it either hangs until a timeout on every successful answer, or polls run status — 570k polls in flight against the store, forever. One extra entry replaces both, and it carries the `messageId` the client needs to swap its live buffer for the canonical row. It's also what lets the client tell a finished stream from a severed one: an unterminated stream should be retried, a terminated one must not be.
 
 ### What happens when Redis dies, and why the answer survives it
 
@@ -516,7 +509,7 @@ A **persister** consumer reads that topic and batch-writes into ScyllaDB. That b
 - **Batched writes instead of 114k individual inserts.** Cheaper on the store by a wide margin, and the batching is free because a consumer is already reading in batches.
 - **Retries live somewhere durable** rather than in the memory of a process we want to be stateless.
 
-**Why Kafka here when §8 rejected it for tokens** — worth pre-empting, because it looks like a contradiction. The rejection was about *granularity*: 570k concurrent short-lived per-run streams is the wrong shape for Kafka's long-lived coarse partitions. **This is a different workload wearing the same word.** One message per completed run, ~57k/sec, on a handful of partitions keyed by `chatId`, durable and ordered — that is precisely what Kafka is for. **Same system, opposite verdict, and the discriminator is granularity rather than throughput.** Being able to say that is better than being consistent for its own sake.
+**Why Kafka here when this section rejected it for tokens:** the rejection was about *granularity*. 570k short-lived per-run streams is the wrong shape for long-lived coarse partitions; one message per completed run on a handful of partitions keyed by `chatId` is exactly the right one. **Same system, opposite verdict, and the discriminator is granularity rather than throughput.** A second consumer on the same topic generates chat titles with a small model, which is how the ≤ 2 s title NFR is met without an extra call in the send path.
 
 **What it costs, and this is the real trade:** the message is now durable *asynchronously*, so there is a **sub-second window where the run is `done` and the message is not yet queryable.** A client that refetched instantly could miss it. Three things close that, and you should name them rather than hope:
 
@@ -528,9 +521,18 @@ A **persister** consumer reads that topic and batch-writes into ScyllaDB. That b
 
 ### Cancel is a signal; a closed socket is not
 
-**Closing the tab is not a stop.** We built this whole mechanism precisely so that a dropped connection doesn't end a run — the user is meant to be able to reopen the chat and find the answer waiting. So cancellation has to be **explicit**: `POST /runs/{id}/cancel` flips the run's status and publishes on a control channel keyed by run id. The inference worker checks that channel between token batches and drops the sequence.
+**Closing the tab is not a stop.** We built this whole mechanism precisely so that a dropped connection doesn't end a run — the user is meant to be able to reopen the chat and find the answer waiting. So cancellation has to be **explicit**: `POST /runs/{id}/cancel` flips the run's status, and then does one of two things depending on where the run is. **Still queued:** `ZREM` it from the tier queue — it costs nothing and never touches a GPU. **Running:** set a `cancel:{runId}` key in Redis with a short TTL. The inference worker checks that key between decode steps for each sequence it holds — a cheap read of a key it already knows, no pub/sub subscription per run — and drops the sequence. **Already done:** a no-op that returns the terminal status; the client raced the finish and nothing needs undoing.
 
 **And it must reach the GPU.** A stop button that only stops rendering leaves a batch slot occupied for the rest of a 30-second generation. At this scale that's the difference between reclaiming capacity and paying for tokens nobody will ever read — **cancellation is a capacity feature wearing a UI costume.** **→ ties to the cost and capacity NFRs.**
+
+### A dead worker, and who notices
+
+A worker that dies takes its batch with it, and nothing above it finds out: the `Run` row still says `running`, and the client's stream simply goes quiet — which is indistinguishable from a slow token. **The signal is silence on the log.** A **reaper** scans `running` runs and checks the age of the last entry on `run:{runId}`; with inter-token p95 at 80 ms, ten seconds of nothing is unambiguous. *(A worker heartbeat works too; the log is preferable because it's a signal we already have.)* Then it applies the §2 policy:
+
+- **Under 50 tokens emitted:** delete the stream key, put the run back on its tier queue. The client sees a stall and then the answer restarts from the top — which is why the line is 50 tokens and not 500. The re-run is safe because the `Idempotency-Key` was consumed at submit, not at generation.
+- **Past 50:** read the partial from the log, produce it to Kafka flagged `partial`, append `error { retryable: true }` to the stream so the client closes cleanly and offers regenerate.
+
+**Say the honest part:** the partial lives only in Redis, the store we agreed is lossy. If the worker and Redis die together, the partial is gone, and that is the accepted loss — the answer was already going to be incomplete. What the reaper buys is that no run stays `running` forever and no batch slot is ever *thought* to be occupied when it isn't.
 
 ---
 
@@ -546,89 +548,31 @@ Chat Service calls a worker directly, round-robin across the pool. Add workers w
 
 Worse, naive per-request dispatch wastes the hardware even when it *isn't* busy — and the reason is the one piece of model mechanics worth actually understanding, because every scheduling decision below follows from it.
 
-### The mechanical floor — what a weight is and why one request wastes a GPU
+### The mechanical floor, in three numbers
 
-*You do not need this in an interview. You need it so the rest of §9 is derived rather than memorized, and so you can answer "why?" one level down without bluffing.*
+*Enough to answer "why?" one level down, and no more — the model is a black box with a latency, a cost, and a capacity, and the engineering is everything around it (trap 21).*
 
-**A weight is just a number, and the model is a pile of them.** "70 billion parameters" means literally 70 billion numbers, arranged into matrices. Training decides what those numbers are; **after training they are frozen and byte-for-byte identical for every request, forever.** The weights *are* the model — there is nothing else to it.
-
-**Generating text is repeated matrix multiplication against those frozen numbers.** Your text becomes a list of integers (tokens), each token becomes a vector, and that vector is multiplied through every layer's weight matrices in turn. Out the far end comes a score for every word in the vocabulary; pick one, append it to the input, **and run the entire thing again from the top.** That loop is why generation is one token at a time and why a long answer takes ten seconds — there are ~500 full passes through 70 billion numbers in a 500-token reply.
-
-**Now the ratio that decides everything.** The weights sit in the GPU's high-bandwidth memory. The compute units can't do arithmetic on them there — they work out of a tiny on-chip scratchpad that holds nothing like 70 billion numbers. So each pass must **stream the entire weight set through the compute units.** On one H100:
+**One request cannot keep a GPU busy.** Generating a token means streaming every weight in the model through the compute units once. On one H100, for a 70B model:
 
 | | One decode step, batch of 1 |
 |---|---|
-| Weights to move | ~140 GB (70B params at 2 bytes) |
+| Weights to move | ~140 GB |
 | Time to move them | ~140 GB ÷ ~3.3 TB/s ≈ **40 ms** |
-| Arithmetic that enables | 2 FLOPs per weight ≈ 140 GFLOP |
-| Time to do that arithmetic | 140 GFLOP ÷ ~1000 TFLOP/s ≈ **0.14 ms** |
+| Time to do the arithmetic they enable | ≈ **0.14 ms** |
 
-**Forty milliseconds of hauling to enable a seventh of a millisecond of math.** The compute units sit idle for ~99.7% of the step. *(Sharding the model across 8 GPUs cuts both numbers by 8 and leaves the ratio untouched — which is what makes it a fact about the hardware rather than about your deployment.)* **That ~300× gap is the entire economic case for batching**, and "memory-bandwidth bound" is just the name for it.
+**Forty milliseconds of hauling for a seventh of a millisecond of math.** Batching is the fix: the weights are identical for every request, so thirty-two sequences ride one trip to memory and each get a token — the math gets 32× more expensive and the math was never the bottleneck. That ~300× gap is the entire case for batching, and "memory-bandwidth bound" is its name.
 
-### How batching closes the gap — and why identical weights are the *reason* it works
+**What caps the batch is the KV cache, not a knob.** Each sequence carries private attention state for every token it has seen — ~320 KB per token for a 70B model, so a chat with 20k tokens of history holds ~6 GB by itself. An 8-GPU server has ~640 GB, ~140 GB of it weights; the remaining ~500 GB divided by ~6 GB is where **~64 concurrent sequences** comes from. **Long conversations literally consume batch slots**, which is why §11's pruning is a capacity lever and not just a cost one.
 
-The intuition that trips people up: *if every request runs the same frozen weights and only the inputs differ, what is actually being shared?* **The inputs are never shared. The trip to fetch the weights is.**
-
-Every layer is `y = x @ W`, where `W` is a frozen weight matrix and `x` is your sequence's current vector:
-
-```
-BATCH OF 1  ── matrix × VECTOR ───────────────────────────
-   x [1 × 8192]  @  W [8192 × 8192]   →  y [1 × 8192]
-   read all of W (memory: 100%) to produce ONE row.
-
-BATCH OF 32 ── matrix × MATRIX ───────────────────────────
-   X [32 × 8192] @  W [8192 × 8192]   →  Y [32 × 8192]
-       ▲ row 0  = Alice's sequence          ▲ row 0 = Alice's next token
-       ▲ row 1  = Bob's sequence            ▲ row 1 = Bob's next token
-       ▲ …                                  ▲ …
-   read all of W ONCE (memory: still 100%) to produce THIRTY-TWO rows.
-```
-
-Same 140 GB moved. Same ~40 ms. **Thirty-two tokens out instead of one.** The math got 32× more expensive, but the math was never the bottleneck — it was 0.14 ms out of 40. You are spending the idle 99.7%.
-
-**And the sequences cannot contaminate each other**, which is the part that feels like it should be a problem and isn't: in a matrix multiply, output row *i* depends only on input row *i*. Alice's tokens are computed from Alice's vector and the shared `W`, full stop. Thirty-two strangers ride the same fetch of the weights and never touch. **They are thirty-two mathematically independent computations that happen to share one trip to memory.**
-
-*(One precision, since the next section leans on it: **attention does mix information across positions — but only within a single sequence**, and each sequence attends against its own private KV cache. Positions talk to each other; sequences never do.)*
-
-**So what *is* per-sequence?** The **KV cache** — the attention state for every token that sequence has seen so far. Weights are shared; this is not, and **it is what actually caps the batch.** At roughly 320 KB per token for a 70B model, a chat carrying 20k tokens of history holds ~6 GB of KV cache *by itself*. An 8-GPU server has ~640 GB of memory, ~140 GB of it weights, so the remaining ~500 GB divided by 6 GB is where **~64 concurrent sequences** comes from. Two consequences worth saying out loud:
-
-- **Batch size is a memory budget, not a tuning knob.** You cannot simply raise it.
-- **Long conversations literally consume batch slots.** Every turn of history is KV cache that isn't available to another user — which is why §11's context pruning is a *capacity* lever, not just a cost one.
-
-### Prefill vs decode, from first principles
-
-**Start with the correct instinct: prefill is the more parallelizable half.** That is not a quirk — it is the definition, and it is exactly why prefill is compute-bound while decode is not. But "prefill is the first word" undersells what it does, and the gap is where the confusion lives.
-
-**How a matrix multiply becomes a word, end to end.**
-
-1. **Tokens become vectors by lookup, not multiplication.** The vocabulary is ~128k tokens; the embedding matrix is `[128000 × 8192]`. Token `5432` means "take row 5432" — one vector of 8192 numbers. No math yet.
-2. **Every layer maps `[N × 8192] → [N × 8192]`.** Inside a layer, the **MLP** puts each position independently through the big weight matrices — that's the `y = x @ W` from above and it's where nearly all the weights live. **Attention** is the only place positions look at each other.
-3. **Causal masking is what makes prefill possible.** Position *i* may only attend to positions ≤ *i*. **So computing all N positions simultaneously gives bit-identical results to having produced them one at a time** — the parallelism is free rather than an approximation. This is the fact your instinct was reaching for.
-4. **The last row becomes a word.** After the final layer take row *N*, multiply by the unembedding matrix `[8192 × 128000]` → **128,000 scores, one per vocabulary token**. Softmax them into probabilities, sample one. That is the next word. *"Multiplying produces a word"* resolves to: it produces a score for every possible word, and you pick.
-
-**The thing you were missing: prefill computes all N positions' predictions and throws away all but the last one.**
-
-Position 3 predicts what follows position 3 — but you already *know* that; it's word 4 of the prompt. Only position *N*'s prediction is new information. So a 2,000-token prefill runs 2,000 positions through 80 layers and discards 1,999 of the answers. *(Training keeps all of them, which is why training is so much more efficient per FLOP than inference — a nice aside if an interviewer pulls the thread.)*
-
-**So what is prefill actually for? The KV cache.** At every layer, every one of the N positions produces a key and a value vector, and those get **stored**. That store is the ~320 KB/token from the batching section. **Prefill's real product is that cache; the first token is a by-product.** Which is precisely why decode never re-reads the prompt — the prompt is already sitting there as cached K/V.
-
-**And now decode.** One new token in, so a `[1 × 8192]` vector: through 80 layers, attending against the N cached positions and matrix-multiplying against the full weight set, out to logits, sample, **append its own K/V to the cache**, repeat.
-
-**Why decode cannot be parallelized within one request — and it genuinely cannot.** Token *N+2* depends on token *N+1* having been *sampled*. There is no vector to feed in until the previous step chose one. It is a true serial dependency, not an engineering shortcoming. **Prefill parallelizes across positions; decode has only one position, so its only available parallelism is across *other users*.** That single sentence is why batching is a decode optimization and barely matters for prefill.
-
-**The asymmetry in numbers**, for a 2,000-token prompt and a 500-token answer on a 70B model:
+**Prefill and decode land on opposite sides of the hardware's break-even.** Prefill runs the whole prompt in one parallel pass; decode produces one token per pass and cannot parallelize within a request, because token *N+2* needs token *N+1* to have been sampled first.
 
 | | Prefill (2,000 tokens) | Decode (500 tokens) |
 |---|---|---|
 | Forward passes | **1** | **500, strictly sequential** |
-| Weights moved | 140 GB, **once** | 140 GB × 500 = **~70 TB** |
-| Arithmetic | 2,000 × 140 GFLOP ≈ **280 TFLOP** | 500 × 140 GFLOP ≈ **70 TFLOP** |
-| **Arithmetic intensity** | **~2,000 FLOP/byte** | **~1 FLOP/byte** |
-| An H100's own ratio is ~300 FLOP/byte | Well above → **compute-bound** | Far below → **memory-bound** |
+| Arithmetic per byte moved | ~2,000 FLOP/byte → **compute-bound** | ~1 FLOP/byte → **memory-bound** |
+| What it costs the user | **TTFT**, linear in context length | inter-token latency, paid by everyone sharing the batch |
 
-**Read the last two rows out loud in an interview and you have derived the whole thing:** prefill does **four times the arithmetic** of decode while moving **five hundred times less memory**. Same model, same weights, same operation — and they land on opposite sides of the hardware's break-even point. That is why TTFT and inter-token latency are separate problems with separate fixes, why context length hurts TTFT specifically, and why a batch is the only lever decode has.
-
-**One payoff worth naming, because it now explains itself:** speculative decoding works by **turning decode back into prefill.** A small draft model guesses the next four tokens; with four candidate positions in hand the large model can verify all four in a **single** forward pass — a matrix-*matrix* multiply instead of four starved matrix-vector ones. It buys back parallelism that the serial dependency had taken away.
+That table is why TTFT and inter-token latency are separate problems with separate fixes, why context length hurts TTFT specifically, and why a batch is the only lever decode has.
 
 ### What replaces it
 
@@ -637,14 +581,14 @@ Position 3 predicts what follows position 3 — but you already *know* that; it'
 - **Batching pays for the haul** — the mechanism above. One fetch of the weights advances every sequence in the batch by one token, so throughput scales with batch size while wall-clock barely moves.
 - **"Continuous" is the scheduling half, and it's the part that's actually a design decision.** *Static* batching forms a batch of 64, runs it to completion, and only then starts the next — so a one-line reply finishes in 10 steps and its slot **sits empty for the remaining 1,990** while a 2,000-token essay grinds on beside it. The batch decays toward one active sequence, which is exactly the starved case you built the batch to avoid. **Continuous batching re-forms the batch every single decode step**: a finished sequence is evicted the moment it emits its stop token and a queued one takes the slot on the next step. Utilization stays flat instead of sawtoothing. *(vLLM and TGI are the production implementations; naming one is fine, but the mechanism is the point.)*
 - **The wrinkle worth volunteering:** a joining sequence needs its prefill done, and prefill is a big compute-bound burst (see above). Run it as one step and **every other sequence in the batch stalls for it** — one user pasting a 30k-token document adds a visible hitch to sixty-three other people's inter-token latency. The fix is **chunked prefill**: split the newcomer's prompt across several steps and interleave it with decode. **This is the concrete mechanism behind "one huge prompt degrades everyone," which is why §10 meters tokens rather than requests.**
-- **Prefill and decode are different workloads** — derived above from the same matrix multiply. **Prefill** is compute-bound and scales with input length; it is essentially all of your TTFT. **Decode** is memory-bandwidth bound and scales with output length. **The consequence: every token of context you add is paid at exactly the moment the user is staring at a blank screen** — and, because KV cache caps the batch, it's also paid by everyone else in the form of a slot. That's why §11 is a capacity dive as much as a cost dive.
-- **Speculative decoding** — derived above: a draft model's guesses give the large model several positions at once, converting a starved matrix-vector step back into a matrix-matrix one. Roughly 2× on decode for identical output, and it works especially well on code and boilerplate because they're highly predictable. **An optimization inside the worker, not a change to anything above it.**
+- **Speculative decoding** — a small draft model guesses the next few tokens and the large model verifies them in one pass, turning several starved decode steps into one prefill-shaped step. Roughly 2× on decode for identical output, best on code and boilerplate. **An optimization inside the worker, not a change to anything above it.**
+- **Workers pull; the scheduler doesn't push.** Under continuous batching only the worker knows when a slot frees, so it takes the next run from the tier queues itself (§10 for the weights). The "scheduler" is the sorted sets plus that pull loop — no component tracks slot state across 9,000 servers, and none can become the thing that decides wrongly for all of them.
 - **Admission control at the door.** When queue depth exceeds what the pool can drain within the target wait, reject *new* runs with a clear, retryable state. **Never kill an in-flight run** — it has already consumed GPU-seconds, and killing it converts spent money into zero value. Shedding at the door is the only kind of shedding that saves anything.
 - **Route by KV-cache affinity where you can.** A follow-up turn in a chat shares almost all of its prefix with the previous turn; land it on the worker that still has that prefix cached and you skip most of prefill. Best-effort — a worker can be full — and worth naming as a routing *preference* rather than a rule.
 
 ### What it costs
 
-Queueing is added latency, and it's the honest trade: **under load the free tier waits, and the wait is visible.** You also now operate a scheduler, and a scheduler is a stateful component that can become its own bottleneck and needs its own failover. And KV-affinity routing is in tension with load balancing — sometimes the warm worker is the wrong worker, and you take the prefill hit rather than the queue.
+Queueing is added latency, and it's the honest trade: **under load the free tier waits, and the wait is visible.** The queue state lives in Redis, which puts Redis on the submit path with a failover story you own — a lost queue is retryable, but a slow one is a TTFT regression for everyone. And KV-affinity routing is in tension with pulling from a shared queue — sometimes the warm worker is the wrong worker, and you take the prefill hit rather than the wait.
 
 ---
 
@@ -727,8 +671,8 @@ Two things, one gradual and one absolute:
 
 | Option | Fit | Why it wins or loses |
 |---|---|---|
-| **Postgres** (even + Citus) | Models it perfectly | **Rejected on operations.** At 1.8 PB/yr and ~114k message writes/sec I'd be committing the team to hand-managed sharding, rebalancing, and a vacuum story forever. That's an ongoing tax paid in headcount, and none of the relational power I'd be buying is used on this path — there are no joins in "give me the last 50 messages of one chat" |
-| **DynamoDB** | Fits exactly. PK `chatId`, SK `createdAt#id` | **The right answer at a tenth of this scale, and the right answer at any scale if I don't have a wide-column team.** Zero operations. It loses here on price: ~1.8 PB of *year one* alone is millions a year in storage, it compounds every year against append-only data, and there's no lever to pull because the bill is the product |
+| **Postgres** (even + Citus) | Models it perfectly | **Rejected on operations.** At ~4 PB/yr and ~114k message writes/sec I'd be committing the team to hand-managed sharding, rebalancing, and a vacuum story forever. That's an ongoing tax paid in headcount, and none of the relational power I'd be buying is used on this path — there are no joins in "give me the last 50 messages of one chat" |
+| **DynamoDB** | Fits exactly. PK `chatId`, SK `createdAt#id` | **The right answer at a tenth of this scale, and the right answer at any scale if I don't have a wide-column team.** Zero operations. It loses here on price: ~4 PB of *year one* alone is millions a year in storage, it compounds every year against append-only data, and there's no lever to pull because the bill is the product |
 | **ScyllaDB / Cassandra** | Fits exactly. `PRIMARY KEY ((chat_id), created_at, message_id)`, clustering DESC | **Chosen.** LSM storage makes an append the cheapest write there is, a chat is one narrow sequential scan, and self-hosting a petabyte is a hardware bill rather than a per-GB rate. Scylla over Cassandra specifically to avoid JVM GC pauses in the p99, which is the reported failure at this size — **the same call the Discord page makes, for the same reason** |
 | **Bigtable / HBase** | Fits exactly | A fine answer, and mostly a cloud-allegiance decision rather than a technical one. Say so instead of pretending there's a deep distinction |
 
@@ -738,17 +682,19 @@ Two things, one gradual and one absolute:
 
 | Component | Access pattern | Durability | Choice | The debate, in one sentence |
 |---|---|---|---|---|
-| **Messages** | Range scan by `chatId`, newest first; append-only; ~1.8 PB/yr | Must not lose an acked write | **ScyllaDB**, `PRIMARY KEY ((chat_id), created_at, message_id)`, clustering DESC | The three-way debate above — chosen on the petabyte bill, not the data model |
+| **Messages** | Range scan by `chatId`, newest first; append-only; ~4 PB/yr | Must not lose an acked write | **ScyllaDB**, `PRIMARY KEY ((chat_id), created_at, message_id)`, clustering DESC | The three-way debate above — chosen on the petabyte bill, not the data model |
 | **Runs** | Point read/write by `runId` from three different services | High, but small and short-lived | **ScyllaDB**, separate table, `PRIMARY KEY (run_id)` | "It gets its own table rather than living under `chat_id`, because the streaming tier and the cancel endpoint both arrive holding a `runId` and nothing else. In a wide-column store the answer to a second access pattern is a second table, not a secondary index" |
 | **Chat sidebar** | Newest-first list per user, ~50 rows | High | **ScyllaDB**, `chats_by_user`, `PRIMARY KEY ((user_id), last_message_at, chat_id)` DESC | "Query-driven denormalization — the wide-column answer to a second access pattern. Bumping `last_message_at` is a delete-plus-insert of a mutable clustering key, normally an anti-pattern; **it's fine at ~200 bytes across a partition of dozens of rows**, and if the tombstones ever bit I'd move the ordering into a Redis sorted set per user and keep Scylla for the rows" |
 | **Token log** | Append + replay-from-offset, 10-min TTL | **None, deliberately** | **Redis Streams**, `run:{runId}`, `EXPIRE` after `done` | The §8 debate — chosen for replay-from-offset, which is what makes reconnect free |
 | Queue + scheduler state | Enqueue/dequeue by tier, ~57k/sec | Low — a lost queued run is retryable | **Redis sorted sets** per tier, score = enqueue time adjusted by aging | "Kafka is durable and ordered but I want priority and aging, and reordering is exactly what a log doesn't do. SQS has no priority. A sorted set is a priority queue with a score I control" |
 | Quota counters | Read-modify-write per send | None | **Redis**, sliding window, **fails open** | "A quota check is not worth an outage. If it's down I lose metering for a minute; §9's admission control still protects the pool" |
+| Idempotency keys | Point lookup per send | Low — 24 h is the retry horizon | **Redis**, `idem:{userId}:{key}` → `runId`, 24 h TTL, **fails closed** | "Opposite call to the quota counter, and say why: a missed quota check costs a minute of metering; a missed dedupe starts a second generation and streams two answers into one bubble" |
+| Rolling summary | Read on every send for that chat; rewritten by the §11 job | Medium — recomputable from the transcript | **A column on the `chats` row** in ScyllaDB, with the token offset it covers | "It's per-chat, read with the chat, and derived — so it lives next to the thing it summarizes rather than in a cache I'd have to invalidate separately" |
 | Cold chats | Rare full-chat reads | High, cheap | **S3**, one object per chat, pointer row retained in `chats_by_user` | See the lifecycle below |
-| **Message persistence buffer** | Produce once per finished run (~57k/s), consume in batches | **High — this is the durability path** | **Kafka**, topic `messages`, `key = chatId` | "It exists so a GPU never waits on a database, and it's keyed by chat so turns can't persist out of order. Rejected for token fanout in §8 on granularity, and correct here for exactly that reason — one durable message per run is Kafka's shape; 570k ephemeral per-run streams is not" |
+| **Message persistence buffer** | Produce once per finished run (~57k/s), consume in batches | **High — this is the durability path** | **Kafka**, topic `messages`, `key = chatId` | "It exists so a GPU never waits on a database, and it's keyed by chat so turns can't persist out of order — the §8 debate" |
 | Run/usage ledger | Append-heavy, analytical | High | **Object storage + a warehouse** | "This is billing, capacity planning, and abuse detection — columnar batch access, not a serving store. It should never share a database with the send path" |
 
-### Data lifecycle, because append-only at 5 TB/day is a plan or it's a problem
+### Data lifecycle, because append-only at 11 TB/day is a plan or it's a problem
 
 Chats are written once and read rarely afterwards: **most reads land on chats touched in the last week, and the archive grows forever.** Three tiers, and the numbers are what make it a decision:
 
@@ -773,28 +719,26 @@ Then the compliance edge that comes with it: **deletion must reach all three tie
 3. **Treating a closed connection as a cancel.** It's the opposite: the run must survive it. Cancellation is an explicit signal.
 4. **Cancellation that doesn't reach the GPU.** The animation stops, the batch slot stays occupied for 30 seconds, and you pay for every token.
 5. **Holding SSE connections in the API tier.** Every routine deploy severs hundreds of thousands of live streams.
-6. **A connection registry so workers can push to the right server.** Rebuilds the coupling a log exists to remove, as a distributed-state problem.
-7. **Pub/Sub instead of a replayable log.** Reconnect gets whatever arrives next, and the gap is silently lost tokens.
+6. **A push registry or pub/sub in place of a replayable log.** The registry rebuilds the coupling the log exists to remove, as a distributed-state problem; pub/sub hands a reconnecting client whatever arrives next and silently loses the gap.
+7. **Nobody watching for a dead worker.** The run stays `running` forever, the stream just goes quiet, and the client cannot tell a crash from a slow token. Silence on the log is the signal; a reaper acts on it.
 8. **Rate-limiting requests instead of tokens.** A request is not a unit of cost; no value of N is correct.
 9. **Strict priority between tiers.** Free traffic starves completely the first time paid demand exceeds capacity.
 10. **Killing in-flight runs to shed load.** Converts spent GPU-seconds into zero value. Shed at the door only.
 11. **Autoscaling the GPU pool.** You cannot buy 9,000 servers during a spike. It's a scheduling problem, not a capacity problem.
 12. **Volatile content early in the prompt.** Destroys prefix caching and hundreds of milliseconds of TTFT for free.
-13. **Replaying the full transcript every turn.** Cost and TTFT grow with conversation length, and it hits a hard ceiling.
-14. **Summarizing synchronously in the send path.** Trades a cost problem for a worse latency problem.
-15. **Offset pagination on messages.** A growing list makes offsets skip and repeat, and deep offsets are slow.
-16. **No idempotency key on send.** A retried submit double-charges a scarce resource and streams two answers into one bubble.
-17. **The GPU worker writing to the database itself.** Couples the most expensive resource in the system to the availability of the cheapest, so a storage p99 spike becomes a capacity outage.
-18. **Assuming a Redis outage loses the generation.** It loses the live *view*. The answer survives — provided the worker never blocks on `XADD` and durability doesn't route through Redis.
-19. **Unbounded token-log memory.** A Redis OOM takes out every live stream simultaneously. Bound the buffer, TTL the key.
-20. **No data lifecycle.** 1.8 PB/year of append-only chat with no tiering is a bill that compounds.
-21. **Pricing your own serving cost off published API rates.** Overstates it by more than 10×; the unit is GPU-seconds.
-22. **Optimizing total completion time instead of TTFT.** Users tolerate ten seconds of streaming and not three seconds of blank screen.
+13. **Replaying the full transcript every turn, or summarizing it synchronously.** The first grows cost and TTFT with conversation length until it hits a hard ceiling; the second trades that for a worse latency problem in the send path.
+14. **Offset pagination on messages.** A growing list makes offsets skip and repeat, and deep offsets are slow.
+15. **No idempotency key on send.** A retried submit double-charges a scarce resource and streams two answers into one bubble.
+16. **The GPU worker writing to the database itself.** Couples the most expensive resource in the system to the availability of the cheapest, so a storage p99 spike becomes a capacity outage.
+17. **Misjudging the token log's blast radius.** Redis down loses the live *view*, not the answer — provided the worker never blocks on `XADD` and durability doesn't route through Redis. Unbounded, its OOM takes out every live stream at once: bound the buffer, TTL the key.
+18. **No data lifecycle.** ~4 PB/year of append-only chat with no tiering is a bill that compounds.
+19. **Pricing your own serving cost off published API rates.** Overstates it by more than 10×; the unit is GPU-seconds.
+20. **Optimizing total completion time instead of TTFT.** Users tolerate ten seconds of streaming and not three seconds of blank screen.
 
 **Interview-performance traps** → `00-interview-mechanics.md` §6. The two specific to this problem:
 
-23. **Spending fifteen minutes inside the model.** Attention, quantization, and fine-tuning are a different interview. The model is a black box with a latency, a cost, and a capacity; the engineering is everything around it.
-24. **Designing the message schema first.** It's the most familiar part and the least interesting, and the clock it eats comes straight out of §9 and §10.
+21. **Spending fifteen minutes inside the model.** Attention, quantization, and fine-tuning are a different interview. The model is a black box with a latency, a cost, and a capacity; the engineering is everything around it.
+22. **Designing the message schema first.** It's the most familiar part and the least interesting, and the clock it eats comes straight out of §9 and §10.
 
 ---
 
@@ -805,7 +749,7 @@ Then the compliance edge that comes with it: **deletion must reach all three tie
   <rect class="dg-banner" x="10" y="10" width="980" height="34" rx="9"></rect>
   <text class="dg-banner-t dg-c" x="500" y="31.5">Minute five: everything below must be on the board. Badge numbers match the list.</text>
   <rect class="dg-good" x="30" y="68" width="930" height="40" rx="8"></rect>
-  <text class="dg-t dg-c" x="495" y="92.5">57k generations/sec · 570 k concurrent streams · ~72 k GPUs · ~$3.5 M/day · 1.8 PB/yr</text>
+  <text class="dg-t dg-c" x="495" y="92.5">57k generations/sec · 570 k concurrent streams · ~72 k GPUs · ~$3.5 M/day · ~4 PB/yr</text>
   <circle class="dg-num" cx="30" cy="68" r="9"></circle>
   <text class="dg-num-t" x="30" y="71.4">13</text>
   <circle class="dg-num" cx="22" cy="132" r="9"></circle>
@@ -853,7 +797,7 @@ Then the compliance edge that comes with it: **deletion must reach all three tie
   <text class="dg-num-t" x="30" y="405.4">7</text>
   <rect class="dg-box" x="350" y="402" width="300" height="50" rx="8"></rect>
   <text class="dg-t dg-c" x="500" y="423.5">Shed at the door</text>
-  <text class="dg-s dg-c" x="500" y="439.5">never kill work in flight</text>
+  <text class="dg-s dg-c" x="500" y="439.5">workers pull; never kill work in flight</text>
   <circle class="dg-num" cx="350" cy="402" r="9"></circle>
   <text class="dg-num-t" x="350" y="405.4">8</text>
   <rect class="dg-box" x="670" y="402" width="290" height="50" rx="8"></rect>
@@ -886,13 +830,13 @@ Then the compliance edge that comes with it: **deletion must reach all three tie
 4. **SSE over WebSocket** — one-way tokens, free reconnect via `Last-Event-ID`; cancel is a separate POST and that's the price.
 5. **Inference worker → Redis Stream `run:{runId}` → streaming tier.** Neither side knows the other. **SSE event id = Redis entry id**, so reconnect is a replay from an offset.
 6. **On completion, two cheap writes and no database call**: terminal entry to the log (the user sees it now) + the message to **Kafka keyed by `chatId`**, which a persister batch-writes to Scylla. **A GPU never waits on storage.**
-7. **A closed socket is not a cancel.** Cancel is explicit and must reach the GPU.
-8. **Fixed GPU pool + priority queue + continuous batching.** You cannot autoscale it. Shed at the door, never kill in-flight.
+7. **A closed socket is not a cancel.** Cancel is explicit and must reach the GPU; a dead worker is detected by silence on the log.
+8. **Fixed GPU pool + priority queue + continuous batching.** You cannot autoscale it. Workers pull when a slot frees; shed at the door, never kill in-flight.
 9. **Prefill is compute-bound (that's your TTFT); decode is bandwidth-bound.** Every context token is paid while the user watches a blank screen.
 10. **Meter tokens, not requests**, per user; **weighted queues with aging**, not strict priority, per tier. Fairness and priority are different mechanisms.
 11. **Context: system prompt → rolling summary → last K turns → new prompt.** Async incremental summarizer, stable prefix first for the KV cache.
 12. **ScyllaDB partitioned on `chatId`** (no time bucket — unlike Discord, a chat has one writer and is bounded), a second table for the sidebar, **hot/warm/cold at 30 and 180 days** with whole chats to S3.
-13. **Numbers to have in the margin:** 57k gen/sec · **570k concurrent streams** · ~72k GPUs · **~$3.5M/day** · 1.8 PB/yr.
+13. **Numbers to have in the margin:** 57k gen/sec · **570k concurrent streams** · ~72k GPUs · **~$3.5M/day** · ~4 PB/yr.
 
 ---
 
