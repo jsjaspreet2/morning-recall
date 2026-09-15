@@ -365,7 +365,7 @@ rows follow.
 | **Design a GPU credit allocator** | **367 · screen, hard** | Reserve-then-stream-settle, the scheduler's lease contract, four controls kept distinct, prepaid vs postpaid as one floor. `§06 E` here, on top of `Designs → LLM API billing` |
 | **Design a hosted notebook platform** | **294 · screen** | Session state machine under CAS, the itemised resume budget, suspend-to-snapshot, three durability classes. `Designs → Hosted notebooks` |
 | **Design a payment system with holds and batching** | **102 · screen, hard** | Authorize / capture / settle as three money events, batch capture with a failure inside the batch, hold expiry. `Designs → Payment processor §9` |
-| **Design a CI/CD pipeline with a scheduler** | 101 | The per-job state machine, the lease and its fencing token, DAGs as counters, fair-share at 09:00. `Designs → Job scheduler` is this page; ephemeral runners are `Designs → Hosted notebooks §15` |
+| **Design a CI/CD pipeline with a scheduler** | 101 | The DAG as counters, supersession as a state the leases consult, a content-addressed cache only trusted runs write, a microVM pool sized for 09:00, the merge queue. `Designs → CI/CD pipeline` is this page; the lease and fencing token are `Designs → Job scheduler §7` |
 | **Design a scalable payment system** | 94 | Idempotency keys, sagas, reconciliation. `Designs → Payment processor`, `Designs → Amazon checkout` |
 | **Design the GPU job scheduler** for text-to-video | 68 | Preemption as a checkpoint question, gang scheduling, DRF fair-share, the overload bounds. `Designs → Job scheduler §9`, with the batching economics from `Designs → ChatGPT §9` |
 | **Design an Instagram-like feed** | 66 | Fanout hybrid, the celebrity threshold, pagination. `Designs → Twitter feed` |
@@ -460,7 +460,7 @@ Useful because it tells you where *not* to spend September.
 | **Sandboxed cloud IDE / hosted notebooks** (396 + 294 hearts) | ✅ **Built 9/11** | `Designs → Hosted notebooks` · the Codex shape in `§06 D` here |
 | **GPU credit allocator** (367 hearts, screen) | ⚠️ **Partly** | `§06 E` here, on top of `Designs → LLM API billing §8–§9` and `Designs → ChatGPT §9–§10` |
 | **Payments with holds and batching** (102 hearts, screen) | ✅ **Covered** | `Designs → Payment processor §7, §9` — batch capture added 9/11 |
-| **Job scheduler / CI pipeline / GPU job scheduler** (101 + 68 hearts, plus reported) | ✅ **Built 9/11** | `Designs → Job scheduler` |
+| **Job scheduler / CI pipeline / GPU job scheduler** (101 + 68 hearts, plus reported) | ✅ **Built 9/11**, CI/CD page 9/15 | `Designs → Job scheduler`, `Designs → CI/CD pipeline` |
 | **Deployment system** (interviewing.io mock, 9/13) | ✅ **Built 9/13** | `Designs → Deployment system` — the two state machines, the loop, the health gate; the mock's six failures are its §13 traps 1–6 |
 
 **The honest summary, as of 9/11:** all seven coding drills are built, the design pages from the
@@ -1117,7 +1117,7 @@ another Family 3 prompt you already have its page. The mapping, hearts-ranked ro
 | Design a sandboxed cloud IDE / a hosted notebook platform | `Designs → Hosted notebooks` — the session state machine first, then the substrate ranked by the kernel it shares; `§06 D` here for the Codex shape on top |
 | Design a GPU credit allocator | `§06 E` above, then `Designs → LLM API billing §8` |
 | Design a payment system with holds and batching | `Designs → Payment processor §9` — three money events, and batch capture with a failure inside the batch |
-| Design a CI/CD pipeline with a scheduler · a job scheduler · the text-to-video GPU scheduler | `Designs → Job scheduler` — the state machine, the lease, the honest exactly-once split, and who waits at 09:00; `Designs → Hosted notebooks §15` for ephemeral runners |
+| Design a CI/CD pipeline with a scheduler · a job scheduler · the text-to-video GPU scheduler | `Designs → CI/CD pipeline` for the DAG, the cache, supersession, and the merge queue; `Designs → Job scheduler` — the state machine, the lease, the honest exactly-once split, and who waits at 09:00 |
 | Design a deployment / rollout / release system | `Designs → Deployment system` — the two state machines first, then the reconciler, then the health gate; say "150 k hosts, not 15 a day" in the first minute |
 | Design Slack, with 100×/1000× follow-ups | `Designs → Discord` — it *is* this problem, one write becoming fifty thousand socket writes |
 | Design a chat/messaging system with delivery guarantees | `Designs → WhatsApp` |

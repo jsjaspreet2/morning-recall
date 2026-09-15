@@ -138,6 +138,13 @@ const META: Record<string, Meta> = {
       'Work that can run anywhere and fail anywhere must execute exactly once in effect, and under sustained overload someone has to decide who waits. The inverse of ChatGPT §9: nobody is waiting on a socket, so a job is a row that survives everything and the page trades latency for correctness wherever it can.',
     accent: 'amber',
   },
+  cicd: {
+    label: 'CI/CD pipeline',
+    archetype: 'Event-triggered DAG execution',
+    tension:
+      'Every push becomes a DAG of isolated steps on ephemeral workers, superseded the moment a newer commit lands; correctness is the cache key and the scarce thing is the pool at 09:00. The Job scheduler with edges, an expiry, and a cache: the lease is reused verbatim, and half the work should never run.',
+    accent: 'amber',
+  },
   billing: {
     label: 'LLM API billing',
     archetype: 'Usage metering & billing',
