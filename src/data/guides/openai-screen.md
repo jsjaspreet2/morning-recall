@@ -208,7 +208,7 @@ If you read nothing else in this guide, read this.
    500 renders.
 5. **Test coverage is a named axis at OpenAI.** Even if the pad can't run tests, say the five tests
    out loud and write two. Most candidates write zero.
-6. **`TextDecoder` with `{ stream: true }`.** A multi-byte character split across two chunks is the
+6. **`pipeThrough(new TextDecoderStream())`.** A multi-byte character split across two chunks is the
    canonical "did you actually stream" tell.
 7. **On 9/16, put numbers in the margin and never erase them.** When they push 1000×, point.
 8. **Anything you name, you own.** Say "SSE" and be ready for why not WebSocket, what happens on
@@ -601,8 +601,8 @@ Score each 0–2. Below 14/20 means run it again on the same prompt.
 ```
 GPU decode loop  →  inference server (token callback)  →  gateway / API service
    →  [optional durable token log]  →  HTTP response body, chunked
-      →  browser: fetch() → response.body (ReadableStream) → reader.read()
-         →  TextDecoder({stream:true})  →  event framing  →  React state  →  DOM
+      →  browser: fetch() → response.body (ReadableStream) → pipeThrough(TextDecoderStream)
+         →  for await (chunk of …)  →  event framing  →  React state  →  DOM
 ```
 
 **Where each round lives.** 9/16 is hops 1–5 with the client as one box. 9/17 is hops 5–8 with the
@@ -1226,7 +1226,7 @@ work*. Concretely, in a sixty-minute pad, that means:
 | 1 | Clarified mock/tests/scope before typing | No | Partly | Yes |
 | 2 | Types and status enum on screen by minute 8 | No | ~12 | ≤8 |
 | 3 | Something streamed by minute 22 | No | ~30 | ≤22 |
-| 4 | `TextDecoder` used with `{ stream: true }` | No | Used, no flag | Yes, and said why |
+| 4 | The body decoded through `TextDecoderStream` | No | Decoded, no reason given | Yes, and said why |
 | 5 | Abort wired to unmount **and** to Stop | Neither | One | Both |
 | 6 | Generation counter or request id drops stale tokens | No | Mentioned | Implemented |
 | 7 | Abort distinguished from error in the UI | No | — | Yes |
@@ -1247,7 +1247,7 @@ volunteer the fix before the interviewer asks for it.
 
 | # | Failure | Fix |
 |---|---|---|
-| 1 | A multi-byte character split across two chunks renders as `` | `TextDecoder` with `{ stream: true }` — `§08 C` |
+| 1 | A multi-byte character split across two chunks renders as `` | `pipeThrough(new TextDecoderStream())` — `§08 C` |
 | 2 | 500 chunks cause 500 React renders and the tab janks | Buffer + rAF or timer flush — `§08 E` |
 | 3 | Stop is pressed; tokens keep arriving for another second | Abort **and** a generation counter — `§08 D` |
 | 4 | Two submits race; the older response overwrites the newer | Request id compared on every delta — `§08 D` |
@@ -1337,43 +1337,43 @@ in-flight generation. Those two invariants are why this reducer stays small."*
 ### C. THE READER LOOP
 
 ```ts
-async function readStream(
-  res: Response,
-  onText: (chunk: string) => void,
-  signal: AbortSignal,
-) {
+async function readStream(res: Response, onText: (chunk: string) => void) {
   if (!res.body) throw new Error('no body')
-  const reader = res.body.getReader()
-  const decoder = new TextDecoder()          // <- the important object
-  try {
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      onText(decoder.decode(value, { stream: true }))
-    }
-    onText(decoder.decode())                  // flush any trailing partial code point
-  } finally {
-    reader.releaseLock()
+  for await (const chunk of res.body.pipeThrough(new TextDecoderStream())) {
+    onText(chunk)                             // already a string
   }
 }
 ```
 
-**`{ stream: true }` is the tell.** Say why, unprompted:
+Four lines. `response.body` is a `ReadableStream<Uint8Array>`; piping it through a
+`TextDecoderStream` turns it into a `ReadableStream<string>`, and a `ReadableStream` is an async
+iterable, so `for await` pulls chunks until the body closes.
+
+**`TextDecoderStream` is the tell.** Say why, unprompted:
 
 > "`response.body` yields `Uint8Array`s at whatever boundary the network produced. A multi-byte
 > character — an emoji, any CJK text — can land with its bytes split across two reads. Decoding
-> each chunk independently turns that into a replacement character. `{ stream: true }` makes the
-> decoder hold the partial sequence until the next chunk completes it, and the final bare
-> `decode()` flushes the tail."
+> each chunk independently turns that into a replacement character. `TextDecoderStream` holds the
+> partial sequence until the next chunk completes it and flushes the tail when the stream closes.
+> By hand that is a `TextDecoder` with `{ stream: true }` per chunk and a bare `decode()` at the
+> end."
 
-**Two more things to know about this loop:**
+**Three more things to know about this loop:**
 
-- **`reader.read()` does not reject on abort in every implementation** — depending on how the
-  fetch was set up, the abort may surface as a rejected `fetch` promise, a rejected `read()`, or
-  simply `done`. Wrap the whole thing and branch on `signal.aborted` rather than on the error type.
-- **`reader.cancel()` versus aborting the request.** Canceling the reader stops you consuming;
-  aborting the request tells the network to stop. Do both — and remember from `§05 E` that neither
-  one stops the server's GPU, which needs an explicit cancel call.
+- **Abort arrives as a rejection.** A real fetch rejects the pending iteration with an
+  `AbortError` when the request is aborted mid-body, or rejects the `fetch` promise itself if the
+  abort lands before the headers. Either way it is the catch block, not a clean `done`. Branch on
+  `signal.aborted` there rather than on the error's name — the signal is the one source of truth
+  for "did the user stop this".
+- **Leaving the loop early cancels the stream.** `return`, `break`, or a throw inside the body
+  calls the iterator's `return()`, which cancels the reader and releases the lock. That is why the
+  generation guard in `§08 D` can simply `return` from inside the loop. Aborting the request is
+  still separate: cancelling the reader stops you consuming, the abort tells the network to stop.
+  Do both — and remember from `§05 E` that neither one stops the server's GPU, which needs an
+  explicit cancel call.
+- **Support.** Async iteration over `ReadableStream` is in Chrome 124, Firefox 110 and Safari 27.
+  CoderPad runs in your own browser. If asked about older Safari, the fallback is
+  `getReader()` and a `while (true)` over `reader.read()` — say it, don't write it.
 
 ### D. CANCELLATION, AND THE GENERATION COUNTER
 
@@ -1402,7 +1402,7 @@ async function send(prompt: string) {
       if (gen !== genRef.current) return        // a newer generation owns the UI now
       if (first) { first = false; dispatch({ type: 'firstToken' }) }
       push(text)                                 // buffered — see §08 E
-    }, ctrl.signal)
+    })
     if (gen === genRef.current) dispatch({ type: 'done' })
   } catch (err) {
     if (gen !== genRef.current) return           // superseded: not our problem
@@ -1510,16 +1510,12 @@ export function Chat() {
         body: JSON.stringify({ prompt }),
         signal: ctrl.signal,
       })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const reader = res.body!.getReader()
-      const dec = new TextDecoder()
+      if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`)
       let first = true
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        if (gen !== genRef.current) return
+      for await (const chunk of res.body.pipeThrough(new TextDecoderStream())) {
+        if (gen !== genRef.current) return       // leaving the loop cancels the stream
         if (first) { first = false; setStatus('streaming') }
-        append(dec.decode(value, { stream: true }))
+        append(chunk)
       }
       if (gen === genRef.current) setStatus('done')
     } catch (err) {
@@ -2196,7 +2192,8 @@ worth more than another drill.
 Live in `uie-practice` as exercises under **OpenAI Drills**. All seven are **built** — folders,
 briefs, specs and reference solutions on disk, red under `npm test` and green under
 `npm run solutions`. Drills 1–2 landed 8/29; drills 3–7 landed 9/11. Drill 3 is the gate: it
-mirrors the reported five-part round and is the rep `§02` runs twice.
+mirrors the reported five-part round and is the rep `§02` runs twice. The `OpenAI Transcript
+Walkthrough` guide builds drill 3 part by part, with the code as it stands after each follow-up.
 
 | # | Drill | Folder | Timebox | Ships when |
 |---|---|---|---|---|
@@ -2241,7 +2238,7 @@ enum, its two-layer `controllerRef` + `generationRef` guard, and its counter-int
 (status in the live region, `aria-busy` on the text). It replaces the *transport*: the reference
 hands you an `onToken` callback and `cursor-01` hands you an `AsyncIterable<string>`, so both sit
 **above the byte layer** and neither can exercise `§08 A` failure #1. Drill 1 owns
-`fetch → res.ok → res.body.getReader() → TextDecoder(…, { stream: true })`, and its mock endpoint
+`fetch → res.ok → for await (chunk of res.body.pipeThrough(new TextDecoderStream()))`, and its mock endpoint
 can split a UTF-8 character across two chunks on demand. That is the whole reason it is not a
 fourth copy of the same widget.
 

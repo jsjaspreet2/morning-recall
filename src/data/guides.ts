@@ -15,6 +15,7 @@ import systemDesignCardMd from './guides/system-design-card.md?raw'
 import figmaScreenMd from './guides/figma-screen.md?raw'
 import discordScreenMd from './guides/discord-screen.md?raw'
 import openaiScreenMd from './guides/openai-screen.md?raw'
+import openaiTranscriptMd from './guides/openai-transcript.md?raw'
 
 export interface Guide {
   id: string
@@ -52,6 +53,16 @@ export const guides: Guide[] = [
       'Two hours across two days, architecture then coding: the researched question bank, the streaming spine end to end, four worked architectures, and the two chapters that decide the coding hour — text streaming and text-editor concepts.',
     accent: 'emerald',
     md: openaiScreenMd,
+  },
+  // The 9/17 coding hour, built part by part. Sits with its parent screen guide.
+  {
+    id: 'openai-transcript',
+    screen: true,
+    title: 'OpenAI Transcript Walkthrough — 9/17',
+    subtitle:
+      'The five-part streaming-chat problem built the way the interviewer adds parts: the code at each step, what changes between steps, the two tests, and what to say.',
+    accent: 'teal',
+    md: openaiTranscriptMd,
   },
   // The 8/26 screen passed; this is what's left of that guide, kept for the final
   // round. Last among the screens only because the final round has no date yet —
