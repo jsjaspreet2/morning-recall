@@ -86,22 +86,22 @@ const META: Record<string, Meta> = {
     accent: 'amber',
   },
   messaging: {
-    label: 'WhatsApp',
+    label: 'Slack',
     archetype: 'Real-time messaging & delivery',
-    tension: 'Ordering and delivery semantics against fanout cost.',
+    tension: 'Shared channel history, transactional acceptance, and bounded recovery when live delivery fails.',
     accent: 'teal',
   },
   discord: {
     label: 'Discord',
     archetype: 'Real-time messaging & delivery',
     tension:
-      'The same archetype as WhatsApp with the constraint inverted: the recipients are already connected, so one write becomes fifty thousand socket writes.',
+      'The same archetype as Slack with live fanout pushed further: one write becomes fifty thousand socket writes.',
     accent: 'indigo',
   },
   figma: {
     label: 'Figma',
     archetype: 'Real-time collaborative editing',
-    tension: 'Convergence on one shared mutable document. The inverse of WhatsApp: delivery is easy, agreement is the problem.',
+    tension: 'Convergence on one shared mutable document. Unlike an append-only chat log, edits must merge into shared state.',
     accent: 'violet',
   },
   'settings-sync': {

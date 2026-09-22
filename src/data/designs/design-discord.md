@@ -1,533 +1,542 @@
-# Design Discord — Persistent Connections and Guild Fanout
+# Design Discord — Guild Fanout, Sessions & Backpressure
 
 ## The question
 
-> *"Design Discord. Communities are organized into servers and channels, people leave the app open all day, and a busy channel can have tens of thousands of members watching it at the same moment."*
+> *"Design Discord text chat and presence. Communities have channels, and a large community can have tens of thousands of people connected at once. How do messages reach them, and what happens when connections fail?"*
 
-**The product.** Persistent group chat. You join a server — a gaming community, a company, a fandom — and inside it are channels you can read and post to. Unlike a messaging app, you don't open it to check messages and close it; it sits open in a tab for hours. Alongside the messages you see who's online, who's typing right now, and who's sitting in a voice channel. A large server's `#general` has thousands of people connected to it simultaneously.
+**The product.** People join communities called servers, with public and private channels inside them. Messages become shared history. An open client receives new activity and shows who's around; opening another channel fetches its recent conversation. A sleeping laptop reconnects without downloading the entire community again.
 
 **What a working system delivers**
 
-- A message typed into a busy channel is on everyone else's screen before the sender has finished typing the next one.
-- You can see at a glance who's around, and that dot flips the moment somebody closes their laptop.
-- Closing a lid and reopening it doesn't lose the last ten minutes of a conversation.
-- Scrolling back through a channel's history is instant, even years back.
+- Accepted messages remain in channel history even when live delivery fails.
+- Connected users receive activity relevant to what they can see and are watching.
+- Brief disconnects can replay missed session events; longer failures recover through fresh state and history reads.
+- Large communities stay responsive by limiting unnecessary fanout and isolating slow clients.
 
-**Why this gets asked.** It is the same archetype as WhatsApp with the constraint inverted: the recipients are already connected, so a single write has to become tens of thousands of socket writes in a few milliseconds. And presence — the little green dots — generates far more traffic than the messages do, which almost every candidate scopes out.
-
----
-
-**Archetype:** real-time messaging & delivery, in the regime where **the recipients are already connected**. The cost is not storing the message or ordering it; it is that one write must reach tens of thousands of live sockets before the sender finishes typing the next one.
-**Cousins that reuse ~70% of this page:** Slack, Twitch chat, IRC, Matrix, a live-ops event bus, a multiplayer game lobby, a trading-floor broadcast. Also **any product where a client holds a socket open for hours and expects to be pushed to**.
-
-**What's actually being graded:** whether you notice that **ingest is trivial and fanout is not**. Discord's message write rate is unremarkable — a few tens of thousands per second — and every candidate who spends the round sharding the message table has designed the easy half. The interesting numbers are the *connection* count and the *delivery* count, and they are two and three orders of magnitude larger. The second signal is **presence**: it is the highest-volume event type in the system, it is almost always scoped out by candidates, and scoping it out is the wrong call because it is what makes the connection stateful in the first place.
-
-**Contrast to have ready:** *WhatsApp is the same archetype with the opposite constraint. There, recipients are mostly **offline**, fanout is to a handful of devices, and the hard problems are delivery semantics, ordering, and the catch-up queue. Here recipients are **online right now**, fanout is to thousands, and the hard problem is that a single message becomes fifty thousand socket writes. WhatsApp's answer — durable per-recipient queues — is actively wrong at this fanout, because you would be writing fifty thousand queue entries for a message that fifty thousand people are already holding a socket open to receive.*
+**Why this gets asked.** Shared history and live distribution are separate workloads. A popular channel can turn one stored message into thousands of deliveries and simultaneous history reads. The difficult decisions are how much work one guild owner performs, what can be dropped under pressure, and how clients recover.
 
 ---
 
-## 0 · The 60-second frame (say this before you draw anything)
+**Archetype:** Real-time messaging & delivery.
+**Cousins that reuse ~70% of this page:** Slack channels, community chat, live collaboration events, multiplayer lobbies.
 
-> "Discord is several products on one connection — text channels, voice, presence, roles and permissions, search. I'd like to scope to **text messaging plus presence over a persistent gateway**, because that's where the constraint lives. Two things dominate. First, **the recipients are already connected**, so this is not a mailbox problem — a message published to a channel has to become socket writes to everyone in that channel who is online *now*, and the fanout ratio, not the write rate, is what sizes the system. Second, **the connection is stateful and long-lived**, which means the interesting failures are not slow queries, they're a deploy dropping four million sockets at once and every one of them reconnecting with a full state resync. I'll go deep on channel fanout and on presence, because presence is the highest-volume event type here and it's the one people scope out."
+**What's actually being graded:** selective fanout, state ownership, backpressure, and honest recovery guarantees. Message acceptance still needs permissions, idempotency, and durability; a modest per-channel write rate does not make the database free.
 
-**Why open this way:** it names the inversion against WhatsApp before the interviewer can steer you into a mailbox design, and it pre-commits the two dives that carry the round. It also plants "thundering-herd reconnect" early, which is where the good version of this conversation ends up.
+**Contrast to have ready:** *The Slack page emphasizes transactional acceptance and retained channel history. This page keeps that shared-history model but pushes online fanout, presence, and reconnect load harder. The distinction is workload emphasis—not "Slack uses an outbox, Discord uses BEAM." An outbox is durable dispatch work; BEAM is an actor runtime that can consume that work or receive direct calls.*
+
+**Evidence boundary.** Discord's March 2026 engineering account describes **HTTP → API database write → gRPC into Elixir → guild/session processes → WebSockets**. This page uses that published live path, then labels proposed recovery and storage details as interview choices. That article does not document every retry mechanism inside Discord. [Published message flow](https://discord.com/blog/tracing-discords-elixir-systems-without-melting-everything)
+
+---
+
+## 0 · The 60-second frame
+
+> "I'll scope to text channels and presence, with permissions on both sending and receiving. Store the message durably, then call the live fanout tier directly. A guild owner maintains shared community state; large guilds offload recipient work to relays, which push to session processes and sockets. I'll go deep on selective fanout and backpressure, then on reconnect: session replay repairs a surviving event stream, while fresh state and history reads handle lost sessions. Sparse message IDs and session sequence numbers do different jobs. I'll name the stronger durable-dispatch option if every accepted message must trigger downstream processing without relying on clients to reload."
+
+**The decision to state:** the baseline preserves accepted history but treats live dispatch as best effort. It does not promise a durable per-device inbox or complete background delivery of every message to every offline client.
 
 ---
 
 ## 1 · Functional requirements
 
-1. **A user opens a client and receives, in real time, messages sent to any channel they can see** — across every guild they are a member of, over one connection.
-2. **A user sends a message to a channel; it is durably stored and delivered to every online member of that channel.**
-3. **A user's online/offline status propagates to everyone who would care** — which is every member of every guild they belong to.
+1. **Send and retrieve channel messages**, checking access and making supported retries return the same accepted message.
+2. **Push relevant activity to authorized online sessions**, with resumable connections when session state survives.
+3. **Show approximate presence**, aggregated across a user's devices and restricted to the community/member views being displayed.
 
-**Explicitly out of scope, said out loud:** voice and video (a different system entirely — an SFU, not this pipeline) · search · roles and permission *administration*, though permission *evaluation* stays because it gates fanout · moderation · attachments beyond "they are an object store URL in the message body."
+**Out of scope:** voice/video, search implementation, moderation, reactions, threads, and role administration. Role evaluation and revocation remain in scope because they protect private-channel content. Attachments are authorized object-store references; their bytes do not pass through the event fanout tier.
 
-**Below the line, likely follow-ups:** unread counts and read state (`§10`) · message edit and delete · typing indicators · mobile push for offline users · very large guilds as a distinct tier (`§8`).
+**History policy for the exercise:** retain channel history until deletion under guild policy; no guaranteed offline per-recipient delivery. Edits and deletes are follow-ups requiring their own change events. Do not silently extend a message-only reconciliation scheme to mutable history.
 
 ---
 
 ## 2 · Non-functional requirements
 
-| Requirement | Number | Justification |
+| Property | Interview target | What it commits us to |
 |---|---|---|
-| Delivery latency, sender to online recipient | **p99 < 500 ms** | Below the threshold where a conversation stops feeling live. It is a chat product; this is the product |
-| Peak concurrent connections | **~15 M** *(assumption)* | Sizes the gateway fleet and makes connection state the dominant cost line |
-| Message durability | **No acknowledged message may be lost** | Users scroll back years. This is the one place where availability yields to durability |
-| Ordering | **Per channel, total order. Cross-channel, none** | A channel is the unit people read. Global ordering would buy nothing and cost coordination |
-| Availability | **Reads and sends stay up under a single-AZ loss** | Degrade presence before degrading messages |
-| Reconnect storm capacity | **A whole gateway node's clients reconnect within 60 s without cascading** | Deploys happen; this is the routine failure, not the exotic one |
-| History read latency | **p99 < 200 ms for a channel's last 50** | It is on the open-a-channel path, which is the most frequent read in the product |
+| Live latency | p99 <500ms from send to interested online recipient under admitted load | Includes storage, gRPC, mailbox wait, fanout, and socket queues; slow clients cannot hold up the guild |
+| Acceptance durability | RPO 0 for a single node/AZ failure | Three replicas across AZs, quorum writes and reads, durable commit-log settings verified in the deployed version; ack only after successful persistence |
+| Failure behavior | Survive one AZ loss if remaining replicas and compute have capacity | Without a storage quorum, reject/delay acceptance. A whole-region disaster is outside the zero-loss promise; add backup/restore policy in §12 |
+| Availability | 99.95% monthly send/read target | A measured objective; selectively degrading live updates does not permit losing accepted history |
+| Ordering | Stable message-ID order for settled channel history; monotonic event sequence per session | Neither promises that concurrent HTTP sends commit or arrive live in ID order |
+| Replay | Proposed 60s window, bounded by bytes/events as well as age | Resume only when the original session stream is available; otherwise fresh identification and bounded state fetch |
+| Recovery | Reconcile the open channel's recent page on focus/reconnect and every ≤30s, with jitter | Repairs the current view, not proof of complete offline delivery; stronger completeness needs durable change cursors (§7) |
+| Presence | Proposed 20s heartbeat, 60s expiry, ≤2s coalescing | Explicit disconnects can update sooner; abrupt failure can appear online for roughly 62s |
+| Bounded work | History pages ≤50 messages / 256KiB; ≤4 parallel pulls/client; gateway-loss recovery target ≤60s under admission control | Paginated progress, jitter, and load shedding rather than unlimited resync or queue growth |
 
-**The sentence that earns the point:** *"The only hard consistency requirement here is per-channel ordering, and I get it for free by having a single writer per channel — everything else, including presence and read state, is allowed to be eventually consistent, and I'm going to spend that slack deliberately."*
+**The sentence that earns the point:** *"Durable history, session replay, and a live push are three different promises. I'll specify which survives each failure rather than call all of them delivery."*
 
 ---
 
 ## 3 · Numbers that reframe the problem
 
-- **~15 M concurrent connections at peak** *(assumption)*. At even 10 KB of per-connection state that is 150 GB of RAM across the fleet before a single message moves. **Connections, not messages, size the gateway.**
-- **~4 B messages/day** *(assumption)* ≈ **46 k/s average, call it 150 k/s peak**. That is a *small* write rate — a single well-partitioned cluster handles it. **This is the number that misleads people.**
-- **The fanout ratio is the real number.** A message in a channel with 5 000 online members is **5 000 socket writes**. Across the system, deliveries run one to two orders of magnitude above sends — call it **5–15 M deliveries/s at peak**. Every architectural decision on this page follows from that ratio and not from the 150 k/s.
-- **Presence outruns messages.** One user coming online, in 20 guilds averaging 2 000 online members, is **40 000 delivery events** from a single state change. Multiply by login churn and presence is plausibly the **highest-volume event type in the system**. *(Reasoned inference, flagged as such — the multiplier is arithmetic, the claim that it exceeds messages is mine.)*
-- **Trillions of messages stored**, on a cluster that went from **177 Cassandra nodes to 72 ScyllaDB nodes** — publicly reported by Discord, and the migration was driven by **GC pause latency**, not by throughput or capacity.
-- **Guild size is wildly skewed.** The median guild is a few dozen people; the largest run to hundreds of thousands. **A uniform design is therefore wrong at one end or the other**, which is what `§8` is about.
+**The workload below is assumed for the interview, not a claim about current Discord traffic.** Historical implementation reports are useful evidence, not today's capacity plan.
+
+1. **4B messages/day ≈46k sends/sec average; assume 150k/sec peak.** Size the full acceptance path, including retry enforcement and replication. This is 20× below the Slack page's WhatsApp-scale variant of 3M/sec, but still a distributed workload.
+2. **15M concurrent sessions at 50k/gateway implies 300 gateways before headroom.** Assume 500 provisioned gateways for this exercise, averaging 30k sessions each. Losing a typical gateway creates ~30k reconnects, not millions; correlated AZ failures are larger events.
+3. **At 10KiB/session, base connection state alone is about 150GiB fleet-wide.** Replay is extra: even a 64KiB allowance per session adds nearly 1TiB if fully used. Measure observed event rates; do not describe buffers as a few free kilobytes.
+4. **Assume 50 interested online recipients/send on average: 150k × 50 =7.5M deliveries/sec.** A single event for 50k recipients spread across 500 gateways reduces to at most 500 inter-node body transfers, plus recipient metadata and 50k final socket writes. A 100× reduction is this example's ratio, not a universal gain.
+5. **Presence can dominate particular guilds.** One status change across 20 guilds with 2k interested sessions each would produce 40k deliveries before overlap/deduplication. Actual cost depends on churn and subscriptions; this does not establish that presence globally exceeds messages.
+6. **At 1KB/message, history grows ~4TB/day or 1.46PB/year before indexes and replication.** Storage and hot history reads can dominate fleet sizing even when channel writes are modest. Retention, caching, repair capacity, and compaction belong in the database decision.
+
+**The useful scale question:** how much work lands on the hottest guild, relay, session, or database partition? A global average cannot prove that any one of them is safe.
 
 ---
 
 ## 4 · Core entities
 
-**User** · **Guild** (a server, in product language) · **Channel** · **Message** · **Session** (one connected client) · **Presence** · **ReadState**.
+- **Guild** — community metadata and shared member/role state.
+- **Channel** — visibility and history unit inside a guild.
+- **Message** — canonical sparse `message_id`, `channel_id`, `author_id`, content, server acceptance metadata; time-bucketed history placement.
+- **SendAttempt** — authenticated sender/channel/nonce → canonical ID, bucket, request hash, and payload during the retry window.
+- **Session** — one client connection's identity, host/generation, subscriptions, last processed event sequence, bounded replay state.
+- **Presence** — aggregate user status derived from live sessions plus explicit user preferences.
+- **ReadState** — user/channel position indicating "mark read through this message," separate from delivery completeness.
 
-Fields only where the field carries a decision:
-
-- **Message** — `id` is a **Snowflake**: a 64-bit id whose high bits are a timestamp. It sorts by time, it carries its own creation time, and it can be minted without a round trip. Also `channel_id`, `author_id`, `content`, `edited_at`.
-- **Session** — `session_id`, `user_id`, the gateway node holding it, a **resume token**, and the last sequence number the client acknowledged. The resume token is what turns a reconnect from a full resync into a replay.
-- **Presence** — `user_id`, `status`, `last_heartbeat`. **It has a TTL and no delete path**; a session that stops heartbeating expires rather than being cleaned up, because the common way a session ends is that its node died.
-
-**The three load-bearing ones.** **Session** is load-bearing because it is the only entity whose count is 15 M and whose state must be reconstructible after its host disappears. **Channel** is load-bearing because it is the unit of both ordering and fanout — the same key partitions the message table and addresses the pub/sub topic, and that is not a coincidence, it is the design. **Presence** is load-bearing because it is the highest-volume entity and the only one where the correct answer is to be deliberately lossy.
+**Keep three values separate:** the client's nonce identifies a retried send; the server's message ID identifies/sorts stored content; the session's event sequence identifies a position in that session's stream. A session stream includes presence and other events and is not a channel history log.
 
 ---
 
 ## 5 · API
 
-Two surfaces, and the split between them is the design.
-
 ```text
-# HTTP — everything that is a request/response
-POST /channels/{channel_id}/messages    { content, nonce }        -> Message
-GET  /channels/{channel_id}/messages?before={message_id}&limit=50 -> [Message]
-PUT  /channels/{channel_id}/read        { last_message_id }       -> 204
+POST /channels/{id}/messages
+     { content, nonce } -> { messageId, acceptedAt }
+GET  /channels/{id}/messages?before=&limit=50
+PUT  /channels/{id}/read { messageId }
 
-# WebSocket — everything that is a push
-->  IDENTIFY   { token, intents }                 # client opens, declares what it wants
-<-  READY      { session_id, resume_token, guilds, seq }
-<-  DISPATCH   { seq, type: "MESSAGE_CREATE", d }  # every push carries a monotonic seq
-<-  DISPATCH   { seq, type: "PRESENCE_UPDATE", d }
-->  HEARTBEAT  { seq }                             # client's last seen seq, every ~40 s
-<-  HEARTBEAT_ACK
-->  RESUME     { session_id, resume_token, seq }   # after a drop: replay from seq
+WebSocket (conceptual first-party protocol):
+→ identify { credentials }
+← ready    { sessionId, resumeCredential, initialStatePages }
+→ subscribe { guildId, channelIds, visibleMemberRange }
+← dispatch { sessionSeq, type, data }
+→ heartbeat { lastProcessedSessionSeq }
+← heartbeatAck
+→ resume   { sessionId, resumeCredential, lastProcessedSessionSeq }
+← resumed OR invalidSession
 ```
 
-**Decisions to narrate, unprompted.**
+**Why HTTP for sends:** explicit request/result and existing authentication/rate-limiting infrastructure. WebSocket sends are also valid if correlation, retries, and errors are defined. HTTP streaming can push too; this split is a design choice, not a transport impossibility.
 
-- **Sends go over HTTP, not the socket.** They are request/response, they need a status code, and they are rate limited per route. Pushing them down the WebSocket would mean building request correlation, error semantics, and retry over a transport that has none. **The socket is for the thing HTTP cannot do**, which is push.
-- **`nonce` on send, echoed back in the dispatch.** It is a client-supplied idempotency key: the client renders the message optimistically, and when the dispatch arrives it matches on `nonce` rather than duplicating. It also makes a retried send safe after a timeout.
-- **Every push carries a monotonic `seq`, and the client heartbeats its last seen one.** This is what makes `RESUME` possible — the server knows exactly what the client missed. **Without a sequence number, every reconnect is a full state resync, and `§7` explains why that is fatal at this connection count.**
-- **`intents` on identify.** The client declares which event classes it wants. Presence is by far the most expensive stream, and letting a client that does not render presence opt out of it is a cheap and very large saving.
+**Nonce enforcement is server-side.** Authenticate, check send permission, parse a bounded key, and scope it to sender/channel. Identical retry returns the canonical result; different payload under the same accepted key is a conflict. Client matching of an optimistic echo is separate from server deduplication (§11).
+
+**Public API versus this design:** Discord's developer Gateway documents server-provided heartbeat intervals, session IDs, sequence numbers, resume URLs, and invalid-session fallback. Its public message API supports `enforce_nonce`, with a same-author uniqueness window of a few minutes. Bot `intents` select event classes; they are not the same as a first-party client's visible-channel/member subscriptions. The protocol above is deliberately conceptual. [Gateway documentation](https://docs.discord.com/developers/events/gateway), [message API](https://docs.discord.com/developers/resources/message)
 
 ---
 
 ## 6 · High-level design — flows
 
 <div class="diagram" data-board="architecture">
-<svg viewBox="0 0 1000 512" role="img" aria-label="Discord architecture. Clients holding one WebSocket each. A write tier over HTTP: API service, ScyllaDB for messages partitioned by channel and bucket, Postgres for guild metadata and roles, and ScyllaDB for read state. A guild process tier, one owner per guild, resolving online members and grouping them by gateway node. A gateway fleet of roughly ten thousand nodes holding fifteen million sockets, with a Redis session registry on a heartbeat TTL. Attachments go to S3 and a CDN, never through the gateway.">
+<svg viewBox="0 0 1000 570" role="img" aria-label="Discord-inspired live path. HTTP API accepts an authenticated idempotent message into ScyllaDB through data services, then directly calls the BEAM guild service over gRPC. Guild owners route to relays that filter authorized interested sessions and batch by node. Session processes have bounded in-memory mailboxes, replay and socket queues. A Redis directory only locates surviving sessions. Postgres owns role metadata. This live path does not depict an atomic durable dispatch guarantee.">
   <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
-  <text class="dg-banner-t dg-c" x="500" y="33.5">Ingest is trivial; fanout is not. One API tier, one process per guild, and ~10 k gateway nodes holding 15 M sockets.</text>
-  <rect class="dg-box" x="20" y="240" width="150" height="64" rx="8"></rect>
-  <text class="dg-t dg-c" x="95" y="260.5">Clients</text>
-  <text class="dg-s dg-c" x="95" y="276.5">WSS to receive</text>
-  <text class="dg-s dg-c" x="95" y="292.5">HTTPS to send</text>
-  <path class="dg-box" d="M 20,347 L 20,397 A 75,7 0 0 0 170,397 L 170,347 A 75,7 0 0 0 20,347 Z"></path>
-  <path class="dg-box" d="M 20,347 A 75,7 0 0 0 170,347" style="fill:none"></path>
-  <text class="dg-t dg-c" x="95" y="372">S3 + CDN</text>
-  <text class="dg-s dg-c" x="95" y="388">attachments</text>
-  <path class="dg-line" d="M 95,304 L 95,340"></path>
-  <rect class="dg-group" x="200" y="86" width="420" height="180" rx="12"></rect>
-  <text class="dg-group-t" x="216" y="108">WRITE — OVER HTTP</text>
-  <rect class="dg-box" x="216" y="118" width="180" height="64" rx="8"></rect>
-  <text class="dg-t dg-c" x="306" y="138.5">API service</text>
-  <text class="dg-s dg-c" x="306" y="154.5">POST /channels/{id}/messages</text>
-  <text class="dg-s dg-c" x="306" y="170.5">permissions once · Snowflake</text>
-  <path class="dg-box" d="M 420,125 L 420,175 A 90,7 0 0 0 600,175 L 600,125 A 90,7 0 0 0 420,125 Z"></path>
-  <path class="dg-box" d="M 420,125 A 90,7 0 0 0 600,125" style="fill:none"></path>
-  <text class="dg-t dg-c" x="510" y="150">ScyllaDB</text>
-  <text class="dg-s dg-c" x="510" y="166">(channel_id, bucket)</text>
-  <path class="dg-line" d="M 396,150 L 412,150"></path>
-  <path class="dg-head" d="M 412,155 L 412,145 L 420,150 Z"></path>
-  <path class="dg-box" d="M 216,207 L 216,243 A 90,7 0 0 0 396,243 L 396,207 A 90,7 0 0 0 216,207 Z"></path>
-  <path class="dg-box" d="M 216,207 A 90,7 0 0 0 396,207" style="fill:none"></path>
-  <text class="dg-t dg-c" x="306" y="225">Postgres</text>
-  <text class="dg-s dg-c" x="306" y="241">guilds · roles</text>
-  <path class="dg-box" d="M 420,207 L 420,243 A 90,7 0 0 0 600,243 L 600,207 A 90,7 0 0 0 420,207 Z"></path>
-  <path class="dg-box" d="M 420,207 A 90,7 0 0 0 600,207" style="fill:none"></path>
-  <text class="dg-t dg-c" x="510" y="225">Read state</text>
-  <text class="dg-s dg-c" x="510" y="241">Scylla, write-behind</text>
-  <rect class="dg-group" x="680" y="86" width="300" height="150" rx="12"></rect>
-  <text class="dg-group-t" x="696" y="108">GUILD PROCESSES</text>
-  <rect class="dg-box" x="696" y="118" width="270" height="90" rx="8"></rect>
-  <text class="dg-t dg-c" x="831" y="143.5">Guild / channel process</text>
-  <text class="dg-s dg-c" x="831" y="159.5">one owner per guild</text>
-  <text class="dg-s dg-c" x="831" y="175.5">resolves ONLINE members</text>
-  <text class="dg-s dg-c" x="831" y="191.5">groups them by gateway node</text>
-  <path class="dg-line" d="M 306,182 L 306,196 L 628,196 L 628,150 L 688,150"></path>
-  <path class="dg-head" d="M 688,155 L 688,145 L 696,150 Z"></path>
-  <text class="dg-lbl dg-c" x="650" y="214">publish</text>
-  <rect class="dg-group" x="200" y="300" width="780" height="130" rx="12"></rect>
-  <text class="dg-group-t" x="216" y="322">GATEWAY FLEET — ~10 k NODES, 15 M SOCKETS</text>
-  <rect class="dg-box" x="216" y="340" width="180" height="64" rx="8"></rect>
-  <text class="dg-t dg-c" x="306" y="360.5">Gateway node</text>
-  <text class="dg-s dg-c" x="306" y="376.5">WSS · IDENTIFY / RESUME</text>
-  <text class="dg-s dg-c" x="306" y="392.5">heartbeat ~40 s · stamps seq</text>
-  <rect class="dg-box" x="406" y="340" width="180" height="64" rx="8"></rect>
-  <text class="dg-t dg-c" x="496" y="360.5">Gateway node</text>
-  <text class="dg-s dg-c" x="496" y="376.5">WSS · IDENTIFY / RESUME</text>
-  <text class="dg-s dg-c" x="496" y="392.5">heartbeat ~40 s · stamps seq</text>
-  <rect class="dg-box" x="596" y="340" width="180" height="64" rx="8"></rect>
-  <text class="dg-t dg-c" x="686" y="360.5">Gateway node</text>
-  <text class="dg-s dg-c" x="686" y="376.5">WSS · IDENTIFY / RESUME</text>
-  <text class="dg-s dg-c" x="686" y="392.5">heartbeat ~40 s · stamps seq</text>
-  <path class="dg-box" d="M 800,347 L 800,397 A 83,7 0 0 0 966,397 L 966,347 A 83,7 0 0 0 800,347 Z"></path>
-  <path class="dg-box" d="M 800,347 A 83,7 0 0 0 966,347" style="fill:none"></path>
-  <text class="dg-t dg-c" x="883" y="372">Session registry</text>
-  <text class="dg-s dg-c" x="883" y="388">Redis, heartbeat TTL</text>
-  <path class="dg-line" d="M 830,236 L 830,283"></path>
-  <path class="dg-line" d="M 306,283 L 830,283"></path>
-  <path class="dg-line" d="M 306,283 L 306,332"></path>
-  <path class="dg-head" d="M 301,332 L 311,332 L 306,340 Z"></path>
-  <path class="dg-line" d="M 496,283 L 496,332"></path>
-  <path class="dg-head" d="M 491,332 L 501,332 L 496,340 Z"></path>
-  <path class="dg-line" d="M 686,283 L 686,332"></path>
-  <path class="dg-head" d="M 681,332 L 691,332 L 686,340 Z"></path>
-  <path class="dg-line" d="M 800,372 L 776,372"></path>
-  <path class="dg-line" d="M 170,258 L 186,258 L 186,150 L 208,150"></path>
-  <path class="dg-head" d="M 208,155 L 208,145 L 216,150 Z"></path>
-  <path class="dg-line" d="M 216,372 L 194,372 L 194,290 L 178,290"></path>
-  <path class="dg-head" d="M 178,285 L 178,295 L 170,290 Z"></path>
-  <text class="dg-s" x="20" y="470">Attachment bytes never pass through the gateway — the message row carries a pointer to S3.</text>
-  <text class="dg-note" x="20" y="492">There is no broker in the delivery path: it would add a durable hop to something explicitly not durable.</text>
+  <text class="dg-banner-t dg-c" x="500" y="33.5">Durable history first; direct gRPC into BEAM for live fanout. Mailboxes are in memory.</text>
+  <text class="dg-lane" x="20" y="86">ACCEPT — HTTP REQUEST / RESULT</text>
+  <rect class="dg-box" x="20" y="110" width="240" height="78" rx="8"></rect>
+  <text class="dg-t dg-c" x="140" y="137.5">API + data services</text>
+  <text class="dg-s dg-c" x="140" y="153.5">auth + sender permission</text>
+  <text class="dg-s dg-c" x="140" y="169.5">nonce → canonical message</text>
+  <path class="dg-box" d="M 330,117 L 330,181 A 135,7 0 0 0 600,181 L 600,117 A 135,7 0 0 0 330,117 Z"></path>
+  <path class="dg-box" d="M 330,117 A 135,7 0 0 0 600,117" style="fill:none"></path>
+  <text class="dg-t dg-c" x="465" y="141">ScyllaDB</text>
+  <text class="dg-s dg-c" x="465" y="157">send attempts + history</text>
+  <text class="dg-s dg-c" x="465" y="173">channel / bucket placement</text>
+  <path class="dg-line" d="M 260,149 L 322,149"></path>
+  <path class="dg-head" d="M 322,154 L 322,144 L 330,149 Z"></path>
+  <text class="dg-lbl dg-c" x="294" y="138">persist</text>
+  <path class="dg-box" d="M 710,117 L 710,181 A 135,7 0 0 0 980,181 L 980,117 A 135,7 0 0 0 710,117 Z"></path>
+  <path class="dg-box" d="M 710,117 A 135,7 0 0 0 980,117" style="fill:none"></path>
+  <text class="dg-t dg-c" x="845" y="141">Postgres metadata</text>
+  <text class="dg-s dg-c" x="845" y="157">guilds · channels · roles</text>
+  <text class="dg-s dg-c" x="845" y="173">versioned authorization</text>
+  <text class="dg-lane" x="310" y="254">LIVE — ACTOR FANOUT</text>
+  <rect class="dg-box" x="20" y="310" width="240" height="84" rx="8"></rect>
+  <text class="dg-t dg-c" x="140" y="340.5">Guild owner (BEAM)</text>
+  <text class="dg-s dg-c" x="140" y="356.5">shared guild state</text>
+  <text class="dg-s dg-c" x="140" y="372.5">routing, not history ordering</text>
+  <rect class="dg-box" x="365" y="310" width="270" height="84" rx="8"></rect>
+  <text class="dg-t dg-c" x="500" y="340.5">Relays for large guilds</text>
+  <text class="dg-s dg-c" x="500" y="356.5">recipient permission checks</text>
+  <text class="dg-s dg-c" x="500" y="372.5">interested sessions · batch by node</text>
+  <rect class="dg-box" x="740" y="310" width="240" height="84" rx="8"></rect>
+  <text class="dg-t dg-c" x="860" y="340.5">Session processes</text>
+  <text class="dg-s dg-c" x="860" y="356.5">bounded mailbox + replay</text>
+  <text class="dg-s dg-c" x="860" y="372.5">per-session event sequence</text>
+  <path class="dg-line" d="M 140,188 L 140,302"></path>
+  <path class="dg-head" d="M 135,302 L 145,302 L 140,310 Z"></path>
+  <text class="dg-lbl dg-c" x="225" y="227">gRPC after storage</text>
+  <path class="dg-line" d="M 260,352 L 357,352"></path>
+  <path class="dg-head" d="M 357,357 L 357,347 L 365,352 Z"></path>
+  <path class="dg-line" d="M 635,352 L 732,352"></path>
+  <path class="dg-head" d="M 732,357 L 732,347 L 740,352 Z"></path>
+  <path class="dg-box" d="M 20,457 L 20,509 A 120,7 0 0 0 260,509 L 260,457 A 120,7 0 0 0 20,457 Z"></path>
+  <path class="dg-box" d="M 20,457 A 120,7 0 0 0 260,457" style="fill:none"></path>
+  <text class="dg-t dg-c" x="140" y="475">Redis session directory</text>
+  <text class="dg-s dg-c" x="140" y="491">host + generation + lease</text>
+  <text class="dg-s dg-c" x="140" y="507">does not preserve replay</text>
+  <rect class="dg-box" x="365" y="450" width="270" height="66" rx="8"></rect>
+  <text class="dg-t dg-c" x="500" y="471.5">Presence aggregation</text>
+  <text class="dg-s dg-c" x="500" y="487.5">all devices · timeout + disconnect</text>
+  <text class="dg-s dg-c" x="500" y="503.5">coalesced / visible members only</text>
+  <rect class="dg-box" x="740" y="450" width="240" height="66" rx="8"></rect>
+  <text class="dg-t dg-c" x="860" y="471.5">Clients over WebSocket</text>
+  <text class="dg-s dg-c" x="860" y="487.5">message-identity dedupe</text>
+  <text class="dg-s dg-c" x="860" y="503.5">settle into history order</text>
+  <path class="dg-line" d="M 860,394 L 860,442"></path>
+  <path class="dg-head" d="M 855,442 L 865,442 L 860,450 Z"></path>
+  <path class="dg-line" d="M 710,150 L 670,150 L 670,280 L 580,280 L 580,302"></path>
+  <path class="dg-head" d="M 575,302 L 585,302 L 580,310 Z"></path>
+  <text class="dg-lbl dg-c" x="582" y="222">role / channel versions</text>
+  <path class="dg-line" d="M 140,394 L 140,442"></path>
+  <path class="dg-head" d="M 135,442 L 145,442 L 140,450 Z"></path>
+  <text class="dg-lbl dg-c" x="208" y="426">session lookup</text>
+  <path class="dg-line" d="M 500,450 L 500,402"></path>
+  <path class="dg-head" d="M 505,402 L 495,402 L 500,394 Z"></path>
+  <text class="dg-note" x="20" y="551">If storage succeeds but dispatch fails, RESUME cannot invent the missing event. See the recovery paths below.</text>
 </svg>
 </div>
 
-<p class="diagram-cap">One process per guild is the whole architecture. It is the only component that knows which members are online, so it is the only place the recipient list can be grouped by gateway node — and that grouping is the 100× win.</p>
+<p class="diagram-cap">Published live-path shape, with proposed storage and recovery choices. BEAM implements the guild/relay/session tier; it does not replace a transactional outbox. Recipient authorization is separate from permission to send.</p>
 
-<div class="diagram" data-board="flows">
-<svg viewBox="0 0 1000 605" role="img" aria-label="Discord high-level design. A write path over HTTP: client to API service, which evaluates permissions once, mints a Snowflake id and writes to ScyllaDB before publishing. The guild process owns one guild, resolves online members and groups them by gateway node, sending one message per node rather than one per session. Three gateway nodes fan out to roughly fifteen million WebSocket clients. A Redis session registry with heartbeat TTL drives routing and presence.">
-  <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
-  <text class="dg-banner-t dg-c" x="500" y="33.5">Ingest is trivial; fanout is not. Tens of thousands of writes a second become ~15 M sockets and millions of deliveries.</text>
-  <text class="dg-lane" x="30" y="76">WRITE PATH — OVER HTTP, NOT OVER THE SOCKET</text>
-  <rect class="dg-box" x="30" y="90" width="110" height="72" rx="8"></rect>
-  <text class="dg-t dg-c" x="85" y="122.5">Client</text>
-  <text class="dg-s dg-c" x="85" y="138.5">POST + nonce</text>
-  <rect class="dg-box" x="180" y="90" width="190" height="72" rx="8"></rect>
-  <text class="dg-t dg-c" x="275" y="114.5">API service</text>
-  <text class="dg-s dg-c" x="275" y="130.5">permissions once, here</text>
-  <text class="dg-s dg-c" x="275" y="146.5">Snowflake id</text>
-  <rect class="dg-box" x="420" y="90" width="240" height="72" rx="8"></rect>
-  <text class="dg-t dg-c" x="540" y="114.5">Message store</text>
-  <text class="dg-s dg-c" x="540" y="130.5">ScyllaDB</text>
-  <text class="dg-s dg-c" x="540" y="146.5">(channel_id, bucket)</text>
-  <path class="dg-line" d="M 140,126 L 172,126"></path>
-  <path class="dg-head" d="M 172,131 L 172,121 L 180,126 Z"></path>
-  <path class="dg-line" d="M 370,126 L 412,126"></path>
-  <path class="dg-head" d="M 412,131 L 412,121 L 420,126 Z"></path>
-  <rect class="dg-warn" x="690" y="90" width="270" height="72" rx="8"></rect>
-  <text class="dg-warn-t dg-c" x="825" y="114.5">Order is not negotiable</text>
-  <text class="dg-s dg-c" x="825" y="130.5">store write, then publish —</text>
-  <text class="dg-s dg-c" x="825" y="146.5">the inverse is unrecoverable</text>
-  <path class="dg-line" d="M 275,162 L 275,196 L 430,196 L 430,212"></path>
-  <path class="dg-head" d="M 425,212 L 435,212 L 430,220 Z"></path>
-  <text class="dg-lbl" x="300" y="190">publish(channel_id)</text>
-  <rect class="dg-good" x="280" y="220" width="380" height="92" rx="8"></rect>
-  <text class="dg-t dg-c" x="470" y="246.5">Guild / channel process (BEAM)</text>
-  <text class="dg-s dg-c" x="470" y="262.5">one owner per guild → per-channel total order</text>
-  <text class="dg-s dg-c" x="470" y="278.5">resolves ONLINE members, groups by gateway node</text>
-  <text class="dg-s dg-c" x="470" y="294.5">one message per node, not per session — the 100× win</text>
-  <path class="dg-line" d="M 450,312 L 450,344"></path>
-  <path class="dg-line" d="M 190,344 L 630,344"></path>
-  <path class="dg-line" d="M 190,344 L 190,372"></path>
-  <path class="dg-head" d="M 185,372 L 195,372 L 190,380 Z"></path>
-  <path class="dg-line" d="M 410,344 L 410,372"></path>
-  <path class="dg-head" d="M 405,372 L 415,372 L 410,380 Z"></path>
-  <path class="dg-line" d="M 630,344 L 630,372"></path>
-  <path class="dg-head" d="M 625,372 L 635,372 L 630,380 Z"></path>
-  <rect class="dg-box" x="100" y="380" width="180" height="72" rx="8"></rect>
-  <text class="dg-t dg-c" x="190" y="404.5">Gateway node</text>
-  <text class="dg-s dg-c" x="190" y="420.5">local sockets</text>
-  <text class="dg-s dg-c" x="190" y="436.5">stamps a per-session seq</text>
-  <rect class="dg-box" x="320" y="380" width="180" height="72" rx="8"></rect>
-  <text class="dg-t dg-c" x="410" y="404.5">Gateway node</text>
-  <text class="dg-s dg-c" x="410" y="420.5">local sockets</text>
-  <text class="dg-s dg-c" x="410" y="436.5">stamps a per-session seq</text>
-  <rect class="dg-box" x="540" y="380" width="180" height="72" rx="8"></rect>
-  <text class="dg-t dg-c" x="630" y="404.5">Gateway node</text>
-  <text class="dg-s dg-c" x="630" y="420.5">local sockets</text>
-  <text class="dg-s dg-c" x="630" y="436.5">stamps a per-session seq</text>
-  <path class="dg-line" d="M 190,452 L 190,492"></path>
-  <path class="dg-head" d="M 185,492 L 195,492 L 190,500 Z"></path>
-  <path class="dg-line" d="M 410,452 L 410,492"></path>
-  <path class="dg-head" d="M 405,492 L 415,492 L 410,500 Z"></path>
-  <path class="dg-line" d="M 630,452 L 630,492"></path>
-  <path class="dg-head" d="M 625,492 L 635,492 L 630,500 Z"></path>
-  <rect class="dg-box" x="100" y="500" width="180" height="36" rx="8"></rect>
-  <text class="dg-t dg-c" x="190" y="522.5">clients — WebSocket</text>
-  <rect class="dg-box" x="320" y="500" width="180" height="36" rx="8"></rect>
-  <text class="dg-t dg-c" x="410" y="522.5">clients — WebSocket</text>
-  <rect class="dg-box" x="540" y="500" width="180" height="36" rx="8"></rect>
-  <text class="dg-t dg-c" x="630" y="522.5">clients — WebSocket</text>
-  <rect class="dg-box" x="760" y="380" width="200" height="92" rx="8"></rect>
-  <text class="dg-t dg-c" x="860" y="406.5">Session registry</text>
-  <text class="dg-s dg-c" x="860" y="422.5">Redis, heartbeat TTL</text>
-  <text class="dg-s dg-c" x="860" y="438.5">who is where, for routing</text>
-  <text class="dg-s dg-c" x="860" y="454.5">and for presence, by expiry</text>
-  <path class="dg-line" d="M 860,380 L 860,266 L 668,266"></path>
-  <path class="dg-head" d="M 668,261 L 668,271 L 660,266 Z"></path>
-  <text class="dg-lbl" x="680" y="258">presence = TTL expiry, coalesced</text>
-  <text class="dg-s" x="30" y="560">A message can exist that nobody was told about; the client re-reads it on RESUME, because the store is the source of truth and the push is an optimization over it.</text>
-  <text class="dg-note" x="30" y="582">Degrade in this order: presence → read state → history depth. Never live message delivery.</text>
-</svg>
-</div>
+### Flow A — durable acceptance, direct live dispatch
 
-<p class="diagram-cap">The 100× win is one arrow, and it is the reason this page exists: the guild process groups recipients by <em>gateway node</em> before sending. Everything above that box is unremarkable; everything below it is the interview.</p>
+1. The client persists a nonce and pending message, then sends HTTP. The API authenticates and verifies send permission.
+2. Resolve the canonical send attempt and persist the message in ScyllaDB through the data-service tier (§11). A retry must reuse the same canonical ID and bucket. Acknowledge only after durable history storage succeeds.
+3. After storage, the API directly calls the guild service over gRPC with the canonical message. Use a bounded deadline and limited retries; recipient delivery is not part of the storage transaction.
+4. The guild owner routes to interested sessions, or delegates to relays for large guilds. Relays evaluate recipient visibility from current role/channel state and group deliveries by destination node.
+5. Session processes append dispatches to their bounded replay stream and push over WebSockets. Clients dedupe message identity and render using canonical history order, not arrival order.
+6. **Failure path:** storage succeeds but API-to-guild dispatch fails. The message remains in history. Limited RPC retries may help; a process crash can end them. A recent-history refresh can repair the currently displayed page, but `RESUME` cannot replay an event that never reached the session. Durable dispatch recovery is a separate extension (§7).
 
-### Flow A — sending a message
+### Flow B — transport reconnect versus session loss
 
-1. Client `POST`s to the API service with a `nonce`.
-2. API evaluates permissions for `(user, channel)` and rejects if not allowed. **This is on the write path deliberately** — evaluating per recipient at fanout time would multiply the check by the fanout ratio.
-3. API mints a Snowflake `id` and writes to the message store, partitioned by `(channel_id, bucket)` — `§12`.
-4. On a successful write, API publishes to the guild's process.
-5. The guild process resolves the channel's **online** members, groups them by gateway node, and sends one batched message per node rather than one per session — `§8`.
-6. Each gateway node writes `MESSAGE_CREATE` to its local sockets, stamping each with that session's next `seq`.
-7. **Failure path:** the store write succeeds and the publish fails. The message exists and nobody was told. Clients recover on their own — the next `RESUME` or channel open reads from the store, which is the source of truth, and the push is an optimization over it. **The inverse ordering would be unrecoverable**, so publish never precedes the write.
-
-### Flow B — connecting, and reconnecting
-
-1. Client opens a WebSocket to a gateway node and sends `IDENTIFY`.
-2. Gateway authenticates, creates a session, registers it in the session registry with a heartbeat TTL, and subscribes the session to its guilds' processes.
-3. Gateway sends `READY` with a resume token and the guild list, then backfills.
-4. Client heartbeats every ~40 s with its last `seq`.
-5. **Failure path — the node dies.** Sessions are not migrated; they are abandoned. Their registry entries expire by TTL, which is what makes their users appear offline without anyone running a cleanup. Clients notice a dead heartbeat and reconnect **with backoff and jitter**, and `RESUME` replays from a short-lived per-session buffer instead of resyncing — `§7`.
+1. A lost socket reconnects with exponential backoff and jitter, using the previous session identity and last processed event sequence.
+2. If the original session process/replay buffer is still accessible and covers the gap, replay through its current head, then continue live events. Clients process duplicates safely.
+3. If the host died, the buffer overflowed, or the session expired, return `invalidSession`. Authenticate a new session, fetch memberships/subscriptions in pages, and retrieve the active channel's recent history first.
+4. **Failure path:** pause and resume paginated recovery under admission control. Do not promise that a Redis route entry resurrects a buffer destroyed with its host. A full-state fallback is required unless replay state is stored independently.
 
 ### Flow C — presence
 
-1. A session heartbeats; the gateway refreshes the registry TTL.
-2. On a *change* — connect, disconnect, or an explicit status set — the gateway publishes a presence event to each of that user's guild processes.
-3. Each guild process fans it out **coalesced and rate-limited**, not immediately — `§9`.
-4. **Failure path:** a user's laptop sleeps. No FIN arrives, so nothing announces the departure; the registry entry simply expires and the guild process emits the offline transition when it notices. **Nothing happens promptly, and that is correct** — a presence system that requires a clean disconnect is a presence system that is permanently wrong.
+1. Heartbeats maintain per-session liveness. Explicit status changes and clean disconnects can update it immediately.
+2. Combine sessions into user status, respecting preferences such as invisible/idle. One device disconnecting does not take another active device offline.
+3. Coalesce transitions and publish only to interested, authorized member views.
+4. **Failure path:** no clean disconnect arrives after a crash. Session expiry eventually removes that contribution and triggers recomputation. The coalescing budget is included in the advertised staleness bound.
 
 ---
 
-## 7 · Deep dive — the gateway, and why reconnect is the real load
+## 7 · Deep dive — mailboxes, replay, and durable recovery
 
-**The obvious answer:** put the sockets behind a load balancer, keep session state on the node, and if a node dies its clients reconnect and get a fresh session. Connections are cheap; the kernel will hold a million of them.
+<div class="diagram" data-board="flows">
+<svg viewBox="0 0 1000 590" role="img" aria-label="Recovery decision diagram. A disconnected client tries resume. A surviving session stream with retained coverage replays events. A lost or expired stream requires a fresh session and paginated state and history. Independently, a database message never dispatched has no session event to replay; history refresh repairs the current view, while stronger completeness requires durable dispatch and change cursors.">
+  <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
+  <text class="dg-banner-t dg-c" x="500" y="33.5">Session replay and history reconciliation cover different failures.</text>
+  <rect class="dg-box" x="30" y="95" width="250" height="76" rx="8"></rect>
+  <text class="dg-t dg-c" x="155" y="121.5">Connection lost</text>
+  <text class="dg-s dg-c" x="155" y="137.5">reconnect with jitter</text>
+  <text class="dg-s dg-c" x="155" y="153.5">session ID + last processed seq</text>
+  <rect class="dg-box" x="375" y="95" width="260" height="76" rx="8"></rect>
+  <text class="dg-t dg-c" x="505" y="121.5">Can the stream resume?</text>
+  <text class="dg-s dg-c" x="505" y="137.5">session state survives</text>
+  <text class="dg-s dg-c" x="505" y="153.5">buffer still covers the gap</text>
+  <path class="dg-line" d="M 280,133 L 367,133"></path>
+  <path class="dg-head" d="M 367,138 L 367,128 L 375,133 Z"></path>
+  <rect class="dg-good" x="715" y="95" width="250" height="76" rx="8"></rect>
+  <text class="dg-t dg-c" x="840" y="121.5">Replay session events</text>
+  <text class="dg-s dg-c" x="840" y="137.5">then continue live</text>
+  <text class="dg-s dg-c" x="840" y="153.5">duplicates remain possible</text>
+  <path class="dg-line" d="M 635,133 L 707,133"></path>
+  <path class="dg-head" d="M 707,138 L 707,128 L 715,133 Z"></path>
+  <text class="dg-lbl dg-c" x="675" y="123">yes</text>
+  <rect class="dg-box" x="375" y="240" width="260" height="76" rx="8"></rect>
+  <text class="dg-t dg-c" x="505" y="266.5">New session + state</text>
+  <text class="dg-s dg-c" x="505" y="282.5">invalid / expired / lost session</text>
+  <text class="dg-s dg-c" x="505" y="298.5">bounded membership subscriptions</text>
+  <path class="dg-line" d="M 505,171 L 505,232"></path>
+  <path class="dg-head" d="M 500,232 L 510,232 L 505,240 Z"></path>
+  <text class="dg-lbl dg-c" x="550" y="209">no</text>
+  <rect class="dg-box" x="715" y="240" width="250" height="76" rx="8"></rect>
+  <text class="dg-t dg-c" x="840" y="266.5">History API</text>
+  <text class="dg-s dg-c" x="840" y="282.5">active channel first</text>
+  <text class="dg-s dg-c" x="840" y="298.5">page older messages on demand</text>
+  <path class="dg-line" d="M 635,278 L 707,278"></path>
+  <path class="dg-head" d="M 707,283 L 707,273 L 715,278 Z"></path>
+  <path class="dg-div" d="M 20,355 L 980,355"></path>
+  <text class="dg-lane" x="30" y="390">SEPARATE FAILURE — STORED, BUT NEVER DISPATCHED</text>
+  <rect class="dg-warn" x="30" y="415" width="280" height="82" rx="8"></rect>
+  <text class="dg-t dg-c" x="170" y="444.5">No session event exists</text>
+  <text class="dg-s dg-c" x="170" y="460.5">a successful RESUME can omit it</text>
+  <text class="dg-s dg-c" x="170" y="476.5">refresh recent history to repair view</text>
+  <rect class="dg-box" x="380" y="415" width="585" height="82" rx="8"></rect>
+  <text class="dg-t dg-c" x="672.5" y="444.5">Stronger requirement: durable dispatch + recovery cursor</text>
+  <text class="dg-s dg-c" x="672.5" y="460.5">acceptance-coupled record / change stream → retrying relay → guild</text>
+  <text class="dg-s dg-c" x="672.5" y="476.5">direct gRPC may remain the fast path; define retention and dedupe</text>
+  <path class="dg-line" d="M 310,456 L 372,456"></path>
+  <path class="dg-head" d="M 372,461 L 372,451 L 380,456 Z"></path>
+  <text class="dg-note" x="30" y="548">Sparse message IDs sort history. Session seq orders a session stream. Neither alone proves complete offline delivery.</text>
+</svg>
+</div>
 
-**What breaks.** Connections are cheap; **reconnects are not**. A `READY` payload is large — guild list, channel list, member and role data, initial presence — and it costs a burst of reads and serialization. Dropping one node's share of 15 M clients means several hundred thousand simultaneous `IDENTIFY`s, each demanding the most expensive response the system produces. That is a **thundering herd against your own cold path**, and because deploys are routine, it is a load you will impose on yourself weekly. The naive design's failure mode is that a routine deploy looks exactly like an outage, and worse, the retry storm keeps the fleet from coming back.
+<p class="diagram-cap">A lost socket can resume only if its event stream survives. A message that never reached that stream needs independent history or durable-dispatch recovery; replay cannot repair an event that does not exist.</p>
 
-**What replaces it.** Three things, in order of leverage:
+### Why "BEAM instead of Kafka" is the wrong comparison
 
-1. **Resumable sessions.** Every dispatch carries a `seq`; the gateway keeps a short replay buffer per session, and `RESUME` replays the gap. A reconnect within the buffer window costs a few kilobytes instead of a full `READY`. **This converts the herd from expensive to cheap without reducing its size**, which is the right order to attack it in.
-2. **Client-side backoff with jitter, and a server-side hint.** The close frame carries a reconnect delay. Without jitter, every client reconnects at the same instant and you have rebuilt the herd on a timer.
-3. **Rolling drains, not restarts.** Take a node out of rotation, close its sessions in batches with a resumable close code, and let them land elsewhere over a minute rather than a millisecond.
+BEAM is the Erlang runtime used by Elixir. Lightweight processes communicate through messages queued in memory. Guild ownership makes shared community state local; it does not make the mailbox durable or atomically connected to the message database. Successful submission does not prove the receiver processed the event. Erlang preserves signal order from one sender to one receiver, not one global order across independent API senders. [Erlang message passing](https://www.erlang.org/blog/message-passing/)
 
-**What it costs.** Replay buffers are memory you hold for clients that are not connected — bounded, but real, and the window is a tunable that trades memory against how many reconnects stay cheap. Resumability also means the gateway must be able to reconstruct or route a session that identified against a *different* node, which is why the session registry is a shared store rather than node-local. And the sequence number is now a correctness-critical field: a bug that skips one causes silent, permanent message loss for that client until they fully resync.
+**The baseline calls the actor layer directly.** This avoids a durable broker hop on the latency path and keeps live routing close to session state. It still has gRPC buffers, process mailboxes, and socket queues. Monitor queue length/age and processing time; an actor runtime is not automatic backpressure.
 
----
+### Two recovery paths, with different coverage
 
-## 8 · Deep dive — fanout, and why the feed answer is wrong here
+**Session replay** repairs events already in a surviving session stream. A brief network interruption is its ideal case. Age, event count, and byte limits bound memory; overflow or host failure forces a new session. Planned drains may preserve or hand off sessions, but unplanned destruction still needs fallback. A directory locates state; it does not replicate it.
 
-**The obvious answer:** treat it like a feed. Fan out on write to a per-user inbox, so a read is a single-partition scan of your own timeline.
+**History reconciliation** fetches stored messages regardless of whether they were dispatched. Refresh the active channel on focus/reconnect and periodically; use bounded pagination for older history. A recent-page refresh repairs the current view but cannot prove every older message was delivered. Sparse IDs cannot reveal a missing middle row, and a late commit with a lower ID can be missed by an `after=max_seen` query.
 
-**What breaks.** Per-user inboxes are for readers who are *absent* — the whole point is materializing the read before it happens. Here, the readers are **already connected and holding a socket open**. Writing 50 000 inbox rows so that 50 000 people who are online right now can each read one of them is pure write amplification, and at a 5–15 M deliveries/s system rate it is the dominant cost in the design for no benefit. Worse, it puts a durable write on the latency path of a live message.
+### If the requirement is stronger, add durable dispatch work
 
-**What replaces it.** **Fan out to sessions, not to storage.** The message is written once, to the channel's partition. Delivery is a pub/sub push to the sockets that exist at that instant. Two refinements do the actual work:
+If every accepted message must eventually reach downstream processors independently of client activity, persist a dispatch obligation with acceptance, or consume an appropriate database change stream with defined retention, replay, and dedupe. A relay can call the **same BEAM guild services**; direct post-store gRPC can remain the fast path. Both carry canonical event/message identity.
 
-- **One owner per guild.** A single process holds the guild's channel-subscriber lists, which is what makes "who is online in this channel" a local set read rather than a distributed query. It also gives the per-channel total ordering in `§2` for free, because there is one writer.
-- **Batch by node, not by session.** The guild process groups recipients by which gateway node holds them and sends **one message per node** carrying a recipient list. A 50 000-recipient fanout across a 500-node fleet becomes 500 inter-service messages, not 50 000. **This is the single highest-leverage optimization on the page**, and it works because the guild process already knows the mapping from the session registry.
+This is the Slack page's outbox tradeoff applied to another fanout implementation. Postgres makes the local outbox transaction straightforward; with ScyllaDB, specify the supported atomic write/change-stream mechanism and recovery model rather than drawing a second independent write and calling it reliable. Complete device catch-up additionally needs a durable change cursor or equivalent coverage protocol; replaying recent display IDs is insufficient.
 
-**And the hot-guild tier.** The skew in `§3` means a uniform design is wrong somewhere. A guild with 500 000 members cannot be one process on one host — its fanout alone saturates a NIC. Large guilds get sharded fanout: the subscriber set is partitioned across several processes, each responsible for a slice, with the publish going to all of them. **Say explicitly that this is a *tier*, not the general case**, because paying its complexity for the median guild of forty people is the classic over-design here.
-
-**What it costs.** No durable inbox means **a message sent while you are offline is never pushed to you** — you get it when you next open the channel and read from the store. That is fine for chat and would be wrong for anything requiring guaranteed per-recipient delivery, and it is why mobile push notifications are a genuinely separate pipeline rather than a flag on this one. Guild ownership also introduces a single point of failure per guild: if that process dies, the guild is undeliverable until it is restarted elsewhere, which is a real availability tradeoff bought in exchange for ordering and locality.
-
----
-
-## 9 · Deep dive — presence, the expensive part nobody scopes
-
-**The obvious answer:** presence is a boolean in a table; when it changes, tell everyone who cares.
-
-**What breaks.** The arithmetic in `§3`. One user in 20 guilds averaging 2 000 online members produces **40 000 delivery events from one bit flipping** — and users flip that bit constantly, because laptops sleep, phones background, and networks change. Presence is not a small feature attached to messaging; **it is plausibly the largest event stream in the system**, and treating it with messaging's delivery guarantees means paying messaging's cost for data that is stale a second later.
-
-**What replaces it.** Three moves, and all three are deliberate lossiness:
-
-1. **Heartbeat with TTL, never an explicit delete.** Online is "has heartbeated within the window." This is not an optimization, it is the only correct model: the common way a session ends is that its host disappears, and a design that requires a clean goodbye is permanently wrong about a fraction of its users.
-2. **Coalesce and rate-limit at the guild process.** Presence changes within a window collapse to one event; a flapping user produces one transition, not thirty. **A stale presence is invisible to users; a presence storm is not.**
-3. **Do not send what nobody will render.** A client showing a 200 000-member guild is not rendering 200 000 avatars — it renders a screenful and asks for the rest. So presence for large guilds is **lazy and scoped to what the client has asked for**, which is what the `intents` field in `§5` exists to express.
-
-**What it costs.** Presence is now **eventually consistent and briefly wrong** — someone can appear online for up to the TTL after they vanish. That is the correct trade and it should be stated as one: *"I'm choosing to be wrong about presence for up to thirty seconds in exchange for not paying messaging's delivery cost on the highest-volume event in the system."* Lazy presence also means the client's view depends on what it has subscribed to, which makes "why does my friend show offline here and online there" a real, and acceptable, support burden.
-
----
-
-## 10 · Deep dive — read state, and the write amplification it hides
-
-**The obvious answer:** store the last-read message id per user per channel, and update it when they read.
-
-**What breaks.** The cardinality. **Read state is per user per channel**, so it is the largest table in the product by row count — larger than messages — and it is written far more often than it is read, because every channel switch and every scroll-to-bottom is a write. It is also latency-sensitive in a way messages are not: unread badges are the first thing rendered, so a slow read state read is a slow app launch, on every launch.
-
-**What replaces it.**
-
-- **Store the last-read `message_id`, not a count.** Because ids are Snowflakes, "unread" is a comparison and "how many unread" is a bounded count against the channel partition — no counter to keep consistent, and no drift.
-- **Write behind, aggressively.** Read state updates are coalesced per user over a few seconds and batched. Losing the last few seconds of read state on a crash costs a user one already-read channel showing a badge, which is the cheapest possible failure in this system.
-- **Put a coalescing cache in front of the hot path.** When a large number of clients request the same hot partition simultaneously, the service in front should recognize them as **one** request, issue a single query, and fan the single result back to every waiter. Discord's published data-services layer does exactly this in front of ScyllaDB — and it is worth naming because it is the same shape as `§8`'s fanout: many waiters, one source, one distribution loop.
-
-**What it costs.** Write-behind means read state is eventually consistent across a user's own devices, so a channel read on a phone may stay unread on a desktop for a few seconds. Coalescing adds a latency floor equal to the batch window and turns a single slow query into a slow query for every coalesced waiter — a correlated failure you did not have before, and one worth mentioning before the interviewer finds it.
-
----
-
-## 11 · Deep dive — message storage, and a migration that was about pauses
-
-**The obvious answer:** a relational store, partitioned by channel, with an index on time.
-
-**What breaks.** At trillions of rows the access pattern is narrow and brutal: **always a range scan over one channel, always descending by id, almost always the most recent page**. That is a wide-column workload, and a relational store's generality is cost you pay without using. Discord's actual path was MongoDB → Cassandra → ScyllaDB, and the reported reason for the last hop is the one worth remembering: **Java garbage-collection pauses showed up in tail latency** at that scale. The cluster went from **177 Cassandra nodes to 72 ScyllaDB nodes**.
-
-**What replaces it.** **ScyllaDB, partitioned by `(channel_id, bucket)`**, where `bucket` is a coarse time window, clustered by `message_id` descending.
-
-- **Why a compound key rather than `channel_id` alone.** A busy channel would otherwise grow one partition without bound, and an unbounded partition is the failure mode this class of store punishes hardest. Bucketing caps partition size and makes "the most recent page" a single-partition read of the newest bucket.
-- **Why the bucket must be *coarse*.** Too fine and reading a quiet channel's last fifty messages means scanning many empty buckets. The bucket width is a tuning knob against the channel's message rate, and getting it wrong in either direction is a real, observable regression.
-- **Why Snowflake ids make this work.** The clustering key already encodes time, so pagination is `WHERE message_id < ?` with no secondary index and no separate sort.
-
-**What it costs.** Wide-column means **no joins and no ad-hoc queries** — every access pattern must be designed in advance, and a new one means a new table and a backfill. Search is therefore a separate system entirely, fed asynchronously. And the migration itself is the honest expense: dual-writing, historical backfill, and a verified cutover, which Discord did without downtime and which is weeks of work, not a config change.
+**Cost:** durable dispatch adds writes/log retention and worker operations; memory-only dispatch needs explicit reconciliation and weaker guarantees. **→ Ties to the recovery and durability rows in §2.** The baseline is honest about this distinction; published direct gRPC is not evidence that Discord lacks other recovery mechanisms.
 
 ---
 
-## 12 · Data model, sharding, and storage decisions
+## 8 · Deep dive — selective fanout and large-guild relays
 
-**Partition key: `(channel_id, bucket)`.** Chosen because every read is scoped to one channel and ordered by time, and because `channel_id` alone grows without bound on exactly the channels you can least afford to be slow on.
+### Why the obvious answer fails
 
-**The hot-shard consequence, and whether it is intentional.** A single very busy channel concentrates writes on one partition at a time — the newest bucket. **This is intentional and acceptable**, because 150 k/s across the whole system means even a pathologically hot channel is a few thousand writes per second, which a single partition handles. It would stop being acceptable if the write rate were two orders of magnitude higher, and the fix would be a synthetic sub-key within the bucket, paid for with a merge on read.
+Sending every guild event to every connected member wastes serialization, permission checks, network capacity, and client work. Writing a full inbox copy per recipient additionally duplicates shared channel history. A connected user may belong to many communities while actively viewing only one.
 
-| Component | Access pattern | Durability | Choice | The one sentence you'd say |
-|---|---|---|---|---|
-| Messages | Range scan by channel, newest first | Must not lose an ack'd write | **ScyllaDB**, `PRIMARY KEY ((channel_id, bucket), message_id)` desc | *"Wide-column because the access pattern is one narrow scan; Scylla specifically because GC pauses were the reported problem at this scale."* |
-| Session registry | Point read and write, 15 M keys, high churn | **Losing it is survivable** | **Redis Cluster**, key `session:{id}`, heartbeat `EXPIRE` | *"TTL is the design, not a cleanup — a dead node's sessions have to expire, because nothing is alive to delete them."* |
-| Presence | Same keys as sessions, read on fanout | Explicitly lossy | **Redis**, same heartbeat TTL, coalesced at the guild process | *"Presence is derived from the session TTL rather than stored separately, so there's one source of truth about liveness."* |
-| Guild/channel metadata, roles | Small, read-heavy, read on every permission check | Must be correct | **Postgres**, cached aggressively at the API tier | *"Small, relational, and correctness-critical — this is the part that actually is a database problem."* |
-| Read state | Per user per channel, write-heavy | Losing seconds is fine | **ScyllaDB**, `PRIMARY KEY (user_id, channel_id)`, write-behind | *"Biggest table in the product by rows, and the one where I'd trade durability for write cost first."* |
-| Attachments | Write once, read many, large | Durable | **S3 + CDN**, URL in the message body | *"The message row carries a pointer; bytes never go through the gateway."* |
-| Inter-service fanout | Publish to a topic per guild | In-memory, at most once | **The guild process itself**, over the cluster's own messaging | *"There's no broker in the delivery path — a broker would add a durable hop to something that is explicitly not durable."* |
+**First reduce recipients; then distribute the remaining work.** Maintain active versus passive subscriptions. Interested sessions receive bodies and relevant presence; inactive views receive limited hints or refresh on activation. Authorization constrains both groups. This is a product/freshness trade, not license to omit events silently from a promised reliable stream.
+
+Discord reported that about 90% of user–guild connections in large communities were passive, substantially reducing fanout. It retained a central guild process while moving session fanout and permission work into relays. That supports a layered design, not the claim that every large guild must abandon one central owner. [Large-guild architecture](https://discord.com/blog/maxjourney-pushing-discords-limits-with-a-million-plus-online-users-in-a-single-server)
+
+### What the owner and relays each do
+
+- **Guild owner:** coordinates shared guild state and routing. It is a stateful serialization point for its own processing, not automatically the writer of ordered channel history.
+- **Relays:** own subsets of interested sessions, maintain the role/channel information needed for visibility, and perform recipient filtering. Revocation must update or invalidate that state; stale permission state is not merely a missed-delivery problem.
+- **Node-local fanout:** sends one body per destination node with recipient metadata, then writes to local sessions. Savings depend on recipients per node; total socket writes and egress remain.
+
+For hot guilds, add relays and offload expensive enumeration/serialization from the owner. Avoid copying the entire member population into every relay; replicate only needed state. Move ownership with a controlled generation/cutover so obsolete processes cannot remain authoritative.
+
+### What it costs: mailbox and socket backpressure
+
+Bound ingress and relay work. Coalesce replaceable presence updates; prioritize message events; isolate slow sockets with byte/age limits. When a client exceeds its replay/queue budget, require resync or disconnect rather than allowing its backlog to consume the node. Under sustained overload, reject new work or delay delivery while preserving already accepted history.
+
+**Ordering trade:** API workers may commit and call the guild in different orders. Session sequence records that session's event order; clients settle messages into sparse-ID history order, with possible reordering. If the product requires a stable append order with no late insertion, introduce a per-channel ordered acceptance mechanism and account for its coordination/failover cost.
+
+**→ Ties to live latency and bounded recovery.** The correct degraded state may be a delayed live update. "Never degrade live delivery" is not a feasible overload policy.
+
+---
+
+## 9 · Deep dive — presence as replaceable state
+
+### Why the naive model explodes
+
+A boolean update looks cheap until it fans out across every guild membership. Flapping connectivity can multiply a single user's transitions into thousands of recipient events. But its priority is lower than message history: the latest status supersedes earlier intermediate states.
+
+**Use session liveness plus aggregation.** For this exercise, heartbeat every 20s, expire after 60s, and coalesce for up to 2s. Those are internally consistent assumptions; an actual protocol negotiates its interval. Refresh per-session state, not a single user key that one device can erase for every other device.
+
+Explicit disconnect is a useful fast path. Expiry handles missing disconnects; it is not a reason to forbid cleanup. A liveness service or process monitor must actually detect expiry and publish the aggregate transition—deleting a cache key alone does not notify every subscriber reliably.
+
+**Publish only what the client uses.** Scope member-list presence to visible or requested ranges, and suppress unnecessary inactive-guild updates. Presence preferences and authorization still apply. Coalescing the latest value requires versioning or ownership so an older delayed event cannot replace a newer one.
+
+**Cost:** users can appear online briefly after vanishing, and independently refreshed views may temporarily disagree. This is an explicit staleness budget, not "stale presence is invisible." Whether presence exceeds message traffic depends on measured subscriptions and churn.
+
+---
+
+## 10 · Deep dive — hot reads and unread state
+
+### Why a large announcement can hurt the database
+
+Thousands of clients may open a channel and request the same recent messages simultaneously. Even if writes are cheap, concurrent reads against one channel/bucket can overload its replicas and affect unrelated traffic on those nodes.
+
+**Coalesce identical in-flight queries and limit concurrency.** Route requests for a channel to a data-service instance that shares one in-flight result among equivalent waiters. Cache hot immutable pages/results with bounded staleness where appropriate, and cap concurrent database work per hot key. The first request can start immediately; in-flight coalescing does not require waiting for a batching window.
+
+The cache/coalescing key must include the query parameters and relevant visibility boundary. Two requests touching the same partition are not necessarily equivalent. Discord's Rust data-service layer describes this exact sharing of identical requests and channel-based routing. [Discord's data services](https://discord.com/blog/how-discord-stores-trillions-of-messages)
+
+### Read state is a different access pattern
+
+Store a user/channel mark-read position and coalesce updates over a proposed two-second window. Persist the latest pending value on the client and retry until accepted. Across devices, merge monotonically; if the storage engine uses last-write-wins timestamps, do not assume that automatically computes `MAX(message_id)`. Use conditional updates or a serialized user-state writer.
+
+Different users' read cursors are not an identical hot query. Their cardinality is the number of tracked user/channel pairs, which is not necessarily larger than retained messages. An unread badge can compare history head to mark-read position, but a sparse-ID comparison does not prove receipt of every preceding message. Exact unread counts may need maintained aggregates or capped range counts; they are not free.
+
+**Cost:** read-state convergence can lag by a few seconds (target ≤5s normally). Coalescing correlates waiters behind one slow query, so use timeouts and concurrency limits. Client retry preserves the final update even if an intermediate server write-behind buffer is lost.
+
+---
+
+## 11 · Message storage and idempotency — enough for the hour
+
+### Why choose ScyllaDB here, and what that does not prove
+
+Bucketed channel history is a good wide-column access pattern. **ScyllaDB** is a plausible choice for large retained history and high read/write volume, but range scans alone do not rule out sharded Postgres. The Slack design remains a valid alternative when its transactional simplicity and fleet cost win.
+
+Discord reported moving from 177 Cassandra nodes to 72 ScyllaDB nodes. Its account describes hot partitions, compaction backlogs, GC pauses, repair/operational concerns, and upstream data-service improvements. It is not a controlled Postgres comparison, and the migration was not solely about eliminating GC. [Discord's migration account](https://discord.com/blog/how-discord-stores-trillions-of-messages)
+
+Use `PRIMARY KEY ((channel_id, bucket), message_id)` with descending clustering order. Bucket by a stable server-assigned time window. The newest page may span a boundary; quiet channels can require several buckets, so maintain bucket metadata or otherwise avoid scanning long runs of empty windows. Time bucketing limits accumulated partition size, not the write rate of the current hot bucket.
+
+### Do not let every retry mint a new Snowflake
+
+**Proposed interview mechanism:** conditionally create a short-lived `SendAttempt` keyed by `(channel_id, authenticated_sender_id, nonce)`, containing the canonical ID, bucket, payload, and request hash. `IF NOT EXISTS` chooses one result across concurrent attempts. Reuse that result to idempotently upsert history. Return success only once history storage has succeeded.
+
+A crash between attempt creation and history insertion leaves an unacknowledged attempt with enough data for a retry to finish it. It must not be mistaken for an already completed history write. If history succeeded but the HTTP reply was lost, retrying writes the same identity and returns the same result. A conflicting payload is rejected. A conditional-write timeout is an unknown result, not permission to mint another ID.
+
+For this exercise retain attempts for 24h and promise retries for ten minutes; size and clean this metadata separately. This is a proposed implementation, not a claim about Discord's nonce backend. Conditional writes cost more than plain upserts; include them in acceptance benchmarks. A second Redis "seen" flag would introduce another consistency boundary rather than solve it. [ScyllaDB lightweight transactions](https://docs.scylladb.com/manual/stable/features/lwt.html)
+
+**Cost:** conditional acceptance plus a history projection is more machinery than one Postgres transaction. It is a trade for the chosen storage workload, not a free benefit of sparse IDs. Avoid spending the full hour deriving it; name the failure boundary and return to fanout.
+
+---
+
+## 12 · Placement, storage choices, and lifecycle
+
+**Partition history by channel/bucket; distribute live work by guild and session.** These keys serve different purposes. A guild owner can live on another host from the database replicas. A hot bucket may need rate limiting or striped writes plus a merge on read, but choose that from observed limits rather than global averages.
+
+| Component | Access / durability | Proposed choice and alternative |
+|---|---|---|
+| Message history | Channel range reads; acknowledged data survives one AZ loss | **ScyllaDB**, RF=3 across AZs, quorum operations and verified commit-log durability. "Postgres is viable; benchmark total retained storage and hot reads before giving up its transactions" |
+| Send attempts | Conditional sender/nonce acceptance; stable retry result | **ScyllaDB LWT**, compact record with payload until expiry. "Redis cannot atomically stand in for durable acceptance" |
+| Guild metadata and roles | Authoritative access decisions; cached in owner/relays | **Postgres** with HA and versioned cache invalidation. "A stale route can drop a push; stale authorization can disclose content" |
+| Guilds, relays, session streams | Stateful routing and bounded in-memory queues | **Elixir/BEAM**, controlled ownership and process supervision. "This is live execution state, not a durable broker" |
+| Session directory | Route resume to surviving session host/generation | **Redis Cluster**, rebuildable leases. "The directory does not preserve the replay buffer; invalid sessions need fallback" |
+| Presence | Per-session liveness aggregated to user state | **BEAM liveness processes**, local timers/monitors and versioned aggregate updates. "An explicit disconnect accelerates the timeout path; neither alone is sufficient" |
+| Read state | Per-user/channel monotonic update | **ScyllaDB** with conditional max update and client-side coalescing. "Ordinary last-write-wins does not imply maximum read position" |
+| History data service | Identical-query coalescing and per-key concurrency limits | **Rust data services**, following the published pattern. "A shared result helps only equivalent requests; it cannot merge arbitrary queries" |
+| Attachments / backups | Durable bytes and recovery copies | **Object storage + CDN**, e.g. S3; access-controlled URLs. "Keep large bytes outside the session event path" |
+| Optional durable dispatch | Replayable obligation independent of API lifetime | **Acceptance-coupled record/change stream → retrying relay → guild services.** "Specify the atomic/replay boundary first; Kafka can transport events but cannot repair an unrecorded dual write" |
+
+**Replication is not backup.** Proposed regional disaster policy: off-region incremental backups with ≤1h recovery-point objective and a tested ≤24h restore target for the required serving dataset. Validate these against actual data size; a whole-region loss may exceed normal availability targets. A stricter cross-region RPO requires additional replication and latency/cost analysis.
+
+| State | Lifecycle | Recovery / product consequence |
+|---|---|---|
+| History | Retain according to guild policy; monitor bucket size and total storage | Keep recent history online. If archive tiering is offered, use channel/time segments and manifests in object storage, with a separate 1–5s old-page target rather than promising all history is instant |
+| Deleted content | Propagate deletes through history, caches, indexes, and backup restoration policy | Sparse IDs do not require visible tombstones for each numerical gap; explicit unavailable history still needs a product response |
+| Send attempts | 24h proposed retention for a ten-minute retry promise | Expiry ends dedupe protection; includes payload and must follow privacy/deletion rules |
+| Replay buffers | ≤60s and bounded bytes/events; released on session expiry | Overflow/host failure means fresh session, not guaranteed replay |
+| Presence/session leases | Expire after the liveness window | Directory loss is reconstructible; user presence aggregates surviving sessions |
+| Read state | Retain for tracked memberships; delete when no longer needed | New devices fetch unread state but independently load message history |
+| Backups | Proposed thirty-day recovery window | Reapply deletions before serving restored data; benchmark restore throughput |
+| Optional durable dispatch | Define retention longer than the supported consumer outage | Falling behind retention requires explicit backfill, not silent offset reset |
 
 ---
 
 ## 13 · Traps — the ranked list
 
-**Design traps.**
+1. **Calling BEAM a durable queue replacement.** Its mailboxes organize live work; database-to-dispatch recovery is separate.
+2. **Saying `RESUME` reads an un-dispatched message from history.** Replay only covers events in the surviving session stream.
+3. **Promising replay after losing the only copy of the buffer.** Route surviving sessions; otherwise identify afresh and page state/history.
+4. **Claiming one guild owner gives database order for free.** Sparse history IDs, guild processing, and session sequences are different orders.
+5. **Checking permissions only for the sender.** Recipient visibility and revocation are required even when eligibility is cached.
+6. **Sending everything to everyone online.** Connected does not mean interested; passive sessions and visible-member subscriptions can eliminate work.
+7. **Assuming 100× batching, harmless hot partitions, or a trivial write fleet.** State the placement/load assumptions and calculate the hottest component.
+8. **Treating nonce echo as server deduplication.** Enforce retries and account for its storage/coordination cost.
+9. **Using a TTL shorter than the heartbeat interval, or letting one device erase another's presence.** Choose a consistent liveness model.
+10. **Protecting live delivery by allowing unbounded queues.** Preserve accepted history; bound memory and recover slow clients.
 
-1. **Designing the message table for twenty minutes.** It is the easy half, the numbers say so, and it is the single most common way this round goes shallow. Get to fanout.
-2. **Reaching for per-user inbox fanout-on-write.** It is the right answer for feeds, and it is what end-to-end encryption forces on WhatsApp — per-device ciphertext leaves nothing to share — but it is wrong here, for the reason in `§8`: the content is server-readable and the fanout is three orders of magnitude wider. Reciting it unprompted signals a memorized pattern rather than a read of the constraints.
-3. **Scoping presence out.** It is the highest-volume event stream in the system. Scoping it out removes the most interesting part of the design and, worse, makes the connection look stateless when its statefulness is the whole point.
-4. **Treating a deploy as an exotic failure.** Reconnect storms are the routine load. A design with no answer for "you just restarted a node holding 30 000 sockets" has not thought about operating the thing.
-5. **A uniform design across guild sizes.** The skew is three orders of magnitude. Either the median guild pays for machinery it does not need, or the largest guild falls over. Name the tier.
-6. **Putting permission evaluation on the fanout path.** It multiplies the check by the fanout ratio. Evaluate once, on write.
-
-**Performance traps.**
-
-7. **Fanning out per session instead of per node.** Correct, and it is a 100× difference in inter-service messages.
-8. **A full `READY` on every reconnect.** Without `RESUME`, the cheapest event in the system becomes the most expensive.
-9. **No jitter on client backoff.** You have rebuilt the thundering herd, on a schedule, with your own client code.
-10. **An unbounded partition for a busy channel.** The bucket in the partition key is the whole answer, and forgetting it is invisible until it is not.
-
-Interview-performance traps live in `Interview mechanics` — see that page rather than this one.
+For general interview mechanics, see [the mechanics page](#/designs/interview-mechanics). Prioritize fanout and reconnect; presence, read-state convergence, and storage alternatives support those dives rather than replacing them.
 
 ---
 
-## 14 · The five-minute skeleton (draw this cold)
+## 14 · The five-minute skeleton
 
 <div class="diagram" data-board="skeleton">
-<svg viewBox="0 0 1000 512" role="img" aria-label="Discord five-minute skeleton. Write row: client, API service, ScyllaDB. Fanout row: guild process, one message per gateway node, gateway nodes stamping a sequence number, clients holding one WebSocket each. A Redis session registry. Margin notes for RESUME, presence, read state and the degradation order.">
-  <rect class="dg-banner" x="10" y="10" width="980" height="34" rx="9"></rect>
-  <text class="dg-banner-t dg-c" x="500" y="31.5">Minute five: everything below must be on the board. Badge numbers match the list.</text>
-  <circle class="dg-num" cx="22" cy="68" r="9"></circle>
-  <text class="dg-num-t" x="22" y="71.4">2</text>
-  <text class="dg-lane" x="38" y="72">WRITE — HTTP, NOT THE SOCKET</text>
-  <rect class="dg-box" x="30" y="86" width="100" height="56" rx="8"></rect>
-  <text class="dg-t dg-c" x="80" y="118.5">Client</text>
-  <rect class="dg-box" x="158" y="86" width="200" height="56" rx="8"></rect>
-  <text class="dg-t dg-c" x="258" y="110.5">API service</text>
-  <text class="dg-s dg-c" x="258" y="126.5">permissions once · Snowflake</text>
-  <circle class="dg-num" cx="158" cy="86" r="9"></circle>
-  <text class="dg-num-t" x="158" y="89.4">3</text>
-  <rect class="dg-box" x="398" y="86" width="220" height="56" rx="8"></rect>
-  <text class="dg-t dg-c" x="508" y="110.5">ScyllaDB</text>
-  <text class="dg-s dg-c" x="508" y="126.5">(channel_id, bucket)</text>
-  <path class="dg-line" d="M 130,114 L 150,114"></path>
-  <path class="dg-head" d="M 150,119 L 150,109 L 158,114 Z"></path>
-  <path class="dg-line" d="M 358,114 L 390,114"></path>
-  <path class="dg-head" d="M 390,119 L 390,109 L 398,114 Z"></path>
-  <rect class="dg-warn" x="650" y="86" width="310" height="56" rx="8"></rect>
-  <text class="dg-warn-t dg-c" x="805" y="110.5">Store, then publish</text>
-  <text class="dg-s dg-c" x="805" y="126.5">never the inverse — it is unrecoverable</text>
-  <text class="dg-lane" x="30" y="190">FANOUT</text>
-  <rect class="dg-box" x="30" y="204" width="250" height="76" rx="8"></rect>
-  <text class="dg-t dg-c" x="155" y="230.5">Guild process</text>
-  <text class="dg-s dg-c" x="155" y="246.5">one owner per guild</text>
-  <text class="dg-s dg-c" x="155" y="262.5">per-channel total order for free</text>
-  <circle class="dg-num" cx="30" cy="204" r="9"></circle>
-  <text class="dg-num-t" x="30" y="207.4">4</text>
-  <circle class="dg-num" cx="360" cy="206" r="9"></circle>
-  <text class="dg-num-t" x="360" y="209.4">5</text>
-  <text class="dg-s dg-c" x="360" y="232">one message per node</text>
-  <path class="dg-line" d="M 280,242 L 432,242"></path>
-  <path class="dg-head" d="M 432,247 L 432,237 L 440,242 Z"></path>
-  <rect class="dg-box" x="440" y="204" width="210" height="76" rx="8"></rect>
-  <text class="dg-t dg-c" x="545" y="238.5">Gateway nodes</text>
-  <text class="dg-s dg-c" x="545" y="254.5">stamp a monotonic seq</text>
-  <circle class="dg-num" cx="440" cy="204" r="9"></circle>
-  <text class="dg-num-t" x="440" y="207.4">6</text>
-  <path class="dg-line" d="M 650,242 L 682,242"></path>
-  <path class="dg-head" d="M 682,247 L 682,237 L 690,242 Z"></path>
-  <rect class="dg-box" x="690" y="204" width="270" height="76" rx="8"></rect>
-  <text class="dg-t dg-c" x="825" y="230.5">clients</text>
-  <text class="dg-s dg-c" x="825" y="246.5">one WebSocket each</text>
-  <text class="dg-s dg-c" x="825" y="262.5">~15 M concurrent</text>
-  <circle class="dg-num" cx="690" cy="204" r="9"></circle>
-  <text class="dg-num-t" x="690" y="207.4">1</text>
-  <path class="dg-line" d="M 545,300 L 545,280"></path>
-  <rect class="dg-box" x="440" y="300" width="210" height="44" rx="8"></rect>
-  <text class="dg-t dg-c" x="545" y="318.5">Session registry</text>
-  <text class="dg-s dg-c" x="545" y="334.5">Redis, heartbeat TTL</text>
-  <text class="dg-lane" x="30" y="380">IN THE MARGIN — SAID, NOT DRAWN</text>
-  <rect class="dg-box" x="30" y="394" width="300" height="50" rx="8"></rect>
-  <text class="dg-t dg-c" x="180" y="415.5">RESUME from seq</text>
-  <text class="dg-s dg-c" x="180" y="431.5">replay buffer · backoff + jitter</text>
-  <circle class="dg-num" cx="30" cy="394" r="9"></circle>
-  <text class="dg-num-t" x="30" y="397.4">8</text>
-  <rect class="dg-box" x="350" y="394" width="290" height="50" rx="8"></rect>
-  <text class="dg-t dg-c" x="495" y="415.5">Presence</text>
-  <text class="dg-s dg-c" x="495" y="431.5">TTL-derived · coalesced · lazy</text>
-  <circle class="dg-num" cx="350" cy="394" r="9"></circle>
-  <text class="dg-num-t" x="350" y="397.4">7</text>
-  <rect class="dg-box" x="660" y="394" width="300" height="50" rx="8"></rect>
-  <text class="dg-t dg-c" x="810" y="415.5">Read state</text>
-  <text class="dg-s dg-c" x="810" y="431.5">write-behind · coalescing cache</text>
-  <circle class="dg-num" cx="660" cy="394" r="9"></circle>
-  <text class="dg-num-t" x="660" y="397.4">9</text>
-  <rect class="dg-warn" x="30" y="462" width="930" height="40" rx="8"></rect>
-  <text class="dg-t dg-c" x="495" y="486.5">Degrade in this order: presence → read state → history depth. Never live message delivery.</text>
-  <circle class="dg-num" cx="30" cy="462" r="9"></circle>
-  <text class="dg-num-t" x="30" y="465.4">10</text>
+<svg viewBox="0 0 1000 570" role="img" aria-label="Discord interview skeleton. Acceptance and direct gRPC lead to guild routing, authorized selective relays, and bounded session delivery. Margin notes cover load, reconnect, presence, hot reads, and the distinction between durable history and best-effort live dispatch.">
+  <rect class="dg-banner" x="10" y="10" width="980" height="38" rx="9"></rect>
+  <text class="dg-banner-t dg-c" x="500" y="33.5">Draw shared history and live actors; explain the failure boundary between them.</text>
+  <rect class="dg-box" x="30" y="90" width="260" height="76" rx="8"></rect>
+  <text class="dg-t dg-c" x="160" y="116.5">HTTP acceptance</text>
+  <text class="dg-s dg-c" x="160" y="132.5">permission + stable nonce</text>
+  <text class="dg-s dg-c" x="160" y="148.5">durable canonical history</text>
+  <circle class="dg-num" cx="30" cy="90" r="9"></circle>
+  <text class="dg-num-t" x="30" y="93.4">2</text>
+  <rect class="dg-box" x="370" y="90" width="250" height="76" rx="8"></rect>
+  <text class="dg-t dg-c" x="495" y="116.5">Direct post-store gRPC</text>
+  <text class="dg-s dg-c" x="495" y="132.5">bounded deadline / retries</text>
+  <text class="dg-s dg-c" x="495" y="148.5">not a durable handoff</text>
+  <circle class="dg-num" cx="370" cy="90" r="9"></circle>
+  <text class="dg-num-t" x="370" y="93.4">3</text>
+  <rect class="dg-box" x="700" y="90" width="270" height="76" rx="8"></rect>
+  <text class="dg-t dg-c" x="835" y="116.5">Guild owner</text>
+  <text class="dg-s dg-c" x="835" y="132.5">shared community state</text>
+  <text class="dg-s dg-c" x="835" y="148.5">not database commit order</text>
+  <circle class="dg-num" cx="700" cy="90" r="9"></circle>
+  <text class="dg-num-t" x="700" y="93.4">4</text>
+  <path class="dg-line" d="M 290,128 L 362,128"></path>
+  <path class="dg-head" d="M 362,133 L 362,123 L 370,128 Z"></path>
+  <path class="dg-line" d="M 620,128 L 692,128"></path>
+  <path class="dg-head" d="M 692,133 L 692,123 L 700,128 Z"></path>
+  <rect class="dg-box" x="700" y="240" width="270" height="76" rx="8"></rect>
+  <text class="dg-t dg-c" x="835" y="266.5">Relays</text>
+  <text class="dg-s dg-c" x="835" y="282.5">interested + authorized</text>
+  <text class="dg-s dg-c" x="835" y="298.5">group recipients by node</text>
+  <circle class="dg-num" cx="700" cy="240" r="9"></circle>
+  <text class="dg-num-t" x="700" y="243.4">5</text>
+  <rect class="dg-box" x="370" y="240" width="250" height="76" rx="8"></rect>
+  <text class="dg-t dg-c" x="495" y="266.5">Session → WebSocket</text>
+  <text class="dg-s dg-c" x="495" y="282.5">bounded replay and socket queues</text>
+  <text class="dg-s dg-c" x="495" y="298.5">event seq + identity dedupe</text>
+  <circle class="dg-num" cx="370" cy="240" r="9"></circle>
+  <text class="dg-num-t" x="370" y="243.4">6</text>
+  <rect class="dg-box" x="30" y="240" width="260" height="76" rx="8"></rect>
+  <text class="dg-t dg-c" x="160" y="266.5">Reconnect</text>
+  <text class="dg-s dg-c" x="160" y="282.5">resume surviving stream</text>
+  <text class="dg-s dg-c" x="160" y="298.5">otherwise page state / history</text>
+  <circle class="dg-num" cx="30" cy="240" r="9"></circle>
+  <text class="dg-num-t" x="30" y="243.4">7</text>
+  <path class="dg-line" d="M 835,166 L 835,232"></path>
+  <path class="dg-head" d="M 830,232 L 840,232 L 835,240 Z"></path>
+  <path class="dg-line" d="M 700,278 L 628,278"></path>
+  <path class="dg-head" d="M 628,273 L 628,283 L 620,278 Z"></path>
+  <path class="dg-line" d="M 370,278 L 298,278"></path>
+  <path class="dg-head" d="M 298,273 L 298,283 L 290,278 Z"></path>
+  <text class="dg-lane" x="30" y="368">IN THE MARGIN — SAID, NOT DRAWN</text>
+  <rect class="dg-box" x="30" y="390" width="290" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="175" y="410.5">Workload assumptions</text>
+  <text class="dg-s dg-c" x="175" y="426.5">15 M sessions / 150 k peak sends</text>
+  <text class="dg-s dg-c" x="175" y="442.5">size storage, hot reads, fanout</text>
+  <circle class="dg-num" cx="30" cy="390" r="9"></circle>
+  <text class="dg-num-t" x="30" y="393.4">1</text>
+  <rect class="dg-box" x="355" y="390" width="290" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="500" y="410.5">Presence</text>
+  <text class="dg-s dg-c" x="500" y="426.5">aggregate devices; 20 s / 60 s</text>
+  <text class="dg-s dg-c" x="500" y="442.5">coalesce / selective subscriptions</text>
+  <circle class="dg-num" cx="355" cy="390" r="9"></circle>
+  <text class="dg-num-t" x="355" y="393.4">8</text>
+  <rect class="dg-box" x="680" y="390" width="290" height="64" rx="8"></rect>
+  <text class="dg-t dg-c" x="825" y="410.5">Hot reads / read state</text>
+  <text class="dg-s dg-c" x="825" y="426.5">coalesce identical history queries</text>
+  <text class="dg-s dg-c" x="825" y="442.5">monotonic per-user read position</text>
+  <circle class="dg-num" cx="680" cy="390" r="9"></circle>
+  <text class="dg-num-t" x="680" y="393.4">9</text>
+  <rect class="dg-warn" x="30" y="495" width="940" height="48" rx="8"></rect>
+  <text class="dg-t dg-c" x="500" y="523.5">Durable history, best-effort live push. Stronger delivery needs a durable dispatch and recovery mechanism.</text>
+  <circle class="dg-num" cx="30" cy="495" r="9"></circle>
+  <text class="dg-num-t" x="30" y="498.4">10</text>
 </svg>
 </div>
 
-<p class="diagram-cap">The bottom row is the one candidates skip. Presence, read state and the degradation order are not decoration — presence is the highest-volume event type in the system, and scoping it out is what makes the connection look stateless when it is not.</p>
+<p class="diagram-cap">The large-fanout companion to Slack: spend the hour on selective recipients, relay work, bounded queues, and honest reconnect guarantees.</p>
 
-1. Clients hold **one WebSocket** to a **gateway node**. ~15 M concurrent. Sessions are registered in **Redis with a heartbeat TTL**.
-2. Sends go over **HTTP** to an **API service**, not over the socket. Request/response wants status codes and rate limits.
-3. API **evaluates permissions once**, mints a **Snowflake id**, writes to **ScyllaDB** partitioned by `(channel_id, bucket)`.
-4. API **publishes to the guild's owning process**. One owner per guild → per-channel total order for free.
-5. The guild process resolves **online** members, **groups them by gateway node**, and sends **one message per node**. This is the 100× win.
-6. Gateway nodes write to local sockets, stamping a **monotonic `seq`** per session.
-7. **Presence** is derived from the session TTL, **coalesced and rate-limited** at the guild process, and **lazy for large guilds**.
-8. **Reconnect is `RESUME` from `seq`**, out of a short per-session replay buffer. Backoff with jitter; drain, don't restart.
-9. **Read state** is a last-read Snowflake per user per channel, written behind, with a **coalescing cache** in front of the hot partitions.
-10. Degradation order, stated: **presence first, then read state, then history depth. Never live message delivery.**
+1. **Scope and load:** shared channel history + selective live events; assume 15M sessions and 150k peak sends/sec.
+2. **Accept:** HTTP API authenticates, checks send permission, resolves the retry key, and durably stores the canonical message.
+3. **Dispatch:** post-store gRPC to the guild service; bounded attempts, separate from acceptance.
+4. **Guild owner:** shared community state and routing; mailbox order is not database commit order.
+5. **Relays:** interested sessions only, recipient authorization, then group by node for large fanout.
+6. **Sessions:** bounded replay buffer and WebSocket queue; per-session event sequence, client message-identity dedupe.
+7. **Reconnect:** surviving stream → resume; lost/expired stream → fresh identity and paginated state/history.
+8. **Presence:** aggregate devices, explicit disconnect plus expiry, coalesce and restrict subscriptions.
+9. **Hot reads:** coalesce identical history queries; read cursor is separate user state with monotonic updates.
+10. **Failure contract:** best-effort live push, durable history; add durable dispatch/change cursors if stronger downstream/device completeness is required.
 
 ---
 
 ## 15 · Variants — what actually changes
 
-**The governing axis: are the recipients present, and how many of them are there?** Everything in this family is the same publish; only the answer to that question changes, and it changes the whole design.
+**The axis: interested online recipients per event.** Presence, retention, encryption, and reliable downstream processing are separate modifiers.
 
-| Product | Recipients present? | Fanout breadth | What changes from this page |
-|---|---|---|---|
-| **Discord** | Yes, holding a socket | 10³–10⁵ | The baseline. Fan out to sessions; no durable inbox |
-| **WhatsApp** | Mostly no | 1–10 | **Inverts it.** Durable per-recipient queues, delivery receipts, catch-up on reconnect. Fanout is trivial; semantics are the problem |
-| **Slack** | Yes, but far fewer | 10–10³ | Same shape, an order of magnitude smaller, so the hot-guild tier in `§8` disappears entirely. Search and history become the interesting half |
-| **Twitch chat** | Yes | 10⁵–10⁶ | **Only the hot tier exists.** Sharded fanout is the default, not a tier, and delivery becomes explicitly lossy — dropping chat messages under load is correct |
-| **Twitter feed** | No | 10³–10⁸ | A different archetype. Absent readers make fanout-on-write vs on-read the whole question, and the hybrid for celebrities is the answer this page's `§8` rejects |
-| **A trading broadcast** | Yes | 10²–10⁴ | Same fanout, but ordering and latency become hard requirements rather than product ones, so the coalescing and lossiness in `§9` are all forbidden |
+| Breadth / workload | Variant | Delta |
+|---|---|---|
+| Few devices | DMs | Direct device-route lookup may beat guild/relay machinery; same retry and history obligations |
+| Tens to hundreds | Slack-like channels | Relational acceptance may simplify the design; shared history and reconnect remain. Large Slack channels can still need relays |
+| Thousands to millions | Large Discord communities | Selective subscriptions, central guild state plus relays, mailbox budgets, and hot-read protection dominate |
+| Very wide, explicitly ephemeral | Live comments | Product may allow dropping/sample delivery and no archive; state that relaxation rather than assume it |
+| Many authors per personalized read | News feed | Timeline materialization may win because reads merge sources, not simply because readers were offline |
+| Strict downstream processing | Audit / trading events | Add durable replay and precise ordering guarantees; replaceable presence lossiness does not apply to business events |
+
+**WhatsApp contrast:** encryption adds cryptographic device identity, key distribution, and different history/bootstrap policies. Servers still retain ciphertext for delivery; E2EE does not inherently forbid shared group ciphertext or encrypted archives. Do not use encryption to prove that every message requires a separate full content copy per recipient. [WhatsApp multi-device explanation](https://engineering.fb.com/2021/07/14/security/whatsapp-multi-device/)
+
+**The reusable lesson:** a direct API call, actor mailbox, durable dispatch log, session replay buffer, and history store solve different parts of delivery. Pick their guarantees independently, then show how failures cross their boundaries.

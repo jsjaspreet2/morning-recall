@@ -2,99 +2,84 @@ import pathlib
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
-from dgl import Board          # noqa: E402
-from splice import place       # noqa: E402
+from dgl import Board
+from splice import place
 
-b=Board(605,"Discord high-level design. A write path over HTTP: client to API service, which evaluates permissions once, mints a Snowflake id and writes to ScyllaDB before publishing. The guild process owns one guild, resolves online members and groups them by gateway node, sending one message per node rather than one per session. Three gateway nodes fan out to roughly fifteen million WebSocket clients. A Redis session registry with heartbeat TTL drives routing and presence.")
-b.banner("Ingest is trivial; fanout is not. Tens of thousands of writes a second become ~15 M sockets and millions of deliveries.")
-b.lane(30,76,"WRITE PATH — OVER HTTP, NOT OVER THE SOCKET")
-b.box(30,90,110,72,"Client",["POST + nonce"])
-b.box(180,90,190,72,"API service",["permissions once, here","Snowflake id"])
-b.box(420,90,240,72,"Message store",["ScyllaDB","(channel_id, bucket)"])
-b.arrow((140,126),(180,126)); b.arrow((370,126),(420,126))
-b.box(690,90,270,72,"Order is not negotiable",["store write, then publish —","the inverse is unrecoverable"],cls='dg-warn',tcls='dg-warn-t')
-b.arrow((275,162),(275,196),(430,196),(430,220),label="publish(channel_id)",lx=300,ly=190,lcls='dg-lbl')
-b.box(280,220,380,92,"Guild / channel process (BEAM)",
-      ["one owner per guild → per-channel total order","resolves ONLINE members, groups by gateway node",
-       "one message per node, not per session — the 100× win"],cls='dg-good')
-b.line((450,312),(450,344)); b.line((190,344),(630,344))
-for cx in (190,410,630): b.arrow((cx,344),(cx,380))
-for x in (100,320,540): b.box(x,380,180,72,"Gateway node",["local sockets","stamps a per-session seq"])
-for cx in (190,410,630): b.arrow((cx,452),(cx,500))
-for x in (100,320,540): b.box(x,500,180,36,"clients — WebSocket")
-b.box(760,380,200,92,"Session registry",["Redis, heartbeat TTL","who is where, for routing","and for presence, by expiry"])
-b.arrow((860,380),(860,266),(660,266))
-b.text(680,258,"presence = TTL expiry, coalesced",'dg-lbl')
-b.text(30,560,"A message can exist that nobody was told about; the client re-reads it on RESUME, because the store is the source of truth and the push is an optimization over it.",'dg-s')
-b.text(30,582,"Degrade in this order: presence → read state → history depth. Never live message delivery.",'dg-note')
-HLD_CAP = "The 100× win is one arrow, and it is the reason this page exists: the guild process groups recipients by <em>gateway node</em> before sending. Everything above that box is unremarkable; everything below it is the interview."
+a = Board(570, "Discord-inspired live path. HTTP API accepts an authenticated idempotent message into ScyllaDB through data services, then directly calls the BEAM guild service over gRPC. Guild owners route to relays that filter authorized interested sessions and batch by node. Session processes have bounded in-memory mailboxes, replay and socket queues. A Redis directory only locates surviving sessions. Postgres owns role metadata. This live path does not depict an atomic durable dispatch guarantee.")
+a.banner("Durable history first; direct gRPC into BEAM for live fanout. Mailboxes are in memory.")
+a.lane(20, 86, "ACCEPT — HTTP REQUEST / RESULT")
+a.box(20, 110, 240, 78, "API + data services", ["auth + sender permission", "nonce → canonical message"])
+a.cyl(330, 110, 270, 78, "ScyllaDB", ["send attempts + history", "channel / bucket placement"])
+a.arrow((260, 149), (330, 149))
+a.ctext(294, 138, "persist", 'dg-lbl')
+a.cyl(710, 110, 270, 78, "Postgres metadata", ["guilds · channels · roles", "versioned authorization"])
+a.lane(310, 254, "LIVE — ACTOR FANOUT")
+a.box(20, 310, 240, 84, "Guild owner (BEAM)", ["shared guild state", "routing, not history ordering"])
+a.box(365, 310, 270, 84, "Relays for large guilds", ["recipient permission checks", "interested sessions · batch by node"])
+a.box(740, 310, 240, 84, "Session processes", ["bounded mailbox + replay", "per-session event sequence"])
+a.arrow((140, 188), (140, 310))
+a.ctext(225, 227, "gRPC after storage", 'dg-lbl')
+a.arrow((260, 352), (365, 352))
+a.arrow((635, 352), (740, 352))
+a.cyl(20, 450, 240, 66, "Redis session directory", ["host + generation + lease", "does not preserve replay"])
+a.box(365, 450, 270, 66, "Presence aggregation", ["all devices · timeout + disconnect", "coalesced / visible members only"])
+a.box(740, 450, 240, 66, "Clients over WebSocket", ["message-identity dedupe", "settle into history order"])
+a.arrow((860, 394), (860, 450))
+a.arrow((710, 150), (670, 150), (670, 280), (580, 280), (580, 310))
+a.ctext(582, 222, "role / channel versions", 'dg-lbl')
+a.arrow((140, 394), (140, 450))
+a.ctext(208, 426, "session lookup", 'dg-lbl')
+a.arrow((500, 450), (500, 394))
+a.text(20, 551, "If storage succeeds but dispatch fails, RESUME cannot invent the missing event. See the recovery paths below.", 'dg-note')
 
-s=Board(512,"Discord five-minute skeleton. Write row: client, API service, ScyllaDB. Fanout row: guild process, one message per gateway node, gateway nodes stamping a sequence number, clients holding one WebSocket each. A Redis session registry. Margin notes for RESUME, presence, read state and the degradation order.")
-s.banner("Minute five: everything below must be on the board. Badge numbers match the list.",y=10,h=34)
-s.badge(22,68,2); s.lane(38,72,"WRITE — HTTP, NOT THE SOCKET")
-s.box(30,86,100,56,"Client")
-s.box(158,86,200,56,"API service",["permissions once · Snowflake"],badge=3)
-s.box(398,86,220,56,"ScyllaDB",["(channel_id, bucket)"])
-s.arrow((130,114),(158,114)); s.arrow((358,114),(398,114))
-s.box(650,86,310,56,"Store, then publish",["never the inverse — it is unrecoverable"],cls='dg-warn',tcls='dg-warn-t')
-s.lane(30,190,"FANOUT")
-s.box(30,204,250,76,"Guild process",["one owner per guild","per-channel total order for free"],badge=4)
-s.badge(360,206,5); s.ctext(360,232,"one message per node")
-s.arrow((280,242),(440,242))
-s.box(440,204,210,76,"Gateway nodes",["stamp a monotonic seq"],badge=6)
-s.arrow((650,242),(690,242))
-s.box(690,204,270,76,"clients",["one WebSocket each","~15 M concurrent"],badge=1)
-s.line((545,300),(545,280))
-s.box(440,300,210,44,"Session registry",["Redis, heartbeat TTL"])
-s.lane(30,380,"IN THE MARGIN — SAID, NOT DRAWN")
-s.box(30,394,300,50,"RESUME from seq",["replay buffer · backoff + jitter"],badge=8)
-s.box(350,394,290,50,"Presence",["TTL-derived · coalesced · lazy"],badge=7)
-s.box(660,394,300,50,"Read state",["write-behind · coalescing cache"],badge=9)
-s.box(30,462,930,40,"Degrade in this order: presence → read state → history depth. Never live message delivery.",cls='dg-warn',badge=10)
-SKEL_CAP = "The bottom row is the one candidates skip. Presence, read state and the degradation order are not decoration — presence is the highest-volume event type in the system, and scoping it out is what makes the connection look stateless when it is not."
+b = Board(590, "Recovery decision diagram. A disconnected client tries resume. A surviving session stream with retained coverage replays events. A lost or expired stream requires a fresh session and paginated state and history. Independently, a database message never dispatched has no session event to replay; history refresh repairs the current view, while stronger completeness requires durable dispatch and change cursors.")
+b.banner("Session replay and history reconciliation cover different failures.")
+b.box(30, 95, 250, 76, "Connection lost", ["reconnect with jitter", "session ID + last processed seq"])
+b.box(375, 95, 260, 76, "Can the stream resume?", ["session state survives", "buffer still covers the gap"])
+b.arrow((280, 133), (375, 133))
+b.box(715, 95, 250, 76, "Replay session events", ["then continue live", "duplicates remain possible"], cls='dg-good')
+b.arrow((635, 133), (715, 133))
+b.ctext(675, 123, "yes", 'dg-lbl')
+b.box(375, 240, 260, 76, "New session + state", ["invalid / expired / lost session", "bounded membership subscriptions"])
+b.arrow((505, 171), (505, 240))
+b.ctext(550, 209, "no", 'dg-lbl')
+b.box(715, 240, 250, 76, "History API", ["active channel first", "page older messages on demand"])
+b.arrow((635, 278), (715, 278))
+b.hdiv(355, 20, 980)
+b.lane(30, 390, "SEPARATE FAILURE — STORED, BUT NEVER DISPATCHED")
+b.box(30, 415, 280, 82, "No session event exists", ["a successful RESUME can omit it", "refresh recent history to repair view"], cls='dg-warn')
+b.box(380, 415, 585, 82, "Stronger requirement: durable dispatch + recovery cursor", ["acceptance-coupled record / change stream → retrying relay → guild", "direct gRPC may remain the fast path; define retention and dedupe"])
+b.arrow((310, 456), (380, 456))
+b.text(30, 548, "Sparse message IDs sort history. Session seq orders a session stream. Neither alone proves complete offline delivery.", 'dg-note')
 
-a = Board(512, "Discord architecture. Clients holding one WebSocket each. A write tier over HTTP: API service, ScyllaDB for messages partitioned by channel and bucket, Postgres for guild metadata and roles, and ScyllaDB for read state. A guild process tier, one owner per guild, resolving online members and grouping them by gateway node. A gateway fleet of roughly ten thousand nodes holding fifteen million sockets, with a Redis session registry on a heartbeat TTL. Attachments go to S3 and a CDN, never through the gateway.")
-a.banner("Ingest is trivial; fanout is not. One API tier, one process per guild, and ~10 k gateway nodes holding 15 M sockets.")
-a.box(20, 240, 150, 64, "Clients", ["WSS to receive", "HTTPS to send"])
-a.cyl(20, 340, 150, 64, "S3 + CDN", ["attachments"])
-a.line((95, 304), (95, 340))
-
-a.group(200, 86, 420, 180, "WRITE — OVER HTTP")
-a.box(216, 118, 180, 64, "API service",
-      ["POST /channels/{id}/messages", "permissions once · Snowflake"])
-a.cyl(420, 118, 180, 64, "ScyllaDB", ["(channel_id, bucket)"])
-a.arrow((396, 150), (420, 150))
-a.cyl(216, 200, 180, 50, "Postgres", ["guilds · roles"])
-a.cyl(420, 200, 180, 50, "Read state", ["Scylla, write-behind"])
-
-a.group(680, 86, 300, 150, "GUILD PROCESSES")
-a.box(696, 118, 270, 90, "Guild / channel process",
-      ["one owner per guild", "resolves ONLINE members", "groups them by gateway node"])
-a.arrow((306, 182), (306, 196), (628, 196), (628, 150), (696, 150))
-a.ctext(650, 214, "publish", 'dg-lbl')
-
-a.group(200, 300, 780, 130, "GATEWAY FLEET — ~10 k NODES, 15 M SOCKETS")
-for x in (216, 406, 596):
-    a.box(x, 340, 180, 64, "Gateway node",
-          ["WSS · IDENTIFY / RESUME", "heartbeat ~40 s · stamps seq"])
-a.cyl(800, 340, 166, 64, "Session registry", ["Redis, heartbeat TTL"])
-a.line((830, 236), (830, 283)); a.line((306, 283), (830, 283))
-for cx in (306, 496, 686):
-    a.arrow((cx, 283), (cx, 340))
-a.line((800, 372), (776, 372))
-a.arrow((170, 258), (186, 258), (186, 150), (216, 150))
-a.arrow((216, 372), (194, 372), (194, 290), (170, 290))
-a.text(20, 470, "Attachment bytes never pass through the gateway — the message row carries a pointer to S3.", 'dg-s')
-a.text(20, 492, "There is no broker in the delivery path: it would add a durable hop to something explicitly not durable.", 'dg-note')
-
-ARCH_CAP = ("One process per guild is the whole architecture. It is the only component that knows which "
-            "members are online, so it is the only place the recipient list can be grouped by gateway "
-            "node — and that grouping is the 100× win.")
+s = Board(570, "Discord interview skeleton. Acceptance and direct gRPC lead to guild routing, authorized selective relays, and bounded session delivery. Margin notes cover load, reconnect, presence, hot reads, and the distinction between durable history and best-effort live dispatch.")
+s.banner("Draw shared history and live actors; explain the failure boundary between them.")
+s.box(30, 90, 260, 76, "HTTP acceptance", ["permission + stable nonce", "durable canonical history"], badge=2)
+s.box(370, 90, 250, 76, "Direct post-store gRPC", ["bounded deadline / retries", "not a durable handoff"], badge=3)
+s.box(700, 90, 270, 76, "Guild owner", ["shared community state", "not database commit order"], badge=4)
+s.arrow((290, 128), (370, 128))
+s.arrow((620, 128), (700, 128))
+s.box(700, 240, 270, 76, "Relays", ["interested + authorized", "group recipients by node"], badge=5)
+s.box(370, 240, 250, 76, "Session → WebSocket", ["bounded replay and socket queues", "event seq + identity dedupe"], badge=6)
+s.box(30, 240, 260, 76, "Reconnect", ["resume surviving stream", "otherwise page state / history"], badge=7)
+s.arrow((835, 166), (835, 240))
+s.arrow((700, 278), (620, 278))
+s.arrow((370, 278), (290, 278))
+s.lane(30, 368, "IN THE MARGIN — SAID, NOT DRAWN")
+s.box(30, 390, 290, 64, "Workload assumptions", ["15 M sessions / 150 k peak sends", "size storage, hot reads, fanout"], badge=1)
+s.box(355, 390, 290, 64, "Presence", ["aggregate devices; 20 s / 60 s", "coalesce / selective subscriptions"], badge=8)
+s.box(680, 390, 290, 64, "Hot reads / read state", ["coalesce identical history queries", "monotonic per-user read position"], badge=9)
+s.box(30, 495, 940, 48, "Durable history, best-effort live push. Stronger delivery needs a durable dispatch and recovery mechanism.", cls='dg-warn', badge=10)
 
 PAGE = 'design-discord.md'
-place(PAGE, 'architecture', a, ARCH_CAP, after_heading='## 6 ')
-place(PAGE, 'flows', b, HLD_CAP)
-place(PAGE, 'skeleton', s, SKEL_CAP, after_heading='## 14 ')
-
+place(PAGE, 'architecture', a,
+      "Published live-path shape, with proposed storage and recovery choices. BEAM implements the guild/relay/session tier; it does not replace a transactional outbox. Recipient authorization is separate from permission to send.",
+      after_heading='## 6 ')
+place(PAGE, 'flows', b,
+      "A lost socket can resume only if its event stream survives. A message that never reached that stream needs independent history or durable-dispatch recovery; replay cannot repair an event that does not exist.",
+      after_heading='## 7 ')
+place(PAGE, 'skeleton', s,
+      "The large-fanout companion to Slack: spend the hour on selective recipients, relay work, bounded queues, and honest reconnect guarantees.",
+      after_heading='## 14 ')
 BOARDS = 3
 WARN = a.warn + b.warn + s.warn
