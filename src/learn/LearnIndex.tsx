@@ -44,20 +44,25 @@ function Section({ label, guides }: { label: string; guides: Guide[] }) {
 }
 
 export default function LearnIndex() {
-  // Two halves, company screens first: a screen is prep for one interview on one
-  // date and goes stale after it, while the general guides are the standing
-  // reference. Mixing them made the list read as one undifferentiated pile.
-  const { screens, general } = guidesBySection()
+  const { screens, general, archived } = guidesBySection()
 
   return (
     <div className="px-4 py-6">
       <h1 className="text-2xl lg:text-3xl font-bold text-zinc-900 dark:text-zinc-50">Learn</h1>
       <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-500">
-        The standing reference: every round, worked end to end.
+        Preparing for OpenAI and Discord finals. Start with Final Loops, then use the references selectively.
       </p>
 
-      <Section label="Company screens" guides={screens} />
+      <Section label="Active loops & company references" guides={screens} />
       <Section label="General guides" guides={general} />
+      {archived.length > 0 && (
+        <details className="mt-8">
+          <summary className="cursor-pointer text-sm font-medium text-zinc-600 dark:text-zinc-400">
+            Archived company prep ({archived.length})
+          </summary>
+          <Section label="Archived references" guides={archived} />
+        </details>
+      )}
     </div>
   )
 }

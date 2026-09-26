@@ -1,5 +1,8 @@
 # Design Figma — Multiplayer Design Editor
 
+> **Archived September 25, 2026.** Retained for collaborative-editing reference; no longer in the active interview plan. See [Final Loops — OpenAI & Discord](#/learn/final-loops) for current priorities.
+
+
 ## The question
 
 > *"Design Figma. A design tool that runs in the browser, where several people can edit the same file at the same time and watch each other's cursors move."*

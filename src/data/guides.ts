@@ -30,11 +30,11 @@ export interface Guide {
   /** Filename under public/pdfs. Omit for guides with no PDF yet — the download
    *  link is hidden rather than left pointing at a 404. */
   pdf?: string
-  /** Company-specific screen prep: a self-contained track for one interview on
-   *  one date — round script, worked problems, the lot. Grouped separately from
-   *  the general guides on the Learn index, since the two are read for very
-   *  different reasons. */
+  /** Company prep and current loop plans, grouped above general references.
+   *  The field name is retained for existing registrations. */
   screen?: true
+  /** Hidden from active prep, but still reachable by its original URL. */
+  archived?: true
 }
 
 export const guides: Guide[] = [
@@ -62,23 +62,23 @@ export const guides: Guide[] = [
     accent: 'emerald',
     md: openaiCodingMd,
   },
-  // Pinned to the top through 9/9. Drop it back down the list afterwards.
   {
     id: 'figma-screen',
+    archived: true,
     screen: true,
-    title: 'Figma Screen — 9/9',
+    title: 'Figma Screen — Archived',
     subtitle:
       'One hour, one multi-part problem in CoderPad: the round script, the document model that every Figma question is made of, five worked problems, and undo/redo done properly.',
     accent: 'violet',
     md: figmaScreenMd,
   },
-  // Pinned through 9/17 — the last of the four screens. Drop it down afterwards.
+  // Retained at its original URL as technical reference for the final loop.
   {
     id: 'openai-screen',
     screen: true,
-    title: 'OpenAI Screen — 9/16 & 9/17',
+    title: 'OpenAI — Screen Reference',
     subtitle:
-      'Two hours across two days, architecture then coding: the researched question bank, the streaming spine end to end, four worked architectures, and the two chapters that decide the coding hour — text streaming and text-editor concepts.',
+      'Historical September screen preparation: streaming, text-editor concepts, worked architectures, and testing. Start with Final Loops for the current plan.',
     accent: 'emerald',
     md: openaiScreenMd,
   },
@@ -86,21 +86,19 @@ export const guides: Guide[] = [
   {
     id: 'openai-transcript',
     screen: true,
-    title: 'OpenAI Transcript Walkthrough — 9/17',
+    title: 'OpenAI Transcript Walkthrough',
     subtitle:
       'The five-part streaming-chat problem built the way the interviewer adds parts: the code at each step, what changes between steps, the two tests, and what to say.',
     accent: 'teal',
     md: openaiTranscriptMd,
   },
-  // The 8/26 screen passed; this is what's left of that guide, kept for the final
-  // round. Last among the screens only because the final round has no date yet —
-  // pin it back to the top when one lands.
+  // The retained screen reference. The final is Mon 9/28; the 48-hour plan is discord-final above.
   {
     id: 'discord-screen',
     screen: true,
     title: 'Discord — Final Round',
     subtitle:
-      'The screen is passed and the final round has no date yet. What survived: the line server every coding part is made of, five worked problems, protocol design, correctness without a test runner, and Discord itself.',
+      'Final-loop priorities plus the retained screen reference: the line server every coding part is made of, five worked problems, protocol design, correctness without a test runner, and Discord itself.',
     accent: 'indigo',
     md: discordScreenMd,
   },
@@ -216,15 +214,12 @@ export const guides: Guide[] = [
   },
 ]
 
-/**
- * Split the index into its two halves. Company screens keep their hand-set
- * order (nearest date first — see the comments on each entry); the general
- * guides follow in declaration order.
- */
-export function guidesBySection(): { screens: Guide[]; general: Guide[] } {
+/** Active company prep first, general references next, completed prep archived. */
+export function guidesBySection(): { screens: Guide[]; general: Guide[]; archived: Guide[] } {
   return {
-    screens: guides.filter((g) => g.screen),
-    general: guides.filter((g) => !g.screen),
+    screens: guides.filter((g) => g.screen && !g.archived),
+    general: guides.filter((g) => !g.screen && !g.archived),
+    archived: guides.filter((g) => g.archived),
   }
 }
 

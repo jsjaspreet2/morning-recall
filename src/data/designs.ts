@@ -35,6 +35,7 @@ export interface Design {
   md: string
   /** Pinned entries sit above the grouped problems and outside any archetype. */
   pinned?: boolean
+  archived?: boolean
 }
 
 interface Meta {
@@ -43,6 +44,7 @@ interface Meta {
   tension: string
   accent: AccentName
   pinned?: boolean
+  archived?: boolean
 }
 
 /**
@@ -99,6 +101,7 @@ const META: Record<string, Meta> = {
     accent: 'indigo',
   },
   figma: {
+    archived: true,
     label: 'Figma',
     archetype: 'Real-time collaborative editing',
     tension: 'Convergence on one shared mutable document. Unlike an append-only chat log, edits must merge into shared state.',
@@ -238,6 +241,7 @@ export const designs: Design[] = Object.entries(files)
       accent: meta?.accent ?? 'slate',
       md: stripLeadingH1(md),
       pinned: meta?.pinned,
+      archived: meta?.archived,
     }
   })
   .sort((a, b) => {
@@ -259,14 +263,15 @@ export interface ArchetypeGroup {
 }
 
 /** Pinned pages, then the problems grouped by archetype in registry order. */
-export function designsByArchetype(): { pinned: Design[]; groups: ArchetypeGroup[] } {
-  const pinned = designs.filter((d) => d.pinned)
+export function designsByArchetype(): { pinned: Design[]; groups: ArchetypeGroup[]; archived: Design[] } {
+  const pinned = designs.filter((d) => d.pinned && !d.archived)
+  const archived = designs.filter((d) => d.archived)
   const groups: ArchetypeGroup[] = []
   for (const d of designs) {
-    if (d.pinned) continue
+    if (d.pinned || d.archived) continue
     const existing = groups.find((g) => g.archetype === d.archetype)
     if (existing) existing.problems.push(d)
     else groups.push({ archetype: d.archetype, problems: [d] })
   }
-  return { pinned, groups }
+  return { pinned, groups, archived }
 }

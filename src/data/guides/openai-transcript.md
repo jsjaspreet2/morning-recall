@@ -35,9 +35,9 @@ If the real follow-ups differ, the mechanisms are the same; only the labels move
 
 Ask these before the first keystroke. Each one changes the code.
 
-1. **What does the endpoint return?** A plain text stream means the loop below. `text/event-stream`
-   means the same loop plus a frame buffer (`§08` here, `OpenAI Screen §05 C`). JSON lines is the
-   frame buffer split on `\n`.
+1. **What does the endpoint return?** The drill and this guide assume `text/event-stream`: the
+   byte loop plus a frame buffer split on the blank line (`§08` here, `OpenAI Screen §05 C`). A
+   plain text stream is the same loop without the buffer. JSON lines is the buffer split on `\n`.
 2. **Real endpoint or mock?** Default to a mock you write in two minutes, because the interesting
    part is the client. Say that.
 3. **Can the pad run tests?** Ask at minute four so you know the answer at minute fifty.
@@ -55,9 +55,12 @@ type Status = 'idle' | 'submitting' | 'streaming' | 'done' | 'stopped' | 'error'
 type Message = { id: string; role: 'user' | 'assistant'; text: string }
 
 type ChatProps = {
-  fetchChat: (prompt: string, signal: AbortSignal) => Promise<Response>
+  fetchChat: typeof fetch // injected so tests can drive it; called exactly like fetch
 }
 ```
+
+The transport has `fetch`'s own signature, so the call is the production call: `POST` the prompt
+as JSON, pass `{ signal }` in the init, read `text/event-stream` off `res.body`.
 
 Say the enum out loud: six states, and `stopped` is not `error` because the user asked for it.
 Two booleans give four states of which two are nonsense; six names cannot disagree.
@@ -70,6 +73,19 @@ This is the component at minute 22. Everything later is a change to this file.
 import { useEffect, useRef, useState } from 'react'
 
 const uid = () => crypto.randomUUID()
+
+/**
+ * One SSE frame → its `data` payload, or null for a comment / keep-alive.
+ * `data:` lines join with `\n`; one space after the colon is stripped; lines
+ * starting with `:` are comments; `event:`, `id:` and `retry:` are ignored here.
+ */
+function dataOf(frame: string): string | null {
+  const data = frame
+    .split(/\r?\n/)
+    .filter((line) => line.startsWith('data:'))
+    .map((line) => line.slice(5).replace(/^ /, ''))
+  return data.length ? data.join('\n') : null
+}
 
 export function Chat({ fetchChat }: ChatProps) {
   const [messages, setMessages] = useState<Message[]>([])
@@ -108,18 +124,34 @@ export function Chat({ fetchChat }: ChatProps) {
     setStatus('submitting')
 
     try {
-      const res = await fetchChat(prompt, ctrl.signal)
+      const res = await fetchChat('/api/chat', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', accept: 'text/event-stream' },
+        body: JSON.stringify({ prompt }),
+        signal: ctrl.signal,
+      })
       if (gen !== genRef.current) return
       if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`)
 
+      // Two boundaries. TextDecoderStream handles a character cut across chunks;
+      // `buf` handles a frame cut across chunks: parse only up to the blank line.
       let first = true
-      for await (const chunk of res.body.pipeThrough(new TextDecoderStream())) {
+      let buf = ''
+      stream: for await (const chunk of res.body.pipeThrough(new TextDecoderStream())) {
         if (gen !== genRef.current) return // superseded: leaving the loop cancels the stream
-        if (first) {
-          first = false
-          setStatus('streaming')
+        buf += chunk
+        let end: number
+        while ((end = buf.search(/\r?\n\r?\n/)) !== -1) {
+          const data = dataOf(buf.slice(0, end))
+          buf = buf.slice(end).replace(/^\r?\n\r?\n/, '')
+          if (data === null) continue // comment or keep-alive
+          if (data === '[DONE]') break stream
+          if (first) {
+            first = false
+            setStatus('streaming')
+          }
+          append((JSON.parse(data) as { delta: string }).delta)
         }
-        append(chunk)
       }
       if (gen === genRef.current) setStatus('done')
     } catch (err) {
@@ -208,11 +240,14 @@ Five things, in the order an interviewer notices them. Say each one as you type 
    ChatGPT shows a pulsing dot; `streaming` is after. If you collapse them, say you would split
    them the moment the UI wants a thinking indicator.
 2. **`res.ok` before the body.** An HTTP error arrives before any bytes. A loop that skips the check
-   hangs instead of failing.
-3. **`pipeThrough(new TextDecoderStream())`.** The body is bytes at whatever boundary the network
-   produced, and a multi-byte character can straddle two chunks. The decoder stream holds the
-   partial sequence and flushes on close. By hand: `TextDecoder` with `{ stream: true }` per chunk
-   and a bare `decode()` at the end.
+   hangs instead of failing. The call itself is a plain fetch: prompt in the JSON body, the
+   controller's signal as `{ signal }` in the init.
+3. **`pipeThrough(new TextDecoderStream())`, then a frame buffer.** The body is bytes at whatever
+   boundary the network produced. A multi-byte character can straddle two chunks; the decoder
+   stream holds the partial sequence and flushes on close. An SSE frame can straddle two chunks
+   too; the string buffer parses only up to the last blank line and keeps the tail. Comment lines
+   (`: keep-alive`) are skipped, `data: [DONE]` ends the loop, everything else is `JSON.parse`d
+   for its delta.
 4. **Abort plus a generation counter.** Abort tells the network to stop, but a chunk already in
    flight still arrives. The counter is what refuses it. Stop bumps the counter; a new send bumps it
    too, which is how a superseded request's tokens land nowhere.
@@ -227,6 +262,8 @@ Five things, in the order an interviewer notices them. Say each one as you type 
 | Stop keeps the text so far, status `stopped`, button returns to Send | `stop` and the catch branch on `ctrl.signal.aborted` |
 | A second Stop is a no-op | `if (!busy) return` |
 | Whitespace-only prompt never calls `fetchChat` | `submit` trims and returns |
+| `fetchChat` is called like fetch: `POST`, JSON body with the prompt, `{ signal }` | the call in `send` |
+| A frame split across two chunks parses once whole; a comment line is skipped | `buf` and `dataOf` |
 | A stream that ends with no tokens renders an explicit empty state | the `No response.` branch |
 | HTTP error before the body: Retry re-sends the last prompt | `res.ok`, `lastPromptRef`, `retry` |
 | Error mid-stream keeps the partial text, error renders below | the catch's else branch sets `error` and leaves `messages` alone |
@@ -338,18 +375,32 @@ async function send(prompt: string) {
   }
 
   try {
-    const res = await fetchChat(prompt, ctrl.signal)
+    const res = await fetchChat('/api/chat', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', accept: 'text/event-stream' },
+      body: JSON.stringify({ prompt }),
+      signal: ctrl.signal,
+    })
     if (!isCurrent()) return
     if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`)
 
     let first = true
-    for await (const chunk of res.body.pipeThrough(new TextDecoderStream())) {
+    let buf = ''
+    stream: for await (const chunk of res.body.pipeThrough(new TextDecoderStream())) {
       if (!isCurrent()) return
-      if (first) {
-        first = false
-        setStatus('streaming')
+      buf += chunk
+      let end: number
+      while ((end = buf.search(/\r?\n\r?\n/)) !== -1) {
+        const data = dataOf(buf.slice(0, end))
+        buf = buf.slice(end).replace(/^\r?\n\r?\n/, '')
+        if (data === null) continue
+        if (data === '[DONE]') break stream
+        if (first) {
+          first = false
+          setStatus('streaming')
+        }
+        append((JSON.parse(data) as { delta: string }).delta)
       }
-      append(chunk)
     }
     if (!isCurrent()) return
     patch(replyId, (m) => ({ ...m, state: 'done' }))
@@ -591,7 +642,7 @@ export type Message = {
   state?: MessageState
 }
 export type ChatProps = {
-  fetchChat: (prompt: string, signal: AbortSignal) => Promise<Response>
+  fetchChat: typeof fetch
   pinThresholdPx?: number
   announceEveryMs?: number
   maxHeightPx?: number
@@ -599,6 +650,14 @@ export type ChatProps = {
 
 const uid = () => crypto.randomUUID()
 const words = (text: string) => text.split(/\s+/).filter(Boolean).length
+
+function dataOf(frame: string): string | null {
+  const data = frame
+    .split(/\r?\n/)
+    .filter((line) => line.startsWith('data:'))
+    .map((line) => line.slice(5).replace(/^ /, ''))
+  return data.length ? data.join('\n') : null
+}
 
 export function Chat({ fetchChat, pinThresholdPx = 40, announceEveryMs = 5000, maxHeightPx = 320 }: ChatProps) {
   const [messages, setMessages] = useState<Message[]>([])
@@ -655,15 +714,20 @@ export function Chat({ fetchChat, pinThresholdPx = 40, announceEveryMs = 5000, m
       let lastAnnouncedAt = 0
 
       try {
-        const res = await fetchChat(prompt, ctrl.signal)
+        const res = await fetchChat('/api/chat', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', accept: 'text/event-stream' },
+          body: JSON.stringify({ prompt }),
+          signal: ctrl.signal,
+        })
         if (!isCurrent()) return
         if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`)
 
         let first = true
-        for await (const chunk of res.body.pipeThrough(new TextDecoderStream())) {
-          if (!isCurrent()) return
-          acc += chunk
-          append(chunk)
+        let buf = ''
+        const onDelta = (delta: string) => {
+          acc += delta
+          append(delta)
           if (first) {
             first = false
             setStatus('streaming')
@@ -672,6 +736,19 @@ export function Chat({ fetchChat, pinThresholdPx = 40, announceEveryMs = 5000, m
           } else if (Date.now() - lastAnnouncedAt >= announceEveryMs) {
             setAnnouncement(`Responding, ${words(acc)} words so far`)
             lastAnnouncedAt = Date.now()
+          }
+        }
+
+        stream: for await (const chunk of res.body.pipeThrough(new TextDecoderStream())) {
+          if (!isCurrent()) return
+          buf += chunk
+          let end: number
+          while ((end = buf.search(/\r?\n\r?\n/)) !== -1) {
+            const data = dataOf(buf.slice(0, end))
+            buf = buf.slice(end).replace(/^\r?\n\r?\n/, '')
+            if (data === null) continue
+            if (data === '[DONE]') break stream
+            onDelta((JSON.parse(data) as { delta: string }).delta)
           }
         }
 
@@ -804,11 +881,12 @@ export function Chat({ fetchChat, pinThresholdPx = 40, announceEveryMs = 5000, m
   error's name. The signal is the one source of truth for "did the user stop this".
 - **Abort is still not enough on its own.** A chunk already in flight arrives after the abort. The
   request id check is what drops it. Say "abort un-requests, the id check refuses the answer".
-- **SSE is one more layer.** If the endpoint is `text/event-stream`, the same loop feeds a string
-  buffer split on `\n\n`, the unfinished tail goes back in the buffer, comment lines starting with
-  a colon are skipped, `data: [DONE]` ends the stream, everything else is `JSON.parse`d for its
-  delta. Two boundary problems, two fixes: the decoder stream for characters, the buffer for
-  events.
+- **SSE is the second boundary.** The loop feeds a string buffer; only text up to the last blank
+  line is parsed and the unfinished tail waits for the next chunk. Comment lines starting with a
+  colon are skipped, `data: [DONE]` breaks out of the loop (which cancels the body), everything
+  else is `JSON.parse`d for its delta. Two boundary problems, two fixes: the decoder stream for
+  characters, the buffer for frames. Named and skipped: `event:`, `id:`, `retry:` and resuming
+  with `Last-Event-ID`.
 - **Batching is the thing you name and skip.** Five hundred chunks are five hundred renders. A
   `requestAnimationFrame` buffer that flushes once per frame fixes it in ten lines. Say it at
   minute 56.

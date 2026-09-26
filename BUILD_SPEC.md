@@ -5,10 +5,12 @@
 A single-page static site with exactly two sections, and no plans for a third:
 
 - **Learn** — the interview field guides, rendered as web-friendly pages with a table of
-  contents and code highlighting. Company screens are grouped above the standing general
-  guides, because a screen goes stale after its date and a general guide doesn't.
+  contents and code highlighting. Current loop plans and company references are grouped
+  above the standing general guides. Completed company prep is kept in a collapsed archive
+  within Learn, with its original URLs intact.
 - **Designs** — worked system design problems, one page each, plus a mechanics page read
-  once before the rest. Some are also narrated as a private podcast feed.
+  once before the rest. Some are also narrated as a private podcast feed. Archived problems
+  remain reachable in a collapsed group; archiving does not remove podcast assets.
 
 That is the whole surface. It is a reading site.
 

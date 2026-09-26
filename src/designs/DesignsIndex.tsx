@@ -35,7 +35,7 @@ function Card({ design, chip }: { design: Design; chip?: string }) {
 }
 
 export default function DesignsIndex() {
-  const { pinned, groups } = designsByArchetype()
+  const { pinned, groups, archived } = designsByArchetype()
 
   return (
     <div className="px-4 py-6">
@@ -69,6 +69,19 @@ export default function DesignsIndex() {
           </ul>
         </section>
       ))}
+
+      {archived.length > 0 && (
+        <details className="mt-8">
+          <summary className="cursor-pointer text-sm font-medium text-zinc-600 dark:text-zinc-400">
+            Archived designs ({archived.length})
+          </summary>
+          <ul className="mt-3 grid gap-3">
+            {archived.map((d) => (
+              <li key={d.slug}><Card design={d} chip="archived" /></li>
+            ))}
+          </ul>
+        </details>
+      )}
 
       <p className="mt-10 pt-6 border-t border-zinc-200 dark:border-zinc-900 text-xs text-zinc-500 dark:text-zinc-600">
         Read the mechanics page once. Then per problem: read it through, draw the five-minute
