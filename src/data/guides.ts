@@ -1,5 +1,9 @@
 import type { AccentName } from '../lib/types'
 
+import discordFinalMd from './guides/discord-final.md?raw'
+import finalLoopsMd from './guides/final-loops.md?raw'
+import openaiCodingMd from './guides/openai-coding.md?raw'
+
 import javascriptMd from './guides/javascript.md?raw'
 import reactCssMd from './guides/react-css.md?raw'
 import accessibilityMd from './guides/accessibility.md?raw'
@@ -34,6 +38,30 @@ export interface Guide {
 }
 
 export const guides: Guide[] = [
+  {
+    id: 'discord-final',
+    screen: true,
+    title: 'Discord — Final Round, 48 Hours',
+    subtitle: 'Five rounds on Mon 9/28: design, web app, principles, retro, DSA. Two days, hour by hour.',
+    accent: 'indigo',
+    md: discordFinalMd,
+  },
+  {
+    id: 'final-loops',
+    screen: true,
+    title: 'Final Loops — OpenAI & Discord',
+    subtitle: 'Start here: a seven-day plan, the highest-value rereads, project discussions, and what to defer.',
+    accent: 'amber',
+    md: finalLoopsMd,
+  },
+  {
+    id: 'openai-coding',
+    screen: true,
+    title: 'OpenAI Coding — Top 20',
+    subtitle: 'The supplied study sheet, integrated: twenty TypeScript examples, core-build priorities, corrections, and explicit contracts.',
+    accent: 'emerald',
+    md: openaiCodingMd,
+  },
   // Pinned to the top through 9/9. Drop it back down the list afterwards.
   {
     id: 'figma-screen',
