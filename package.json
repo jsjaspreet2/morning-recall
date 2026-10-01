@@ -13,7 +13,8 @@
     "audio:voices": "node scripts/audio/voices.mjs",
     "audio:synth": "node scripts/audio/synth.mjs",
     "audio:feed": "node scripts/audio/feed.mjs",
-    "audio:publish": "node scripts/audio/publish.mjs"
+    "audio:publish": "node scripts/audio/publish.mjs",
+    "offline:pack": "node scripts/offline/build-kit.mjs"
   },
   "dependencies": {
     "github-slugger": "^2.0.0",

@@ -1,5 +1,6 @@
 import type { AccentName } from '../lib/types'
 
+import openaiPilOfflineMd from './guides/openai-pil-offline.md?raw'
 import discordFinalMd from './guides/discord-final.md?raw'
 import finalLoopsMd from './guides/final-loops.md?raw'
 import openaiCodingMd from './guides/openai-coding.md?raw'
@@ -38,6 +39,14 @@ export interface Guide {
 }
 
 export const guides: Guide[] = [
+  {
+    id: 'openai-pil-offline',
+    screen: true,
+    title: 'OpenAI PIL — Offline Onsite',
+    subtitle: 'Staff onsite: UI prototypes, full-stack design, customer decomposition, learning guides, and a portable local setup.',
+    accent: 'emerald',
+    md: openaiPilOfflineMd,
+  },
   {
     id: 'discord-final',
     screen: true,

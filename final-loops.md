@@ -1,5 +1,7 @@
 # Final Loops — OpenAI & Discord
 
+**September 30 update:** The [OpenAI PIL onsite and offline guide](#/learn/openai-pil-offline) now contains the supplied recruiter packet, UI-focused coding priorities, and travel setup. Use it for the current OpenAI loop; this page retains the earlier cross-company plan.
+
 Updated September 25, 2026. **Active targets: OpenAI and Discord. Figma prep is archived.** Dates and exact round breakdowns have not yet been supplied for these finals. The plan below is a seven-day allocation, not a claim about either company's interview schedule. Put the nearer loop's work first when dates are confirmed.
 
 ## 01 — Where the next hour goes
